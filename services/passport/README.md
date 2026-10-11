@@ -9,6 +9,14 @@ Spec: [`docs/PASSPORT_SPEC.md`](../../docs/PASSPORT_SPEC.md). Owner: Ayinde. Tic
 - Node 24+ (runs `.ts` files directly, so there is no build step)
 - npm 11
 
+## Run
+
+```sh
+npm start          # node --env-file-if-exists=.env src/server.ts
+```
+
+Refuses to start without `REGISTRY_ADDRESS`, or with key/pepper files that group or others can read. Listens on `127.0.0.1:$PORT` only. Caddy exposes it under `/api/passport/*`. `SIGTERM` finishes in-flight requests and closes the database.
+
 ## Setup
 
 ```sh
@@ -66,6 +74,11 @@ src/eip712.ts         EIP-712 domain, types and Link payload shared with the UI 
 src/link.ts           challenge + signature checks for linking, hlKey (§5)
 src/db.ts             SQLite schema (§7.1) and the single-use challenge store
 src/attest.ts         build + sign Attestations; key/pepper file loaders (mode 0600/0400 only)
+src/registry.ts       reads HypePassportRegistry on Elysium; mirrors its binding rules
+src/policy.ts         re-check policy (§7.2): downgrade now, upgrade only when sustained ≥ 20 h
+src/service.ts        the use cases behind each route (challenge, verify, refresh, passport, stats, health)
+src/api.ts            REST routes (§8), HTTP status codes, per-IP rate limits
+src/server.ts         entry point: config + keys + clients + API on 127.0.0.1
 contracts-check/      isolated Foundry project: our attestations vs the reference registry
 scripts/make-attestation-fixture.ts  writes contracts-check/fixtures/attestation.json
 scripts/probe-registry-call.ts  live, read-only: the Elysium node runs registry + our attestation in one eth_call
@@ -78,7 +91,7 @@ test/mockEvm.ts       fake HyperEVM (Multicall3 per wallet) for tests
 test/fixtures/hl/     copies of docs/passport-fixtures (a test fails if they drift)
 ```
 
-Planned modules (spec §7): `relayer.ts`, `scheduler.ts`, `api.ts`, `db.ts`.
+Planned modules (spec §7): `relayer.ts`, `scheduler.ts` (P8).
 
 ## Hyperliquid client
 
@@ -143,6 +156,53 @@ node scripts/probe-passport.ts 0xbd2d67376d2e9abb125a70e817896425f5f22289   # ti
 - `loadAttestor` / `loadPepper` refuse files that group or others can read. Create them with `umask 077` (for example `umask 077; cast wallet new | ...`) so they start out as 0600.
 - **Live check (no transaction):** `forge build` in `contracts-check`, then `node scripts/probe-registry-call.ts`. A single `eth_call` makes the Elysium testnet node deploy the reference registry and submit a fresh attestation signed by `attest.ts`, all inside the call. Nothing is broadcast and no real key is used.
   - On 2026-10-11 it returned: accepted (tier 2, 1.20×), a tampered tier → `BadSignature`, a late one → `DeadlinePassed`, signed for another registry → `BadSignature`.
+
+## REST API (spec §8)
+
+| Route | Answer | Limits |
+|---|---|---|
+| `POST /passport/challenge` `{elysiumAccount, hyperliquidAccount}` | `{nonce, typedData}` | 10/min per IP |
+| `POST /passport/verify` `{nonce, hlSignature, elysiumSignature?, relay?}` | `{tier, stamps, stampNames, multiplier, expiry, attestation, signature, txHash?}`, or `{tier: 0, reasons}` | 5/h per Elysium and per HL account |
+| `POST /passport/refresh` `{elysiumAccount}` | same as verify; applies the §7.2 policy | 1 per 10 min per account |
+| `GET /passport/:address` | `{address, valid, tier, stamps, stampNames, multiplier, issuedAt, expiry, linkedAt, source: "chain"}`, 30 s cache | 120/min per IP |
+| `GET /passport/stats` | `{linked, valid, byTier, byStamp, updatedAt}` from the service's own records, 60 s cache | 120/min per IP |
+| `GET /health` (also `/passport/health`) | `{ok, hlBudgetLeft, evmBudgetLeft, relayerBalance, registry, lastBlock}`; 503 when not ok | 120/min per IP |
+
+Errors are `{error, detail?}`, with `Retry-After` where it applies:
+
+| Status | Codes |
+|---|---|
+| 400 | `BAD_REQUEST`, `INVALID_ADDRESS` |
+| 401 | `BAD_HL_SIGNATURE`, `BAD_ELYSIUM_SIGNATURE` |
+| 403 | `AGENT_WALLET` (detail names the main account), `NOT_A_SIGNING_ACCOUNT`, `MULTISIG_UNSUPPORTED` |
+| 404 | `CHALLENGE_NOT_FOUND`, `NOT_LINKED`, `NOT_FOUND` |
+| 409 | `HL_ALREADY_LINKED`, `ACCOUNT_ALREADY_LINKED`, `REBIND_COOLDOWN`, `CHALLENGE_USED` |
+| 410 | `CHALLENGE_EXPIRED` |
+| 429 | `RATE_LIMITED` |
+| 503 | `UPSTREAM_UNAVAILABLE` (HL, HyperEVM or Elysium unreachable, never reported as a low tier) |
+
+- **Privacy.** No response carries an HL address, balance or score; tests assert it on every route. The only exception is the `AGENT_WALLET` detail, which names the master the user must sign with (public on HL). Request bodies are never logged.
+- **HL budget guard.** An uncached `/challenge` costs 80 HL weight (role + multi-sig). At §8's 10/min per IP, one IP could otherwise spend the whole 800/min budget and stall every `/verify`.
+  - Roles are cached for 10 min (§9).
+  - Uncached lookups are capped at 2/min per IP and 5/min overall (50% of the budget).
+  - Over a cap the answer is `429 RATE_LIMITED`, "busy checking accounts". Tune it via `CHALLENGE_LOOKUPS` in `src/service.ts`.
+- **Binding checks.** These mirror the registry's `submit`: an hlKey or account bound elsewhere, unless that passport expired ≥ 7 d ago, and the 7-day unlink cooldown. They run against the chain at challenge and again at verify.
+
+## Behind Caddy (P10)
+
+Tested with Caddy 2.6.2 (the version on hackbox) in front of the real server. Add to the site block:
+
+```caddy
+# HYPE Passport: only /api/passport/*, with /api stripped (service routes are /passport/*).
+handle /api/passport/* {
+	uri strip_prefix /api
+	reverse_proxy 127.0.0.1:8787
+}
+```
+
+- **Forged headers are dropped.** Caddy replaces any client-sent `X-Forwarded-For` with the real client address (checked: a forged `6.6.6.6, 7.7.7.7` arrives as the true IP). The service trusts that header only from `127.0.0.1` (`trustProxy`), so per-IP limits can't be dodged through Caddy.
+- **Local processes can still fake it.** Any process on the box can reach `127.0.0.1:8787` directly and set the header. That only matters for local users.
+- **Bind test Caddy instances.** A site address of `http://127.0.0.1:PORT` still makes Caddy listen on **all** interfaces unless the block has `bind 127.0.0.1`. Give any extra test instance a `bind` line and `admin off`.
 
 ## Rules
 

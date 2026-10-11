@@ -72,3 +72,34 @@ export class WeightLimiter {
     }
   }
 }
+
+/**
+ * Non-blocking per-key request counter for the HTTP API (§8 rate limits): a sliding window per key.
+ * Single process, in memory: limits reset when the service restarts.
+ */
+export class HitCounter {
+  #hits = new Map<string, number[]>();
+  #now: () => number;
+
+  constructor(now: () => number = Date.now) {
+    this.#now = now;
+  }
+
+  /** Record a hit for `key` if it is under `limit` per `windowMs`. Returns 0, or ms until a slot frees. */
+  hit(key: string, limit: number, windowMs: number): number {
+    const t = this.#now();
+    const recent = (this.#hits.get(key) ?? []).filter((at) => at > t - windowMs);
+    if (recent.length >= limit) {
+      this.#hits.set(key, recent);
+      return recent[0]! + windowMs - t;
+    }
+    recent.push(t);
+    this.#hits.set(key, recent);
+    if (this.#hits.size > 50_000) this.#sweep(t, windowMs);
+    return 0;
+  }
+
+  #sweep(t: number, windowMs: number): void {
+    for (const [k, v] of this.#hits) if (v.every((at) => at <= t - windowMs)) this.#hits.delete(k);
+  }
+}

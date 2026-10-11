@@ -150,6 +150,9 @@ export const TIERS = [
   { tier: 3, name: "Pillar", minScoreE8: 1_000n * E8, minAgeDays: 90 },
 ] as const;
 
+/** Staking multiplier per tier as the API shows it; the registry's multiplierOf is 1e18 × these (§6.1). */
+export const TIER_MULTIPLIER = ["1.00", "1.10", "1.20", "1.25"] as const;
+
 /**
  * HL roles that may hold a passport (§4.2). `agent` is rejected as AGENT_WALLET; `vault`,
  * `subAccount` and any role HL adds later as NOT_A_SIGNING_ACCOUNT. `missing` is capped at tier 1.

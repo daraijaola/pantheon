@@ -87,3 +87,149 @@ export class SqliteChallengeStore implements ChallengeStore {
     return this.#purge.run(beforeSec).changes;
   }
 }
+
+// ---------------------------------------------------------------- bindings, checks, attestations (§7.1)
+
+export type Binding = {
+  hlKey: Hex;
+  hl: Address;
+  elysium: Address;
+  linkedAt: number;
+  hlSig: Hex;
+  elySig: Hex | null;
+  firstSeenMs: number | null;
+  genesis: boolean;
+  roleCheckedAt: number | null;
+  nextCheckAt: number | null;
+  status: "active" | "unlinked";
+};
+
+export type CheckRow = { at: number; scoreE8: bigint; tier: number; stamps: number };
+
+export type AttestationRow = {
+  elysium: Address;
+  hlKey: Hex;
+  tier: number;
+  stamps: number;
+  issuedAt: number;
+  expiry: number;
+  deadline: number;
+  sig: Hex;
+  txHash: Hex | null;
+  status: "signed" | "submitted" | "confirmed" | "failed";
+};
+
+type BindingRow = {
+  hl_key: string;
+  hl: string;
+  elysium: string;
+  linked_at: number;
+  hl_sig: string;
+  ely_sig: string | null;
+  first_seen_ms: number | null;
+  genesis: number | null;
+  role_checked_at: number | null;
+  next_check_at: number | null;
+  status: string;
+};
+
+const toBinding = (r: BindingRow): Binding => ({
+  hlKey: r.hl_key as Hex,
+  hl: r.hl as Address,
+  elysium: r.elysium as Address,
+  linkedAt: r.linked_at,
+  hlSig: r.hl_sig as Hex,
+  elySig: r.ely_sig as Hex | null,
+  firstSeenMs: r.first_seen_ms,
+  genesis: r.genesis === 1,
+  roleCheckedAt: r.role_checked_at,
+  nextCheckAt: r.next_check_at,
+  status: r.status === "unlinked" ? "unlinked" : "active",
+});
+
+/** Addresses are stored checksummed and hlKeys lowercase, so lookups compare exactly. */
+export class PassportStore {
+  #db: Db;
+  constructor(db: Db) {
+    this.#db = db;
+  }
+
+  /**
+   * Record the current link for an hlKey. Rows that would break 1:1 (the same HL or Elysium address
+   * under another hlKey, e.g. an old link the chain has since freed) are dropped in the same transaction.
+   */
+  upsertBinding(b: Omit<Binding, "status">): void {
+    const key = b.hlKey.toLowerCase();
+    this.#db.transaction(() => {
+      this.#db.prepare("DELETE FROM bindings WHERE hl_key <> ? AND (hl = ? OR elysium = ?)").run(key, b.hl, b.elysium);
+      this.#db
+        .prepare(
+          `INSERT INTO bindings (hl_key, hl, elysium, linked_at, hl_sig, ely_sig, first_seen_ms, genesis, role_checked_at, next_check_at, status)
+           VALUES (@key, @hl, @elysium, @linkedAt, @hlSig, @elySig, @firstSeenMs, @genesis, @roleCheckedAt, @nextCheckAt, 'active')
+           ON CONFLICT (hl_key) DO UPDATE SET hl = excluded.hl, elysium = excluded.elysium, hl_sig = excluded.hl_sig,
+             ely_sig = excluded.ely_sig, first_seen_ms = excluded.first_seen_ms, genesis = excluded.genesis,
+             role_checked_at = excluded.role_checked_at, next_check_at = excluded.next_check_at, status = 'active',
+             linked_at = CASE WHEN bindings.elysium = excluded.elysium AND bindings.status = 'active' THEN bindings.linked_at ELSE excluded.linked_at END`,
+        )
+        .run({ ...b, key, genesis: b.genesis ? 1 : 0 });
+    })();
+  }
+
+  bindingByElysium(elysium: Address): Binding | undefined {
+    const r = this.#db.prepare<[string], BindingRow>("SELECT * FROM bindings WHERE elysium = ? AND status = 'active'").get(elysium);
+    return r ? toBinding(r) : undefined;
+  }
+
+  insertCheck(hlKey: Hex, c: CheckRow): void {
+    this.#db
+      .prepare("INSERT INTO checks (hl_key, at, score_e8, tier, stamps) VALUES (?, ?, ?, ?, ?)")
+      .run(hlKey.toLowerCase(), c.at, c.scoreE8, c.tier, c.stamps);
+  }
+
+  /** Checks for an hlKey, oldest first. */
+  checks(hlKey: Hex): CheckRow[] {
+    return this.#db
+      .prepare<[string], { at: number; score_e8: number | bigint; tier: number; stamps: number }>(
+        "SELECT at, score_e8, tier, stamps FROM checks WHERE hl_key = ? ORDER BY at, id",
+      )
+      .all(hlKey.toLowerCase())
+      .map((r) => ({ at: r.at, scoreE8: BigInt(r.score_e8), tier: r.tier, stamps: r.stamps }));
+  }
+
+  insertAttestation(a: AttestationRow): number {
+    return Number(
+      this.#db
+        .prepare(
+          `INSERT INTO attestations (elysium, hl_key, tier, stamps, issued_at, expiry, deadline, sig, tx_hash, status)
+           VALUES (@elysium, @hlKey, @tier, @stamps, @issuedAt, @expiry, @deadline, @sig, @txHash, @status)`,
+        )
+        .run({ ...a, hlKey: a.hlKey.toLowerCase() }).lastInsertRowid,
+    );
+  }
+
+  setAttestationStatus(id: number, status: AttestationRow["status"], txHash: Hex | null = null): void {
+    this.#db.prepare("UPDATE attestations SET status = ?, tx_hash = COALESCE(?, tx_hash) WHERE id = ?").run(status, txHash, id);
+  }
+
+  /** Highest issuedAt we ever signed for an account (the registry needs strictly newer ones). */
+  lastIssuedAt(elysium: Address): number {
+    const r = this.#db.prepare<[string], { m: number | null }>("SELECT MAX(issued_at) AS m FROM attestations WHERE elysium = ?").get(elysium);
+    return r?.m ?? 0;
+  }
+
+  /** The latest signed attestation of every active binding (for /passport/stats). */
+  latestPerActiveBinding(): Array<{ tier: number; stamps: number; expiry: number }> {
+    return this.#db
+      .prepare<[], { tier: number; stamps: number; expiry: number }>(
+        `SELECT a.tier, a.stamps, a.expiry FROM bindings b
+         JOIN attestations a ON a.id = (SELECT id FROM attestations x WHERE x.elysium = b.elysium AND x.hl_key = b.hl_key
+                                        ORDER BY issued_at DESC, id DESC LIMIT 1)
+         WHERE b.status = 'active'`,
+      )
+      .all();
+  }
+
+  activeBindingCount(): number {
+    return this.#db.prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM bindings WHERE status = 'active'").get()!.n;
+  }
+}
