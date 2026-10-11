@@ -188,7 +188,13 @@ describe("POST /passport/verify", () => {
   it("relays when asked and a relayer is configured", async () => {
     await h.close();
     const submitted: unknown[] = [];
-    h = await harness({ relayer: { submit: async (a) => (submitted.push(a), `0x${"cd".repeat(32)}`), balance: async () => 10n ** 18n } });
+    h = await harness({
+      relayer: {
+        submit: async (a) => (submitted.push(a), `0x${"cd".repeat(32)}`),
+        submitMany: async () => [],
+        balance: async () => 10n ** 18n,
+      },
+    });
     const r = await link(HL_T2, ELY, true);
     expect(r.json().txHash).toBe(`0x${"cd".repeat(32)}`);
     expect(submitted).toHaveLength(1);

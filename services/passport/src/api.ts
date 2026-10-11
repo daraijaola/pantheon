@@ -75,6 +75,14 @@ export function buildApp(service: PassportService, opts: ApiOptions = {}): Fasti
     return reply.send(service.stats());
   });
 
+  // For the staking keeper (§6.3): Elysium accounts whose multiplier changed since `since` (unix s).
+  app.get<{ Querystring: { since?: string } }>("/passport/pokes", async (req, reply) => {
+    if (ipLimited(req, reply, "get")) return reply;
+    const since = req.query.since ?? "0";
+    if (!/^\d{1,12}$/.test(since)) return sendFail(reply, { ok: false, error: "BAD_REQUEST", detail: "since: unix seconds" });
+    return reply.send(service.pokes(Number(since)));
+  });
+
   app.get<{ Params: { address: string } }>("/passport/:address", async (req, reply) => {
     if (ipLimited(req, reply, "get")) return reply;
     return respond(reply, await service.passport(req.params.address));

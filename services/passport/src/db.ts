@@ -15,14 +15,26 @@ CREATE TABLE IF NOT EXISTS attestations (id INTEGER PRIMARY KEY, elysium TEXT NO
   tier INTEGER, stamps INTEGER, issued_at INTEGER, expiry INTEGER, deadline INTEGER, sig TEXT, tx_hash TEXT, status TEXT);
 `;
 
+// Added for the scheduler (P8): cached all-time volume, unlink time, a cursor table, the keeper's pokes.
+const SCHEMA_P8 = `
+CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS pokes (id INTEGER PRIMARY KEY, account TEXT NOT NULL, reason TEXT NOT NULL, at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS pokes_at ON pokes (at);
+CREATE INDEX IF NOT EXISTS bindings_due ON bindings (status, next_check_at);
+`;
+
 export type Db = Database.Database;
 
-/** Open (or create) the database. `:memory:` for tests. */
+/** Open (or create) the database. `:memory:` for tests. Adds missing columns in place (no data loss). */
 export function openDatabase(path: string): Db {
   const db = new Database(path);
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
   db.exec(SCHEMA);
+  const columns = new Set(db.prepare<[], { name: string }>("PRAGMA table_info(bindings)").all().map((c) => c.name));
+  if (!columns.has("vlm")) db.exec("ALTER TABLE bindings ADD COLUMN vlm TEXT");
+  if (!columns.has("unlinked_at")) db.exec("ALTER TABLE bindings ADD COLUMN unlinked_at INTEGER");
+  db.exec(SCHEMA_P8);
   return db;
 }
 
@@ -101,6 +113,8 @@ export type Binding = {
   genesis: boolean;
   roleCheckedAt: number | null;
   nextCheckAt: number | null;
+  /** Portfolio allTime.vlm at the last full check (refreshed weekly, §2.11). */
+  vlm: string | null;
   status: "active" | "unlinked";
 };
 
@@ -130,6 +144,7 @@ type BindingRow = {
   genesis: number | null;
   role_checked_at: number | null;
   next_check_at: number | null;
+  vlm: string | null;
   status: string;
 };
 
@@ -144,6 +159,7 @@ const toBinding = (r: BindingRow): Binding => ({
   genesis: r.genesis === 1,
   roleCheckedAt: r.role_checked_at,
   nextCheckAt: r.next_check_at,
+  vlm: r.vlm,
   status: r.status === "unlinked" ? "unlinked" : "active",
 });
 
@@ -164,11 +180,12 @@ export class PassportStore {
       this.#db.prepare("DELETE FROM bindings WHERE hl_key <> ? AND (hl = ? OR elysium = ?)").run(key, b.hl, b.elysium);
       this.#db
         .prepare(
-          `INSERT INTO bindings (hl_key, hl, elysium, linked_at, hl_sig, ely_sig, first_seen_ms, genesis, role_checked_at, next_check_at, status)
-           VALUES (@key, @hl, @elysium, @linkedAt, @hlSig, @elySig, @firstSeenMs, @genesis, @roleCheckedAt, @nextCheckAt, 'active')
+          `INSERT INTO bindings (hl_key, hl, elysium, linked_at, hl_sig, ely_sig, first_seen_ms, genesis, role_checked_at, next_check_at, vlm, status)
+           VALUES (@key, @hl, @elysium, @linkedAt, @hlSig, @elySig, @firstSeenMs, @genesis, @roleCheckedAt, @nextCheckAt, @vlm, 'active')
            ON CONFLICT (hl_key) DO UPDATE SET hl = excluded.hl, elysium = excluded.elysium, hl_sig = excluded.hl_sig,
              ely_sig = excluded.ely_sig, first_seen_ms = excluded.first_seen_ms, genesis = excluded.genesis,
-             role_checked_at = excluded.role_checked_at, next_check_at = excluded.next_check_at, status = 'active',
+             role_checked_at = excluded.role_checked_at, next_check_at = excluded.next_check_at, vlm = excluded.vlm,
+             status = 'active', unlinked_at = NULL,
              linked_at = CASE WHEN bindings.elysium = excluded.elysium AND bindings.status = 'active' THEN bindings.linked_at ELSE excluded.linked_at END`,
         )
         .run({ ...b, key, genesis: b.genesis ? 1 : 0 });
@@ -217,11 +234,11 @@ export class PassportStore {
     return r?.m ?? 0;
   }
 
-  /** The latest signed attestation of every active binding (for /passport/stats). */
-  latestPerActiveBinding(): Array<{ tier: number; stamps: number; expiry: number }> {
+  /** The latest signed attestation of every active binding (for /passport/stats and expiry pokes). */
+  latestPerActiveBinding(): Array<{ elysium: Address; tier: number; stamps: number; expiry: number }> {
     return this.#db
-      .prepare<[], { tier: number; stamps: number; expiry: number }>(
-        `SELECT a.tier, a.stamps, a.expiry FROM bindings b
+      .prepare<[], { elysium: Address; tier: number; stamps: number; expiry: number }>(
+        `SELECT b.elysium, a.tier, a.stamps, a.expiry FROM bindings b
          JOIN attestations a ON a.id = (SELECT id FROM attestations x WHERE x.elysium = b.elysium AND x.hl_key = b.hl_key
                                         ORDER BY issued_at DESC, id DESC LIMIT 1)
          WHERE b.status = 'active'`,
@@ -231,5 +248,63 @@ export class PassportStore {
 
   activeBindingCount(): number {
     return this.#db.prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM bindings WHERE status = 'active'").get()!.n;
+  }
+
+  // -------------------------------------------------------------- scheduler (P8, §7.2)
+
+  /** Active bindings whose re-check is due, soonest first. */
+  dueBindings(nowSec: number, limit: number): Binding[] {
+    return this.#db
+      .prepare<[number, number], BindingRow>(
+        "SELECT * FROM bindings WHERE status = 'active' AND next_check_at <= ? ORDER BY next_check_at LIMIT ?",
+      )
+      .all(nowSec, limit)
+      .map(toBinding);
+  }
+
+  setNextCheck(hlKey: Hex, at: number): void {
+    this.#db.prepare("UPDATE bindings SET next_check_at = ? WHERE hl_key = ?").run(at, hlKey.toLowerCase());
+  }
+
+  /** Facts refreshed by a weekly full check. */
+  updateCachedFacts(hlKey: Hex, f: { firstSeenMs: number | null; genesis: boolean; vlm: string; roleCheckedAt: number }): void {
+    this.#db
+      .prepare("UPDATE bindings SET first_seen_ms = ?, genesis = ?, vlm = ?, role_checked_at = ? WHERE hl_key = ?")
+      .run(f.firstSeenMs, f.genesis ? 1 : 0, f.vlm, f.roleCheckedAt, hlKey.toLowerCase());
+  }
+
+  /** An on-chain `Unlinked(account, hlKey)`: stop re-checking. True if a binding matched. */
+  markUnlinked(account: Address, hlKey: Hex, atSec: number): boolean {
+    return (
+      this.#db
+        .prepare("UPDATE bindings SET status = 'unlinked', unlinked_at = ? WHERE elysium = ? AND hl_key = ? AND status = 'active'")
+        .run(atSec, account, hlKey.toLowerCase()).changes === 1
+    );
+  }
+
+  /** Drop unlinked bindings (and with them the HL plaintext) unlinked before `beforeSec` (§7.2: after 7 d). */
+  forgetUnlinked(beforeSec: number): number {
+    return this.#db.prepare("DELETE FROM bindings WHERE status = 'unlinked' AND unlinked_at < ?").run(beforeSec).changes;
+  }
+
+  getMeta(key: string): string | undefined {
+    return this.#db.prepare<[string], { value: string }>("SELECT value FROM meta WHERE key = ?").get(key)?.value;
+  }
+
+  setMeta(key: string, value: string): void {
+    this.#db.prepare("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").run(key, value);
+  }
+
+  /** The keeper must re-poke `account` in PantheonStaking (§6.3). */
+  pushPoke(account: Address, reason: "issued" | "unlinked" | "expired", atSec: number): void {
+    this.#db.prepare("INSERT INTO pokes (account, reason, at) VALUES (?, ?, ?)").run(account, reason, atSec);
+  }
+
+  /** Distinct accounts poked at or after `sinceSec`. */
+  pokedSince(sinceSec: number): Address[] {
+    return this.#db
+      .prepare<[number], { account: Address }>("SELECT DISTINCT account FROM pokes WHERE at >= ? ORDER BY account")
+      .all(sinceSec)
+      .map((r) => r.account);
   }
 }

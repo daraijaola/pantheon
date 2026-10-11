@@ -1,22 +1,20 @@
 // The Passport service's use cases (spec §5.3, §7, §8), independent of HTTP (api.ts maps them).
 import { BaseError, getAddress, isAddress, type Address, type Hex, type LocalAccount } from "viem";
 import { STAMP, TIER_MULTIPLIER, TIMING } from "./config.ts";
-import { buildAttestation, signAttestation, type Attestation } from "./attest.ts";
+import type { Attestation } from "./attest.ts";
 import type { ChallengeStore, PassportStore } from "./db.ts";
 import { EvmError, type HyperEvmReader } from "./evm/hyperevm.ts";
 import { HlError, type HlClient } from "./hl/client.ts";
 import { createChallenge, hlKeyOf, verifyLink, type ChallengeInput, type VerifyError, type VerifyInput } from "./link.ts";
 import { confirmedLevel, type Level } from "./policy.ts";
 import { HitCounter } from "./ratelimit.ts";
+import { signAndStore } from "./issue.ts";
+import type { Relayer } from "./relayer.ts";
 import { bindingConflict, type BindingConflict, type RegistryReader } from "./registry.ts";
 import { computePassport, stampNames, type Reason } from "./score.ts";
 import { collectSnapshot } from "./snapshot.ts";
 
-/** Submits attestations on Elysium (P8). Without one, callers get the signed attestation to submit. */
-export interface Relayer {
-  submit(a: Attestation, sig: Hex): Promise<Hex>;
-  balance(): Promise<bigint>;
-}
+export type { Relayer } from "./relayer.ts";
 
 export type ErrorCode =
   | "BAD_REQUEST"
@@ -204,8 +202,9 @@ export class PassportService {
         genesis: snap.hypeGenesis,
         roleCheckedAt: nowSec,
         nextCheckAt: this.#nextCheckAt(nowSec),
+        vlm: snap.allTimeVolumeUsd,
       });
-      return await this.#issue(v.elysiumAccount, hlKey, level, input.relay === true, nowSec);
+      return await this.#issue(v.elysiumAccount, hlKey, level, input.relay === true, nowSec, existing && onChain.valid ? onChain.tier : 0);
     } catch (e) {
       return upstream(e);
     }
@@ -234,7 +233,7 @@ export class PassportService {
       const existing = onChain.hlKey.toLowerCase() === binding.hlKey.toLowerCase() ? onChain : null;
       const level = confirmedLevel(existing, current, d.store.checks(binding.hlKey), nowSec);
       d.store.insertCheck(binding.hlKey, { at: nowSec, scoreE8: p.ok ? p.scoreE8 : 0n, tier: current.tier, stamps: current.stamps });
-      return await this.#issue(account, binding.hlKey, level, true, nowSec);
+      return await this.#issue(account, binding.hlKey, level, true, nowSec, existing && onChain.valid ? onChain.tier : 0);
     } catch (e) {
       return upstream(e);
     }
@@ -319,23 +318,9 @@ export class PassportService {
     return nowSec + TIMING.recheckBase + Math.floor((this.deps.random ?? Math.random)() * TIMING.recheckJitter);
   }
 
-  async #issue(account: Address, hlKey: Hex, level: Level, relay: boolean, nowSec: number): Promise<Issued> {
+  async #issue(account: Address, hlKey: Hex, level: Level, relay: boolean, nowSec: number, tierBefore: number): Promise<Issued> {
     const d = this.deps;
-    const lastIssuedAt = Math.max(d.store.lastIssuedAt(account), await d.registry.lastIssuedAt(account));
-    const a = buildAttestation({ account, hlKey, tier: level.tier, stamps: level.stamps, lastIssuedAt }, nowSec, d.chainId);
-    const signature = await signAttestation(d.attestor, d.registry.address, a);
-    const id = d.store.insertAttestation({
-      elysium: account,
-      hlKey,
-      tier: a.tier,
-      stamps: a.stamps,
-      issuedAt: a.issuedAt,
-      expiry: a.expiry,
-      deadline: a.deadline,
-      sig: signature,
-      txHash: null,
-      status: "signed",
-    });
+    const { id, attestation: a, signature } = await signAndStore(d, account, hlKey, level, nowSec);
     this.#passportCache.delete(account);
     this.#statsCache = undefined;
 
@@ -343,9 +328,10 @@ export class PassportService {
     if (relay && d.relayer) {
       try {
         txHash = await d.relayer.submit(a, signature);
-        d.store.setAttestationStatus(id, "submitted", txHash);
+        d.store.setAttestationStatus(id, "confirmed", txHash);
+        if (a.tier !== tierBefore) d.store.pushPoke(account, "issued", nowSec); // multiplier changed (§6.3)
       } catch {
-        // The caller still gets the signed attestation and can submit it; P8 retries with a fresh one.
+        // The caller still gets the signed attestation and can submit it; the scheduler re-signs later.
         d.store.setAttestationStatus(id, "failed");
       }
     }
@@ -360,6 +346,12 @@ export class PassportService {
       signature,
       ...(txHash === undefined ? {} : { txHash }),
     };
+  }
+
+  /** GET /passport/pokes: accounts the staking keeper must re-poke since `sinceSec` (§6.3). */
+  pokes(sinceSec: number): { accounts: Address[]; until: number } {
+    const until = this.#nowSec();
+    return { accounts: this.deps.store.pokedSince(sinceSec), until };
   }
 }
 

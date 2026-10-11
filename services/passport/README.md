@@ -78,10 +78,15 @@ src/registry.ts       reads HypePassportRegistry on Elysium; mirrors its binding
 src/policy.ts         re-check policy (§7.2): downgrade now, upgrade only when sustained ≥ 20 h
 src/service.ts        the use cases behind each route (challenge, verify, refresh, passport, stats, health)
 src/api.ts            REST routes (§8), HTTP status codes, per-IP rate limits
-src/server.ts         entry point: config + keys + clients + API on 127.0.0.1
+src/issue.ts          sign + store one attestation (shared by API and scheduler)
+src/relayer.ts        submits attestations on Elysium: one tx, or batched through Multicall3
+src/scheduler.ts      re-checks, renewals, relaying, Unlinked watch, keeper pokes (§7.2)
+src/server.ts         entry point: config + keys + clients + API + scheduler on 127.0.0.1
 contracts-check/      isolated Foundry project: our attestations vs the reference registry
 scripts/make-attestation-fixture.ts  writes contracts-check/fixtures/attestation.json
 scripts/probe-registry-call.ts  live, read-only: the Elysium node runs registry + our attestation in one eth_call
+scripts/probe-batch-gas.ts  live, read-only: batched submits through Elysium's Multicall3, gas estimates
+scripts/probe-recheck.ts  live: light daily re-check vs full snapshot on real wallets
 scripts/probe-hl.ts   live probe, run by hand
 scripts/probe-evm.ts  live probe, run by hand
 scripts/probe-passport.ts  live end-to-end scoring, run by hand
@@ -91,7 +96,6 @@ test/mockEvm.ts       fake HyperEVM (Multicall3 per wallet) for tests
 test/fixtures/hl/     copies of docs/passport-fixtures (a test fails if they drift)
 ```
 
-Planned modules (spec §7): `relayer.ts`, `scheduler.ts` (P8).
 
 ## Hyperliquid client
 
@@ -166,6 +170,7 @@ node scripts/probe-passport.ts 0xbd2d67376d2e9abb125a70e817896425f5f22289   # ti
 | `POST /passport/refresh` `{elysiumAccount}` | same as verify; applies the §7.2 policy | 1 per 10 min per account |
 | `GET /passport/:address` | `{address, valid, tier, stamps, stampNames, multiplier, issuedAt, expiry, linkedAt, source: "chain"}`, 30 s cache | 120/min per IP |
 | `GET /passport/stats` | `{linked, valid, byTier, byStamp, updatedAt}` from the service's own records, 60 s cache | 120/min per IP |
+| `GET /passport/pokes?since=<unix s>` | `{accounts, until}`: Elysium accounts whose multiplier changed (issued, unlinked, expired), for the staking keeper (§6.3) | 120/min per IP |
 | `GET /health` (also `/passport/health`) | `{ok, hlBudgetLeft, evmBudgetLeft, relayerBalance, registry, lastBlock}`; 503 when not ok | 120/min per IP |
 
 Errors are `{error, detail?}`, with `Retry-After` where it applies:
@@ -187,6 +192,23 @@ Errors are `{error, detail?}`, with `Retry-After` where it applies:
   - Uncached lookups are capped at 2/min per IP and 5/min overall (50% of the budget).
   - Over a cap the answer is `429 RATE_LIMITED`, "busy checking accounts". Tune it via `CHALLENGE_LOOKUPS` in `src/service.ts`.
 - **Binding checks.** These mirror the registry's `submit`: an hlKey or account bound elsewhere, unless that passport expired ≥ 7 d ago, and the 7-day unlink cooldown. They run against the chain at challenge and again at verify.
+
+## Relayer and scheduler (P8)
+
+- **Relayer.** Uses the gas-only key in `RELAYER_KEY_FILE` (separate from the attestor; §9) with viem's nonce manager. If that file is missing, the service still runs: it returns signed attestations and logs a warning.
+  - `submit` sends one transaction (used by `/verify` and `/refresh` with relay). It reports success only once the receipt contains the matching `PassportIssued` event.
+  - `submitMany` simulates the batch through Multicall3 `aggregate3` first. Items that would revert come back with the registry's error (`DeadlinePassed`, `BadSignature`, …). The rest go out in one transaction, 25 per batch.
+  - **Gas pitfall, found on anvil:** with `allowFailure`, `eth_estimateGas` under-estimates, so the *last* submits silently run out of gas. Gas is therefore estimated with `allowFailure` off for the items known to succeed, plus a 30% margin.
+    - Elysium's own node does *not* under-estimate: checked live with `scripts/probe-batch-gas.ts`, read-only. The fix is kept for other RPCs, and the margin costs nothing because only gas used is charged.
+  - **Cost on Elysium (live, 2026-10-11):** about 134k gas per submit at 0.1 gwei, with no L1 posting fee (Arbitrum NodeInterface `gasEstimateL1Component` returns 0). So ~0.0000134 HYPE per submit; the 0.01 HYPE `/health` alert line covers ~750.
+- **Scheduler** (every 60 s):
+  - It purges expired challenges and follows `Unlinked` events from a stored block cursor (in 100k-block chunks). Unlinked bindings stop being re-checked and are deleted 7 days later, HL address included.
+  - It re-checks due bindings, at most 6 and at most **240 HL weight** per run. A count cap alone would let six weekly checks (6 × 162 = 972) exceed the whole 800/min budget and stall the API.
+  - A daily check costs 62 HL weight (spot, staking, borrows, sub-accounts) plus 1 HyperEVM read. Role, multi-sig and volume are re-read weekly (+100); account age and genesis come from the cache.
+  - `scripts/probe-recheck.ts` checks live that the light check scores real wallets exactly like a full one.
+  - It applies the §7.2 policy: downgrade now, upgrade only when sustained ≥ 20 h, renew when < 48 h are left. It submits passports that never reached the chain, but never creates a tier-0 binding.
+  - The next check lands 12–36 h later at random. A failed relay or an unreachable upstream is retried in 5 minutes with a **fresh** signature, never a resubmitted old one.
+  - It records keeper pokes for passports issued with a new tier, for unlinks, and for expiries.
 
 ## Behind Caddy (P10)
 

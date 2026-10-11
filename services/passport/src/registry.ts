@@ -17,6 +17,21 @@ export const registryAbi = parseAbi([
   "function unlink()",
   "event PassportIssued(address indexed account, bytes32 indexed hlKey, uint8 tier, uint32 stamps, uint64 issuedAt, uint64 expiry)",
   "event Unlinked(address indexed account, bytes32 indexed hlKey, uint64 rebindableAt)",
+  "error WrongChain()",
+  "error DeadlinePassed()",
+  "error InvalidTier()",
+  "error InvalidExpiry()",
+  "error IssuedInFuture()",
+  "error BadSignature()",
+  "error StaleAttestation()",
+  "error ZeroHlKey()",
+  "error ZeroAccount()",
+  "error AccountBoundToOtherHl()",
+  "error HlBoundToOtherAccount()",
+  "error RebindCooldown(uint64 until)",
+  "error NotLinked()",
+  "error NotAuthorized()",
+  "error IsRetired()",
 ]);
 
 /** Matches HypePassportRegistry.REBIND_COOLDOWN: also how long an expired binding blocks rebinding. */
@@ -47,6 +62,8 @@ export interface RegistryReader {
   rebindableAt(hlKey: Hex): Promise<number>;
   lastIssuedAt(account: Address): Promise<number>;
   blockNumber(): Promise<bigint>;
+  /** `Unlinked` events in [fromBlock, toBlock] (§7.2 watch). */
+  unlinkedEvents(fromBlock: bigint, toBlock: bigint): Promise<Array<{ account: Address; hlKey: Hex; blockNumber: bigint }>>;
 }
 
 export function createRegistryReader(client: PublicClient, address: Address): RegistryReader {
@@ -75,6 +92,10 @@ export function createRegistryReader(client: PublicClient, address: Address): Re
     rebindableAt: async (hlKey) => Number(await read<bigint>("rebindableAt", [hlKey])),
     lastIssuedAt: async (account) => Number(await read<bigint>("lastIssuedAt", [account])),
     blockNumber: () => client.getBlockNumber(),
+    async unlinkedEvents(fromBlock, toBlock) {
+      const logs = await client.getContractEvents({ address, abi: registryAbi, eventName: "Unlinked", fromBlock, toBlock, strict: true });
+      return logs.map((l) => ({ account: l.args.account, hlKey: l.args.hlKey, blockNumber: l.blockNumber }));
+    },
   };
 }
 

@@ -8,7 +8,10 @@ import { HyperEvmReader } from "../src/evm/hyperevm.ts";
 import { HlClient } from "../src/hl/client.ts";
 import { HitCounter, WeightLimiter } from "../src/ratelimit.ts";
 import type { OnChainPassport, RegistryReader } from "../src/registry.ts";
-import { PassportService, type Relayer } from "../src/service.ts";
+import type { Attestation } from "../src/attest.ts";
+import type { RelayItem, RelayResult, Relayer } from "../src/relayer.ts";
+import { Scheduler } from "../src/scheduler.ts";
+import { PassportService } from "../src/service.ts";
 import { mockHyperEvm, rateFromFixture, walletFromFixture } from "./mockEvm.ts";
 import { loadFixtures, startMockHl, type Fixture } from "./mockHl.ts";
 
@@ -30,6 +33,8 @@ export class FakeRegistry implements RegistryReader {
   holders = new Map<string, Address>();
   rebind = new Map<string, number>();
   last = new Map<string, number>();
+  events: Array<{ account: Address; hlKey: Hex; blockNumber: bigint }> = [];
+  head = 1n;
   down = false;
   nowSec: () => number;
   constructor(nowSec: () => number) {
@@ -54,7 +59,18 @@ export class FakeRegistry implements RegistryReader {
   }
   async blockNumber() {
     if (this.down) throw new BaseError("rpc down");
-    return 1n;
+    return this.head;
+  }
+  async unlinkedEvents(from: bigint, to: bigint) {
+    return this.events.filter((e) => e.blockNumber >= from && e.blockNumber <= to);
+  }
+  /** What `unlink()` does on chain: clear the passport, start the cooldown, log Unlinked. */
+  unlink(account: Address) {
+    const p = this.passports.get(account.toLowerCase())!;
+    this.passports.delete(account.toLowerCase());
+    this.holders.delete(p.hlKey.toLowerCase());
+    this.rebind.set(p.hlKey.toLowerCase(), this.nowSec() + 7 * 86_400);
+    this.events.push({ account, hlKey: p.hlKey, blockNumber: ++this.head });
   }
   apply(a: { account: Address; hlKey: Hex; tier: number; stamps: number; issuedAt: number; expiry: number }) {
     const prev = this.passports.get(a.account.toLowerCase());
@@ -63,6 +79,32 @@ export class FakeRegistry implements RegistryReader {
     this.holders.set(a.hlKey.toLowerCase(), a.account);
     this.last.set(a.account.toLowerCase(), a.issuedAt);
   }
+}
+
+/** A relayer that "mines" straight into a FakeRegistry; `failNext` makes the next N submits fail. */
+export function fakeRelayer(registry: FakeRegistry) {
+  const r = {
+    failNext: 0,
+    submitted: [] as Attestation[],
+    async submit(a: Attestation): Promise<Hex> {
+      const [res] = await r.submitMany([{ attestation: a, signature: "0x" }]);
+      if (!res!.ok) throw new Error(res!.reason);
+      return res!.txHash;
+    },
+    async submitMany(items: RelayItem[]): Promise<RelayResult[]> {
+      return items.map(({ attestation }) => {
+        if (r.failNext > 0) {
+          r.failNext--;
+          return { ok: false, reason: "simulated revert" };
+        }
+        registry.apply(attestation);
+        r.submitted.push(attestation);
+        return { ok: true, txHash: `0x${"cd".repeat(32)}` as Hex };
+      });
+    },
+    balance: async () => 10n ** 18n,
+  };
+  return r satisfies Relayer;
 }
 
 /** Fixture accounts re-homed: same HL data, but at addresses whose keys the tests hold. */
@@ -78,7 +120,9 @@ export function rehomedFixtures(): Record<string, Fixture> {
   };
 }
 
-export async function harness(opts: { relayer?: Relayer; registry?: RegistryReader; attestorKey?: Hex; nowMs?: number } = {}) {
+export async function harness(
+  opts: { relayer?: Relayer | ((r: FakeRegistry) => Relayer); registry?: RegistryReader; attestorKey?: Hex; nowMs?: number } = {},
+) {
   const fixtures = rehomedFixtures();
   const hlServer = await startMockHl(fixtures);
   const wallets = Object.fromEntries(Object.values(fixtures).map((f) => [f.address, walletFromFixture(f)]));
@@ -90,6 +134,7 @@ export async function harness(opts: { relayer?: Relayer; registry?: RegistryRead
   const registry = opts.registry ?? fake;
   const db = openDatabase(":memory:");
   const attestorKey = opts.attestorKey ?? generatePrivateKey();
+  const relayer = typeof opts.relayer === "function" ? opts.relayer(fake) : opts.relayer;
   const service = new PassportService({
     chainId: 99801,
     challenges: new SqliteChallengeStore(db),
@@ -99,7 +144,7 @@ export async function harness(opts: { relayer?: Relayer; registry?: RegistryRead
     registry,
     attestor: privateKeyToAccount(attestorKey),
     pepper: `0x${"42".repeat(32)}`,
-    relayer: opts.relayer,
+    relayer,
     hits: new HitCounter(now),
     now,
     random: () => 0.5,
@@ -115,6 +160,11 @@ export async function harness(opts: { relayer?: Relayer; registry?: RegistryRead
     chain,
     db,
     attestor: privateKeyToAccount(attestorKey),
+    fixtures,
+    relayer,
+    /** A scheduler over the same state as the API. */
+    scheduler: (maxChecksPerRun = 6, maxWeightPerRun = 240) =>
+      new Scheduler({ ...service.deps, now, random: () => 0.5, maxChecksPerRun, maxWeightPerRun }),
     async close() {
       await app.close();
       await hlServer.close();
