@@ -1,0 +1,190 @@
+@import "tailwindcss";
+
+/* PANTHEON design tokens — source of truth: /DESIGN.md */
+@theme {
+  --color-void: #070d16;
+  --color-navy: #0b1a2a;
+  --color-surface: #11263a;
+  --color-line: #1a3550;
+  --color-text: #edeff2;
+  --color-text-2: #9fb0c2;
+  --color-muted: #5f7388;
+  --color-teal: #22b8c9;
+  --color-orange: #ff7a1a;
+  --color-amber: #ffb000;
+  --color-magenta: #ff2e88;
+  --color-red: #d7263d;
+  --color-green: #2bd48f;
+
+  /* Site UI: black on paper. Colour only comes from art. */
+  --color-paper: #f9f9f9;
+  --color-ink: #171717;
+  --color-rule: #ebebeb; /* hairlines: frame rails, header, dividers */
+
+  --radius-sm: 2px;
+
+  --font-display: var(--font-big-shoulders), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+  --font-geist: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-code: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-teal) 35%, transparent);
+}
+
+:focus-visible {
+  outline: 1px solid var(--color-teal);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-teal) 18%, transparent);
+}
+
+/* Uppercase micro-label */
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* Numbers, addresses, hashes */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Signature 1 — double-exposure echo (hero only) */
+.echo {
+  position: relative;
+  display: inline-block;
+  isolation: isolate;
+}
+.echo::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  transform: translate(4px, 3px);
+  color: var(--color-orange);
+  opacity: 0.32;
+  z-index: -1;
+  pointer-events: none;
+  white-space: inherit;
+}
+
+/* Signature 2 — scanlines over hero backdrops */
+.scanlines {
+  position: relative;
+}
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgb(237 239 242 / 0.035) 0,
+    rgb(237 239 242 / 0.035) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* Signature 3 — glitch slice on hover (primary CTA + logo only, <=200ms) */
+@keyframes glitch-slice {
+  0% { clip-path: inset(0 0 0 0); transform: translateX(0); }
+  25% { clip-path: inset(14% 0 56% 0); transform: translateX(-2px); }
+  50% { clip-path: inset(60% 0 10% 0); transform: translateX(2px); }
+  75% { clip-path: inset(32% 0 38% 0); transform: translateX(-1px); }
+  100% { clip-path: inset(0 0 0 0); transform: translateX(0); }
+}
+.glitch:hover,
+.glitch:focus-visible {
+  animation: glitch-slice 180ms steps(2, end) 1;
+  text-shadow: -1px 0 var(--color-magenta), 1px 0 var(--color-teal);
+}
+
+/* Live counter flash */
+@keyframes tick-flash {
+  0% { color: var(--color-orange); }
+  100% { color: inherit; }
+}
+.tick {
+  animation: tick-flash 900ms ease-out 1;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pulse {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glitch:hover,
+  .glitch:focus-visible {
+    animation: none;
+    text-shadow: none;
+  }
+  .tick,
+  .pulse {
+    animation: none;
+  }
+}
+
+/* ── Site UI (paper/ink system) ─────────────────────────────── */
+
+/* Primary button: ink with Firecrawl-style layered depth. */
+.btn-ink {
+  background: var(--color-ink);
+  color: #fff;
+  box-shadow:
+    inset 0 -6px 12px rgb(255 255 255 / 0.08),
+    0 2px 4px rgb(0 0 0 / 0.12),
+    0 1px 1px rgb(0 0 0 / 0.12),
+    0 0.5px 0.5px rgb(0 0 0 / 0.16),
+    0 0.25px 0.25px rgb(0 0 0 / 0.2);
+  transition: box-shadow 0.1s, scale 0.1s;
+}
+.btn-ink:hover {
+  box-shadow:
+    inset 0 -6px 12px rgb(255 255 255 / 0.08),
+    0 4px 8px rgb(0 0 0 / 0.16),
+    0 1px 1px rgb(0 0 0 / 0.12),
+    0 0.5px 0.5px rgb(0 0 0 / 0.16),
+    0 0.25px 0.25px rgb(0 0 0 / 0.2);
+}
+.btn-ink:active {
+  scale: 0.995;
+}
+
+/* Entrance: fade up 10px (Firecrawl's fade-in-up). */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.5s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+  }
+}
+
