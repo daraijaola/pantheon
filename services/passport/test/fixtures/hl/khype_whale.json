@@ -1,0 +1,191 @@
+{
+ "userRole": {
+  "role": "user"
+ },
+ "spotClearinghouseState": {
+  "balances": [
+   {
+    "coin": "USDC",
+    "token": 0,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "HYPE",
+    "token": 150,
+    "total": "0.601",
+    "hold": "0.0",
+    "entryNtl": "28.42003068"
+   },
+   {
+    "coin": "USDE",
+    "token": 235,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "USDT0",
+    "token": 268,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "USDH",
+    "token": 360,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "MAX",
+    "token": 734,
+    "total": "38412.036972",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   }
+  ],
+  "tokenToAvailableAfterMaintenance": []
+ },
+ "delegatorSummary": {
+  "delegated": "0.0",
+  "undelegated": "0.0",
+  "totalPendingWithdrawal": "0.0",
+  "nPendingWithdrawals": 0
+ },
+ "borrowLendUserState": {
+  "tokenToState": [],
+  "health": "healthy",
+  "healthFactor": null
+ },
+ "ledger0": [
+  {
+   "time": 1761613416707,
+   "hash": "0xf09498e71bd8afd5f20e042e55e46f02013200ccb6dbcea8945d4439dadc89c0",
+   "delta": {
+    "type": "send",
+    "user": "0x1c471e911dcf6dc558246e103c1ec9f9b2be608e",
+    "destination": "0xcf2115a890a19b706582692ce3513b61a507ad7c",
+    "sourceDex": "spot",
+    "destinationDex": "spot",
+    "token": "HYPE",
+    "amount": "0.001",
+    "usdcValue": "0.047183",
+    "fee": "1.0",
+    "nativeTokenFee": "0.0",
+    "nonce": 1761613334849,
+    "feeToken": "USDC"
+   }
+  },
+  {
+   "time": 1761613500723,
+   "hash": "0x7aaed7ea64536ab17c28042e55e8a102028000cfff5689831e77833d2357449c",
+   "delta": {
+    "type": "send",
+    "user": "0x1c471e911dcf6dc558246e103c1ec9f9b2be608e",
+    "destination": "0xcf2115a890a19b706582692ce3513b61a507ad7c",
+    "sourceDex": "spot",
+    "destinationDex": "spot",
+    "token": "HYPE",
+    "amount": "1.1",
+    "usdcValue": "52.0168",
+    "fee": "0.0",
+    "nativeTokenFee": "0.0",
+    "nonce": 1761613416768,
+    "feeToken": ""
+   }
+  },
+  {
+   "time": 1772322036140,
+   "hash": "0xe82ad416b470e264e9a4043632ab1b0202f000fc4f7401368bf37f697374bc4f",
+   "delta": {
+    "type": "send",
+    "user": "0xcf2115a890a19b706582692ce3513b61a507ad7c",
+    "destination": "0x2222222222222222222222222222222222222222",
+    "sourceDex": "spot",
+    "destinationDex": "spot",
+    "token": "HYPE",
+    "amount": "0.5",
+    "usdcValue": "15.41",
+    "fee": "0.0",
+    "nativeTokenFee": "0.0",
+    "nonce": 1772322009626,
+    "feeToken": ""
+   }
+  }
+ ],
+ "ledgerGenesis": [],
+ "portfolio": [
+  [
+   "day",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "week",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "month",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "allTime",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpDay",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpWeek",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpMonth",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpAllTime",
+   {
+    "vlm": "0.0"
+   }
+  ]
+ ],
+ "subAccounts": null,
+ "hyperevm": {
+  "evmHype": 3.240004234594851,
+  "whype": 0.0,
+  "khype": 5247.248323436139,
+  "khypeInHype": 5385.159086634003,
+  "hypurr": 0,
+  "kntqEvm": 0.0
+ },
+ "expected": {
+  "role": "user",
+  "staked": 0.0,
+  "liquid": 5389.0001,
+  "score": 2694.5,
+  "ageDays": 348.0,
+  "tier": 3,
+  "stamps": 130,
+  "stampsBin": "0b10000010"
+ },
+ "address": "0xcf2115a890a19b706582692ce3513b61a507ad7c",
+ "capturedAtMs": 1791681977401
+}

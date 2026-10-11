@@ -1,0 +1,21 @@
+{
+ "attestor": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+ "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+ "hlKey": "0x0cfa79b2dd0b5651283ca9bfacc64762bec7e4c23ea4b8351b81590c2fe31323",
+ "tier": 2,
+ "stamps": 5,
+ "issuedAt": 1791680000,
+ "expiry": 1792284800,
+ "deadline": 1791683600,
+ "digest": "0x7ccb3ca54d9849995906b6b6d032c565db11591f9aa8d0202436e7f42bdc07e1",
+ "sig": "0x57893fc157b12bd5f3b6ef3a203221f0d244c95d4e6bc40ad1fd29848f99529901db5bd413d3a8e9dbccb1e9dad65600142b2618a1e98d77f8d18c8bf990be0e1b",
+ "registry": "0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f",
+ "att2": {
+  "tier": 3,
+  "stamps": 133,
+  "issuedAt": 1791683600,
+  "expiry": 1792288400,
+  "deadline": 1791687200,
+  "sig": "0xd747f10a9f410a1a915548ea7f7a374d249642328cc346a6a83d316d9dde7ad06477f9adaed34b02025b741cd3c24c4018f67184228087613fa59266093669d91c"
+ }
+}

@@ -1,0 +1,284 @@
+{
+ "userRole": {
+  "role": "user"
+ },
+ "spotClearinghouseState": {
+  "portfolioMarginEnabled": true,
+  "balances": [
+   {
+    "coin": "USDC",
+    "token": 0,
+    "total": "36726.02609158",
+    "hold": "-36759.59012084",
+    "entryNtl": "0.0",
+    "spotHold": "6672.42660815",
+    "ltv": "0.0",
+    "supplied": "20535.50786158"
+   },
+   {
+    "coin": "MEOW",
+    "token": 61,
+    "total": "77.025025",
+    "hold": "0.0",
+    "entryNtl": "0.00443664"
+   },
+   {
+    "coin": "WOW",
+    "token": 98,
+    "total": "37.91258",
+    "hold": "0.0",
+    "entryNtl": "0.00379125"
+   },
+   {
+    "coin": "HYPE",
+    "token": 150,
+    "total": "781.70434285",
+    "hold": "0.0",
+    "entryNtl": "0.0",
+    "ltv": "0.65",
+    "supplied": "781.70434285"
+   },
+   {
+    "coin": "UBTC",
+    "token": 197,
+    "total": "0.00124916",
+    "hold": "0.0",
+    "entryNtl": "0.0",
+    "ltv": "0.5",
+    "supplied": "0.00124916"
+   },
+   {
+    "coin": "USDE",
+    "token": 235,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "USDT0",
+    "token": 268,
+    "total": "0.0",
+    "hold": "-43470.70565702",
+    "entryNtl": "0.0",
+    "spotHold": "0.0",
+    "ltv": "0.0"
+   },
+   {
+    "coin": "USDH",
+    "token": 360,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0",
+    "ltv": "0.0"
+   }
+  ],
+  "portfolioMarginRatio": "0.0363171773",
+  "tokenToPortfolioBorrowRatio": [
+   [
+    0,
+    "0.0"
+   ]
+  ],
+  "tokenToPortfolioSupplyRatio": [
+   [
+    150,
+    "0.0007817043"
+   ],
+   [
+    197,
+    "0.0000062458"
+   ]
+  ],
+  "tokenToAvailableAfterMaintenance": [
+   [
+    0,
+    "88527.01939152"
+   ],
+   [
+    150,
+    "781.70434285"
+   ],
+   [
+    197,
+    "0.00124916"
+   ],
+   [
+    268,
+    "55186.32242494"
+   ],
+   [
+    360,
+    "0.0"
+   ]
+  ]
+ },
+ "delegatorSummary": {
+  "delegated": "0.0",
+  "undelegated": "0.0",
+  "totalPendingWithdrawal": "0.0",
+  "nPendingWithdrawals": 0
+ },
+ "borrowLendUserState": {
+  "tokenToState": [
+   [
+    0,
+    {
+     "borrow": {
+      "basis": "0.0",
+      "value": "0.0"
+     },
+     "supply": {
+      "basis": "20499.01373117",
+      "value": "20535.50788239"
+     }
+    }
+   ],
+   [
+    150,
+    {
+     "borrow": {
+      "basis": "0.0",
+      "value": "0.0"
+     },
+     "supply": {
+      "basis": "781.70434285",
+      "value": "781.70434285"
+     }
+    }
+   ],
+   [
+    197,
+    {
+     "borrow": {
+      "basis": "0.0",
+      "value": "0.0"
+     },
+     "supply": {
+      "basis": "0.00124916",
+      "value": "0.00124916"
+     }
+    }
+   ]
+  ],
+  "health": "healthy",
+  "healthFactor": null
+ },
+ "ledger0": [
+  {
+   "time": 1707607984230,
+   "hash": "0x18ac2192bbf6c00595964dbd1d755b47a6b0dbe2e4c9cf09be096714f50af44d",
+   "delta": {
+    "type": "deposit",
+    "usdc": "998.007892"
+   }
+  },
+  {
+   "time": 1707608273382,
+   "hash": "0xb2e4e40777bcf75f0782a09b71b71649fd66089c8d781f289e02ddd1da22388f",
+   "delta": {
+    "type": "deposit",
+    "usdc": "3999.894458"
+   }
+  },
+  {
+   "time": 1713242668600,
+   "hash": "0xcd1a7d5328cf46316fa704087f30890202a6002d4bbbd0ec755d1acbe6961d5e",
+   "delta": {
+    "type": "spotGenesis",
+    "token": "PURR",
+    "amount": "6189.0"
+   }
+  }
+ ],
+ "ledgerGenesis": [
+  {
+   "time": 1732865102885,
+   "hash": "0xe597d0bc04b2bf46f0d40417fb602e01d4000928df52dcf84fa9546c8c3fe4df",
+   "delta": {
+    "type": "spotGenesis",
+    "token": "HYPE",
+    "amount": "4714.02"
+   }
+  },
+  {
+   "time": 1732870357484,
+   "hash": "0xee1945074b6e6db406c20417fc3b2f018500d4c8d9d03fd7cd8e3be3b10b51b3",
+   "delta": {
+    "type": "spotGenesis",
+    "token": "WOW",
+    "amount": "37.91258"
+   }
+  }
+ ],
+ "portfolio": [
+  [
+   "day",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "week",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "month",
+   {
+    "vlm": "9980.63"
+   }
+  ],
+  [
+   "allTime",
+   {
+    "vlm": "3142346.8399999999"
+   }
+  ],
+  [
+   "perpDay",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpWeek",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpMonth",
+   {
+    "vlm": "9980.63"
+   }
+  ],
+  [
+   "perpAllTime",
+   {
+    "vlm": "3044009.1499999999"
+   }
+  ]
+ ],
+ "subAccounts": null,
+ "hyperevm": {
+  "evmHype": 0.0,
+  "whype": 0.0,
+  "khype": 0.0,
+  "khypeInHype": 0.0,
+  "hypurr": 0,
+  "kntqEvm": 0.0
+ },
+ "expected": {
+  "role": "user",
+  "staked": 0.0,
+  "liquid": 781.7043,
+  "score": 390.8522,
+  "ageDays": 973.1,
+  "tier": 2,
+  "stamps": 156,
+  "stampsBin": "0b10011100"
+ },
+ "address": "0x625629577293746d044277f8bddaf14aced16acc",
+ "capturedAtMs": 1791681865560
+}

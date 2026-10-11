@@ -1,0 +1,92 @@
+{
+ "userRole": {
+  "role": "missing"
+ },
+ "spotClearinghouseState": {
+  "balances": []
+ },
+ "delegatorSummary": {
+  "delegated": "0.0",
+  "undelegated": "0.0",
+  "totalPendingWithdrawal": "0.0",
+  "nPendingWithdrawals": 0
+ },
+ "borrowLendUserState": {
+  "tokenToState": [],
+  "health": "healthy",
+  "healthFactor": null
+ },
+ "ledger0": [],
+ "ledgerGenesis": [],
+ "portfolio": [
+  [
+   "day",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "week",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "month",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "allTime",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpDay",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpWeek",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpMonth",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpAllTime",
+   {
+    "vlm": "0.0"
+   }
+  ]
+ ],
+ "subAccounts": null,
+ "hyperevm": {
+  "evmHype": 0.00099,
+  "whype": 0.0,
+  "khype": 0.0,
+  "khypeInHype": 0.0,
+  "hypurr": 0,
+  "kntqEvm": 0.0
+ },
+ "expected": {
+  "role": "missing",
+  "staked": 0.0,
+  "liquid": 0.001,
+  "score": 0.0005,
+  "ageDays": 0.0,
+  "tier": 0,
+  "stamps": 0,
+  "stampsBin": "0b0"
+ },
+ "address": "0x1234567890abcdef1234567890abcdef12345678",
+ "capturedAtMs": 1791681944273
+}

@@ -1,0 +1,445 @@
+{
+ "userRole": {
+  "role": "user"
+ },
+ "spotClearinghouseState": {
+  "balances": [
+   {
+    "coin": "USDC",
+    "token": 0,
+    "total": "15120.53916149",
+    "hold": "437.6936",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "PURR",
+    "token": 1,
+    "total": "100.9618",
+    "hold": "0.0",
+    "entryNtl": "7.22149345"
+   },
+   {
+    "coin": "MANLET",
+    "token": 4,
+    "total": "1.0001",
+    "hold": "0.0",
+    "entryNtl": "0.06219658"
+   },
+   {
+    "coin": "CAPPY",
+    "token": 8,
+    "total": "1146390.5517",
+    "hold": "0.0",
+    "entryNtl": "396.15785186"
+   },
+   {
+    "coin": "CATNIP",
+    "token": 28,
+    "total": "5189.00297108",
+    "hold": "0.0",
+    "entryNtl": "251.06903685"
+   },
+   {
+    "coin": "CAT",
+    "token": 48,
+    "total": "242.8849616",
+    "hold": "0.0",
+    "entryNtl": "1003.203986"
+   },
+   {
+    "coin": "MOG",
+    "token": 52,
+    "total": "2803547.84180611",
+    "hold": "0.0",
+    "entryNtl": "2010.52817369"
+   },
+   {
+    "coin": "JEET",
+    "token": 55,
+    "total": "90383.3548",
+    "hold": "0.0",
+    "entryNtl": "499.99495"
+   },
+   {
+    "coin": "DROP",
+    "token": 56,
+    "total": "87439.7608046",
+    "hold": "0.0",
+    "entryNtl": "482.92784842"
+   },
+   {
+    "coin": "MEOW",
+    "token": 61,
+    "total": "121.301916",
+    "hold": "0.0",
+    "entryNtl": "0.00698699"
+   },
+   {
+    "coin": "BRIDGE",
+    "token": 73,
+    "total": "267.28",
+    "hold": "0.0",
+    "entryNtl": "33.7601368"
+   },
+   {
+    "coin": "TIME",
+    "token": 79,
+    "total": "512.295082",
+    "hold": "0.0",
+    "entryNtl": "1.92110655"
+   },
+   {
+    "coin": "PIGEON",
+    "token": 94,
+    "total": "0.01866544",
+    "hold": "0.0",
+    "entryNtl": "0.00720424"
+   },
+   {
+    "coin": "RISE",
+    "token": 97,
+    "total": "0.35206203",
+    "hold": "0.0",
+    "entryNtl": "0.00415491"
+   },
+   {
+    "coin": "WOW",
+    "token": 98,
+    "total": "58.0675",
+    "hold": "0.0",
+    "entryNtl": "0.00580675"
+   },
+   {
+    "coin": "CHINA",
+    "token": 100,
+    "total": "0.0258698",
+    "hold": "0.0",
+    "entryNtl": "0.03420715"
+   },
+   {
+    "coin": "FRIED",
+    "token": 102,
+    "total": "0.100328",
+    "hold": "0.0",
+    "entryNtl": "0.08163574"
+   },
+   {
+    "coin": "FATCAT",
+    "token": 126,
+    "total": "6339.37201206",
+    "hold": "0.0",
+    "entryNtl": "2118.78425576"
+   },
+   {
+    "coin": "PIP",
+    "token": 127,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "CHEF",
+    "token": 139,
+    "total": "429.9667826",
+    "hold": "0.0",
+    "entryNtl": "210.70534076"
+   },
+   {
+    "coin": "EARTH",
+    "token": 141,
+    "total": "691.11510768",
+    "hold": "0.0",
+    "entryNtl": "763.07322642"
+   },
+   {
+    "coin": "HOP",
+    "token": 144,
+    "total": "4288.4385273",
+    "hold": "0.0",
+    "entryNtl": "2889.19219833"
+   },
+   {
+    "coin": "MUNCH",
+    "token": 146,
+    "total": "491.50144",
+    "hold": "0.0",
+    "entryNtl": "0.00181855"
+   },
+   {
+    "coin": "HYPE",
+    "token": 150,
+    "total": "0.00276",
+    "hold": "0.0",
+    "entryNtl": "0.22390305"
+   },
+   {
+    "coin": "STEEL",
+    "token": 151,
+    "total": "501.62982314",
+    "hold": "0.0",
+    "entryNtl": "301.27573241"
+   },
+   {
+    "coin": "SHEEP",
+    "token": 159,
+    "total": "2331.08479537",
+    "hold": "0.0",
+    "entryNtl": "1653.55410669"
+   },
+   {
+    "coin": "LIQD",
+    "token": 178,
+    "total": "378450.01621147",
+    "hold": "160672.4",
+    "entryNtl": "518.43317696"
+   },
+   {
+    "coin": "SENT",
+    "token": 186,
+    "total": "2000.0",
+    "hold": "0.0",
+    "entryNtl": "2000.0"
+   },
+   {
+    "coin": "NEKO",
+    "token": 190,
+    "total": "3000.0",
+    "hold": "0.0",
+    "entryNtl": "0.249"
+   },
+   {
+    "coin": "JPEG",
+    "token": 196,
+    "total": "5.44654826",
+    "hold": "0.0",
+    "entryNtl": "0.04650946"
+   },
+   {
+    "coin": "FUND",
+    "token": 232,
+    "total": "61.58117941",
+    "hold": "0.0",
+    "entryNtl": "11.0324448"
+   },
+   {
+    "coin": "USDE",
+    "token": 235,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "USDT0",
+    "token": 268,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "UPUMP",
+    "token": 299,
+    "total": "80.791834",
+    "hold": "0.0",
+    "entryNtl": "0.46886507"
+   },
+   {
+    "coin": "USDH",
+    "token": 360,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "MAX",
+    "token": 734,
+    "total": "1039142.665432",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   }
+  ],
+  "tokenToAvailableAfterMaintenance": [
+   [
+    0,
+    "15120.53916149"
+   ],
+   [
+    268,
+    "0.0"
+   ]
+  ]
+ },
+ "delegatorSummary": {
+  "delegated": "103.14363029",
+  "undelegated": "0.0",
+  "totalPendingWithdrawal": "0.0",
+  "nPendingWithdrawals": 0
+ },
+ "borrowLendUserState": {
+  "tokenToState": [],
+  "health": "healthy",
+  "healthFactor": null
+ },
+ "ledger0": [
+  {
+   "time": 1708638147299,
+   "hash": "0x1af49a83ccb1bed1ec8fe518a14f7939e7fe404d33c0cd579e176b0721621e48",
+   "delta": {
+    "type": "deposit",
+    "usdc": "455.84"
+   }
+  },
+  {
+   "time": 1709937491677,
+   "hash": "0xd2d085333192c64531416640539156ed53aa1992c9c3072cebbb6c92e39ec224",
+   "delta": {
+    "type": "deposit",
+    "usdc": "5009.546001"
+   }
+  },
+  {
+   "time": 1710244199720,
+   "hash": "0xa5beb08d0b6092370e1051b15390f758455898f97d3b463ee2984a97e7c2b968",
+   "delta": {
+    "type": "withdraw",
+    "usdc": "119.0",
+    "nonce": 1710243963817000,
+    "fee": "1.0"
+   }
+  }
+ ],
+ "ledgerGenesis": [
+  {
+   "time": 1732864592355,
+   "hash": "0x28680573c6d86569ade10417fb40d4018f00ccecd2b7a5ac4486a72ce7bc78fd",
+   "delta": {
+    "type": "accountClassTransfer",
+    "usdc": "100.9",
+    "toPerp": false
+   }
+  },
+  {
+   "time": 1732865102885,
+   "hash": "0xe597d0bc04b2bf46f0d40417fb602e01d4000928df52dcf84fa9546c8c3fe4df",
+   "delta": {
+    "type": "spotGenesis",
+    "token": "HYPE",
+    "amount": "6688.45"
+   }
+  },
+  {
+   "time": 1732870357484,
+   "hash": "0xee1945074b6e6db406c20417fc3b2f018500d4c8d9d03fd7cd8e3be3b10b51b3",
+   "delta": {
+    "type": "spotGenesis",
+    "token": "WOW",
+    "amount": "58.0675"
+   }
+  }
+ ],
+ "portfolio": [
+  [
+   "day",
+   {
+    "vlm": "8606.59"
+   }
+  ],
+  [
+   "week",
+   {
+    "vlm": "84992.98"
+   }
+  ],
+  [
+   "month",
+   {
+    "vlm": "439778.33"
+   }
+  ],
+  [
+   "allTime",
+   {
+    "vlm": "80796462.6899999976"
+   }
+  ],
+  [
+   "perpDay",
+   {
+    "vlm": "8606.59"
+   }
+  ],
+  [
+   "perpWeek",
+   {
+    "vlm": "84992.98"
+   }
+  ],
+  [
+   "perpMonth",
+   {
+    "vlm": "439409.29"
+   }
+  ],
+  [
+   "perpAllTime",
+   {
+    "vlm": "71305659.4099999964"
+   }
+  ]
+ ],
+ "subAccounts": [
+  {
+   "name": "Mams",
+   "subAccountUser": "0xf3b9dd61e41784ea575195a21f0014e0b57aeb69",
+   "master": "0xbd2d67376d2e9abb125a70e817896425f5f22289",
+   "clearinghouseState": {
+    "marginSummary": {
+     "accountValue": "0.0",
+     "totalNtlPos": "0.0",
+     "totalRawUsd": "0.0",
+     "totalMarginUsed": "0.0"
+    },
+    "crossMarginSummary": {
+     "accountValue": "0.0",
+     "totalNtlPos": "0.0",
+     "totalRawUsd": "0.0",
+     "totalMarginUsed": "0.0"
+    },
+    "crossMaintenanceMarginUsed": "0.0",
+    "withdrawable": "0.0",
+    "assetPositions": [],
+    "time": 1791681986792
+   },
+   "spotState": {
+    "balances": [
+     {
+      "coin": "USDC",
+      "token": 0,
+      "total": "100.0",
+      "hold": "0.0",
+      "entryNtl": "0.0"
+     }
+    ]
+   }
+  }
+ ],
+ "hyperevm": {
+  "evmHype": 0.4904598607442571,
+  "whype": 0.0,
+  "khype": 0.04656950073352785,
+  "khypeInHype": 0.04779346327389769,
+  "hypurr": 1,
+  "kntqEvm": 0.0
+ },
+ "expected": {
+  "role": "user",
+  "staked": 103.1436,
+  "liquid": 0.541,
+  "score": 103.4141,
+  "ageDays": 961.2,
+  "tier": 2,
+  "stamps": 189,
+  "stampsBin": "0b10111101"
+ },
+ "address": "0xbd2d67376d2e9abb125a70e817896425f5f22289",
+ "capturedAtMs": 1791681994068
+}

@@ -1,0 +1,197 @@
+{
+ "userRole": {
+  "role": "user"
+ },
+ "spotClearinghouseState": {
+  "balances": [
+   {
+    "coin": "USDC",
+    "token": 0,
+    "total": "1.12306999",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "HYPE",
+    "token": 150,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "USDE",
+    "token": 235,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "USDT0",
+    "token": 268,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "USDH",
+    "token": 360,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   }
+  ],
+  "tokenToAvailableAfterMaintenance": [
+   [
+    0,
+    "1.12306999"
+   ]
+  ]
+ },
+ "delegatorSummary": {
+  "delegated": "3565.2841267",
+  "undelegated": "0.0",
+  "totalPendingWithdrawal": "0.0",
+  "nPendingWithdrawals": 0
+ },
+ "borrowLendUserState": {
+  "tokenToState": [
+   [
+    0,
+    {
+     "borrow": {
+      "basis": "181484.54999999",
+      "value": "181871.7450847"
+     },
+     "supply": {
+      "basis": "0.0",
+      "value": "0.0"
+     }
+    }
+   ],
+   [
+    150,
+    {
+     "borrow": {
+      "basis": "0.0",
+      "value": "0.0"
+     },
+     "supply": {
+      "basis": "3000.0",
+      "value": "3000.0"
+     }
+    }
+   ]
+  ],
+  "health": "atRisk",
+  "healthFactor": "0.9153986504"
+ },
+ "ledger0": [
+  {
+   "time": 1781786709004,
+   "hash": "0xa87a0b8bfae0b484a9f3043e003cc9010900237195e3d3564c42b6deb9e48e6f",
+   "delta": {
+    "type": "accountActivationGas",
+    "amount": "0.01395537",
+    "token": "HYPE"
+   }
+  },
+  {
+   "time": 1781786709004,
+   "hash": "0xa87a0b8bfae0b484a9f3043e003cc9010900237195e3d3564c42b6deb9e48e6f",
+   "delta": {
+    "type": "spotTransfer",
+    "token": "HYPE",
+    "amount": "0.97",
+    "usdcValue": "69.50729",
+    "user": "0x2222222222222222222222222222222222222222",
+    "destination": "0x515c75b73e5b653030ab8a56da9d48af90561021",
+    "fee": "0.01395537",
+    "nativeTokenFee": "0.0",
+    "nonce": 1833529,
+    "feeToken": "HYPE"
+   }
+  },
+  {
+   "time": 1781786750618,
+   "hash": "0x14e7199f8cdd54051660043e003f2702032a008527d072d7b8afc4f24bd12def",
+   "delta": {
+    "type": "cStakingTransfer",
+    "token": "HYPE",
+    "amount": "0.95604463",
+    "isDeposit": true
+   }
+  }
+ ],
+ "ledgerGenesis": [],
+ "portfolio": [
+  [
+   "day",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "week",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "month",
+   {
+    "vlm": "181482.98"
+   }
+  ],
+  [
+   "allTime",
+   {
+    "vlm": "181482.98"
+   }
+  ],
+  [
+   "perpDay",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpWeek",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpMonth",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpAllTime",
+   {
+    "vlm": "0.0"
+   }
+  ]
+ ],
+ "subAccounts": null,
+ "hyperevm": {
+  "evmHype": 0.924236985782876,
+  "whype": 0.0,
+  "khype": 0.0,
+  "khypeInHype": 0.0,
+  "hypurr": 0,
+  "kntqEvm": 0.0
+ },
+ "expected": {
+  "role": "user",
+  "staked": 3565.2841,
+  "liquid": 0.9242,
+  "score": 3565.7462,
+  "ageDays": 114.5,
+  "tier": 3,
+  "stamps": 129,
+  "stampsBin": "0b10000001"
+ },
+ "address": "0x515c75b73e5b653030ab8a56da9d48af90561021",
+ "capturedAtMs": 1791681897860
+}

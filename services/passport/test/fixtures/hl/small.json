@@ -1,0 +1,336 @@
+{
+ "userRole": {
+  "role": "user"
+ },
+ "spotClearinghouseState": {
+  "balances": [
+   {
+    "coin": "USDC",
+    "token": 0,
+    "total": "0.0015332",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "HYPE",
+    "token": 150,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "USDE",
+    "token": 235,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "USDT0",
+    "token": 268,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   },
+   {
+    "coin": "USDH",
+    "token": 360,
+    "total": "0.0",
+    "hold": "0.0",
+    "entryNtl": "0.0"
+   }
+  ],
+  "tokenToAvailableAfterMaintenance": [
+   [
+    0,
+    "0.0015332"
+   ],
+   [
+    360,
+    "0.0"
+   ]
+  ]
+ },
+ "delegatorSummary": {
+  "delegated": "0.0",
+  "undelegated": "12.05562295",
+  "totalPendingWithdrawal": "0.0",
+  "nPendingWithdrawals": 0
+ },
+ "borrowLendUserState": {
+  "tokenToState": [],
+  "health": "healthy",
+  "healthFactor": null
+ },
+ "ledger0": [
+  {
+   "time": 1763980663023,
+   "hash": "0x754fe52a1dabc055db450b8ed2785fea9c5948953221fe0901a90efaa09c5ec3",
+   "delta": {
+    "type": "deposit",
+    "usdc": "10000.0"
+   }
+  },
+  {
+   "time": 1765071726143,
+   "hash": "0xabdc4c0960d724a391dceb3031d53c243417f69d8d49e6f95c85f1a7764f9380",
+   "delta": {
+    "type": "withdraw",
+    "usdc": "4999.0",
+    "nonce": 1765071486520000,
+    "fee": "1.0"
+   }
+  },
+  {
+   "time": 1767533031766,
+   "hash": "0x6d22b41dd1a7cae8d3f20a86a88df0de0f1dfe71e8dd07825a623d00f5c23eae",
+   "delta": {
+    "type": "deposit",
+    "usdc": "4788.9"
+   }
+  }
+ ],
+ "ledgerGenesis": [],
+ "portfolio": [
+  [
+   "day",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "week",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "month",
+   {
+    "vlm": "1684358.21"
+   }
+  ],
+  [
+   "allTime",
+   {
+    "vlm": "19028901.1900000013"
+   }
+  ],
+  [
+   "perpDay",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpWeek",
+   {
+    "vlm": "0.0"
+   }
+  ],
+  [
+   "perpMonth",
+   {
+    "vlm": "1684358.21"
+   }
+  ],
+  [
+   "perpAllTime",
+   {
+    "vlm": "19028061.3599999994"
+   }
+  ]
+ ],
+ "subAccounts": [
+  {
+   "name": "Eagle",
+   "subAccountUser": "0x3c3607fa71ccc9e29849035411f57887646860ec",
+   "master": "0xdf81063cbf242a23196e3a68723f97f779bfe156",
+   "clearinghouseState": {
+    "marginSummary": {
+     "accountValue": "0.0",
+     "totalNtlPos": "0.0",
+     "totalRawUsd": "0.0",
+     "totalMarginUsed": "0.0"
+    },
+    "crossMarginSummary": {
+     "accountValue": "0.0",
+     "totalNtlPos": "0.0",
+     "totalRawUsd": "0.0",
+     "totalMarginUsed": "0.0"
+    },
+    "crossMaintenanceMarginUsed": "0.0",
+    "withdrawable": "0.0",
+    "assetPositions": [],
+    "time": 1791681906410
+   },
+   "spotState": {
+    "balances": [
+     {
+      "coin": "USDC",
+      "token": 0,
+      "total": "0.00000005",
+      "hold": "0.0",
+      "entryNtl": "0.0"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Hawk",
+   "subAccountUser": "0x1f5ebf95fc324b0ed2776750f4b0ae967315a5d2",
+   "master": "0xdf81063cbf242a23196e3a68723f97f779bfe156",
+   "clearinghouseState": {
+    "marginSummary": {
+     "accountValue": "0.0",
+     "totalNtlPos": "0.0",
+     "totalRawUsd": "0.0",
+     "totalMarginUsed": "0.0"
+    },
+    "crossMarginSummary": {
+     "accountValue": "0.0",
+     "totalNtlPos": "0.0",
+     "totalRawUsd": "0.0",
+     "totalMarginUsed": "0.0"
+    },
+    "crossMaintenanceMarginUsed": "0.0",
+    "withdrawable": "0.0",
+    "assetPositions": [],
+    "time": 1791681906410
+   },
+   "spotState": {
+    "balances": [
+     {
+      "coin": "USDC",
+      "token": 0,
+      "total": "0.0",
+      "hold": "0.0",
+      "entryNtl": "0.0"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Falcon",
+   "subAccountUser": "0xaab8973d3871a4af0f7ea9d7dd71dfb5b3f5b8de",
+   "master": "0xdf81063cbf242a23196e3a68723f97f779bfe156",
+   "clearinghouseState": {
+    "marginSummary": {
+     "accountValue": "0.0",
+     "totalNtlPos": "0.0",
+     "totalRawUsd": "0.0",
+     "totalMarginUsed": "0.0"
+    },
+    "crossMarginSummary": {
+     "accountValue": "0.0",
+     "totalNtlPos": "0.0",
+     "totalRawUsd": "0.0",
+     "totalMarginUsed": "0.0"
+    },
+    "crossMaintenanceMarginUsed": "0.0",
+    "withdrawable": "0.0",
+    "assetPositions": [],
+    "time": 1791681906410
+   },
+   "spotState": {
+    "balances": [
+     {
+      "coin": "USDC",
+      "token": 0,
+      "total": "0.0",
+      "hold": "0.0",
+      "entryNtl": "0.0"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Garuda",
+   "subAccountUser": "0xd124726d0169b5dea98f7473e007016c55406ea1",
+   "master": "0xdf81063cbf242a23196e3a68723f97f779bfe156",
+   "clearinghouseState": {
+    "marginSummary": {
+     "accountValue": "0.0",
+     "totalNtlPos": "0.0",
+     "totalRawUsd": "0.0",
+     "totalMarginUsed": "0.0"
+    },
+    "crossMarginSummary": {
+     "accountValue": "0.0",
+     "totalNtlPos": "0.0",
+     "totalRawUsd": "0.0",
+     "totalMarginUsed": "0.0"
+    },
+    "crossMaintenanceMarginUsed": "0.0",
+    "withdrawable": "0.0",
+    "assetPositions": [],
+    "time": 1791681906410
+   },
+   "spotState": {
+    "balances": [
+     {
+      "coin": "USDC",
+      "token": 0,
+      "total": "0.0",
+      "hold": "0.0",
+      "entryNtl": "0.0"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Kites",
+   "subAccountUser": "0xfddc353ad621781b726f1ef18dd23f77a208add2",
+   "master": "0xdf81063cbf242a23196e3a68723f97f779bfe156",
+   "clearinghouseState": {
+    "marginSummary": {
+     "accountValue": "0.0",
+     "totalNtlPos": "0.0",
+     "totalRawUsd": "0.0",
+     "totalMarginUsed": "0.0"
+    },
+    "crossMarginSummary": {
+     "accountValue": "0.0",
+     "totalNtlPos": "0.0",
+     "totalRawUsd": "0.0",
+     "totalMarginUsed": "0.0"
+    },
+    "crossMaintenanceMarginUsed": "0.0",
+    "withdrawable": "0.0",
+    "assetPositions": [],
+    "time": 1791681906410
+   },
+   "spotState": {
+    "balances": [
+     {
+      "coin": "USDC",
+      "token": 0,
+      "total": "0.0",
+      "hold": "0.0",
+      "entryNtl": "0.0"
+     }
+    ]
+   }
+  }
+ ],
+ "hyperevm": {
+  "evmHype": 0.0,
+  "whype": 0.0,
+  "khype": 0.0,
+  "khypeInHype": 0.0,
+  "hypurr": 0,
+  "kntqEvm": 0.0
+ },
+ "expected": {
+  "role": "user",
+  "staked": 12.0556,
+  "liquid": 0.0,
+  "score": 12.0556,
+  "ageDays": 320.6,
+  "tier": 1,
+  "stamps": 145,
+  "stampsBin": "0b10010001"
+ },
+ "address": "0xdf81063cbf242a23196e3a68723f97f779bfe156",
+ "capturedAtMs": 1791681913054
+}
