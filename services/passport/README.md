@@ -57,13 +57,15 @@ src/config.ts         env + constants
 src/ratelimit.ts      sliding-window weight limiter (HL info API, HyperEVM RPC)
 src/hl/schemas.ts     zod schemas for the HL info responses (§2)
 src/hl/client.ts      one method per HL request type; budget, retries, typed HlError
+src/evm/hyperevm.ts   HyperEVM holdings in one Multicall3 call (§3)
 scripts/probe-hl.ts   live probe, run by hand
+scripts/probe-evm.ts  live probe, run by hand
 test/setup.ts         blocks live network calls in tests
 test/mockHl.ts        fake HL /info on 127.0.0.1, answering from the fixtures
 test/fixtures/hl/     copies of docs/passport-fixtures (a test fails if they drift)
 ```
 
-Planned modules (spec §7): `evm/hyperevm.ts`, `score.ts`, `link.ts`, `attest.ts`, `relayer.ts`, `scheduler.ts`, `api.ts`, `db.ts`.
+Planned modules (spec §7): `score.ts`, `link.ts`, `attest.ts`, `relayer.ts`, `scheduler.ts`, `api.ts`, `db.ts`.
 
 ## Hyperliquid client
 
@@ -76,6 +78,17 @@ Live check by hand (uses about 202 weight per address):
 
 ```sh
 node scripts/probe-hl.ts 0xbd2d67376d2e9abb125a70e817896425f5f22289
+```
+
+## HyperEVM reader
+
+- One `aggregate3` call per wallet: block number, native HYPE, WHYPE, kHYPE, the kHYPE→HYPE rate, Hypurr and KNTQ. Always at the latest block, because HyperEVM's public RPC serves nothing else. Each call costs one unit of `EVM_REQ_PER_MIN` (HL caps the public RPC at 100/min per IP).
+- A single read that reverts comes back `null` and is listed in `failed`. Scoring counts it as 0.
+- If the whole batch fails, the reader retries (5, 10, 20 s), then throws `EvmError` `UNAVAILABLE`. viem reports a failed batch as "every call failed" rather than throwing, so the block-number read is used as a canary. An outage is never reported as an empty wallet.
+- A kHYPE rate outside 1.0–1.2 is treated as unread. The rate contracts are upgradeable proxies, and HL has no automatic slashing.
+
+```sh
+node scripts/probe-evm.ts 0xcf2115a890a19b706582692ce3513b61a507ad7c   # kHYPE ≈ 5247, rate ≈ 1.026
 ```
 
 ## Rules
