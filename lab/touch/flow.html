@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PANTHEON · Index flow lab</title>
+    <link rel="stylesheet" href="/src/flow/flow.css" />
+  </head>
+  <body>
+    <div class="frame">
+      <div class="band"><span class="tick"></span><span class="mono">[ <b>01</b> / 05 ] · THE INDEX</span></div>
+      <header class="head">
+        <p class="eyebrow"><span class="slash">//</span> How it works <span class="slash">\\</span></p>
+        <h2>Buys build the basket.<br /><span class="muted">Sells burn the supply.</span></h2>
+        <p class="sub">Every trade pays 1%. Half goes to Ascend. Our half buys the best coins on Ascend for stakers, or burns PNTH.</p>
+      </header>
+      <canvas id="flow"></canvas>
+    </div>
+    <div class="controls">
+      <label>reveal <input id="reveal" type="range" min="0" max="1" step="0.001" value="0" /></label>
+      <button id="replay">replay</button>
+      <span id="fps" class="mono"></span>
+    </div>
+    <script type="module" src="/src/flow/main.ts"></script>
+  </body>
+</html>

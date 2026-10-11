@@ -1,0 +1,22 @@
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: block;
+}
+:root { --paper: #f9f9f9; --ink: #171717; --rule: #ebebeb; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 12px/1.4 "Geist Mono", ui-monospace, monospace; }
+#app { display: grid; grid-template-columns: 1fr 300px; min-height: 100vh; }
+#stage { padding: 24px; overflow: auto; }
+#frame { width: 1112px; border: 1px solid var(--rule); margin: 0 auto; }
+#view { display: block; }
+#status { width: 1112px; margin: 12px auto 0; color: #17171799; white-space: pre-wrap; }
+#panel { border-left: 1px solid var(--rule); padding: 16px; overflow: auto; max-height: 100vh; position: sticky; top: 0; }
+#panel h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #17171766; margin: 18px 0 6px; }
+#panel label { display: grid; grid-template-columns: 96px 1fr 44px; gap: 6px; align-items: center; margin: 4px 0; }
+#panel input[type=text] { grid-column: 2 / 4; font: inherit; padding: 2px 4px; border: 1px solid var(--rule); background: #fff; }
+#panel select { grid-column: 2 / 4; font: inherit; }
+#panel output { text-align: right; color: #17171799; }
+#panel button { font: inherit; padding: 6px 10px; margin: 4px 4px 0 0; border: 1px solid var(--ink); background: var(--ink); color: #fff; border-radius: 6px; cursor: pointer; }
+#panel button.ghost { background: transparent; color: var(--ink); }

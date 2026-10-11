@@ -1,0 +1,20 @@
+@font-face { font-family: "Geist Mono"; src: url("/fonts/GeistMono.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+@font-face { font-family: "Geist"; src: url("/fonts/Geist.woff2") format("woff2"); font-weight: 100 900; font-display: block; }
+:root { --paper: #f9f9f9; --ink: #171717; --rule: #ebebeb; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: "Geist", system-ui, sans-serif; }
+.mono { font-family: "Geist Mono", ui-monospace, monospace; }
+.frame { width: 1112px; margin: 0 auto; border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); }
+.band { height: 64px; display: flex; align-items: center; gap: 24px; border-bottom: 1px solid var(--rule); position: relative; font-size: 12px; color: #17171766; padding-left: 24px; }
+.band b { color: var(--ink); font-weight: 500; }
+.band .tick { position: absolute; left: -1px; top: 26px; width: 2px; height: 12px; background: var(--ink); }
+.head { text-align: center; padding: 72px 24px 40px; }
+.eyebrow { margin: 0 0 14px; font-size: 13px; font-weight: 450; color: #171717cc; }
+.eyebrow .slash { color: #17171733; margin: 0 4px; }
+h2 { margin: 0; font-size: 52px; line-height: 56px; letter-spacing: -0.52px; font-weight: 500; }
+h2 .muted { color: #17171766; }
+.sub { margin: 16px auto 0; max-width: 520px; font-size: 16px; line-height: 24px; color: #171717cc; }
+#flow { display: block; margin: 8px 0 56px; }
+.controls { width: 1112px; margin: 12px auto 40px; display: flex; gap: 16px; align-items: center; font-size: 12px; }
+.controls input { width: 360px; }
+.controls button { font: inherit; padding: 4px 10px; }
