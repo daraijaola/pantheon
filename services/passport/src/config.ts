@@ -150,8 +150,11 @@ export const TIERS = [
   { tier: 3, name: "Pillar", minScoreE8: 1_000n * E8, minAgeDays: 90 },
 ] as const;
 
-/** HL roles that can never hold a passport (§4.2); `missing` is capped at tier 1 by age 0. */
-export const REJECTED_ROLES = ["agent", "vault", "subAccount"] as const;
+/**
+ * HL roles that may hold a passport (§4.2). `agent` is rejected as AGENT_WALLET; `vault`,
+ * `subAccount` and any role HL adds later as NOT_A_SIGNING_ACCOUNT. `missing` is capped at tier 1.
+ */
+export const SIGNING_ROLES = ["user", "missing"] as const;
 
 /** Stamp bitmap (§4.3). Bits 8–31 are reserved and must stay 0. */
 export const STAMP = {

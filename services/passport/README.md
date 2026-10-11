@@ -58,14 +58,18 @@ src/ratelimit.ts      sliding-window weight limiter (HL info API, HyperEVM RPC)
 src/hl/schemas.ts     zod schemas for the HL info responses (§2)
 src/hl/client.ts      one method per HL request type; budget, retries, typed HlError
 src/evm/hyperevm.ts   HyperEVM holdings in one Multicall3 call (§3)
+src/snapshot.ts       gathers one account's data (HL calls + HyperEVM read, in parallel)
+src/score.ts          PURE scoring: snapshot + time → tier, stamps, reasons (§4)
 scripts/probe-hl.ts   live probe, run by hand
 scripts/probe-evm.ts  live probe, run by hand
+scripts/probe-passport.ts  live end-to-end scoring, run by hand
 test/setup.ts         blocks live network calls in tests
 test/mockHl.ts        fake HL /info on 127.0.0.1, answering from the fixtures
+test/mockEvm.ts       fake HyperEVM (Multicall3 per wallet) for tests
 test/fixtures/hl/     copies of docs/passport-fixtures (a test fails if they drift)
 ```
 
-Planned modules (spec §7): `score.ts`, `link.ts`, `attest.ts`, `relayer.ts`, `scheduler.ts`, `api.ts`, `db.ts`.
+Planned modules (spec §7): `link.ts`, `attest.ts`, `relayer.ts`, `scheduler.ts`, `api.ts`, `db.ts`.
 
 ## Hyperliquid client
 
@@ -73,6 +77,7 @@ Planned modules (spec §7): `score.ts`, `link.ts`, `attest.ts`, `relayer.ts`, `s
 - **Retried:** HTTP 429, HTTP 5xx, dropped connections and timeouts (10 s per attempt). Three retries after 5, 10 and 20 s, or longer if the server sends `Retry-After`. Then the call fails with `HlError` code `UNAVAILABLE`.
 - **Not retried:** other 4xx. HL answers malformed requests with `422` and a plain-text message. These fail with `BAD_REQUEST`. A `200` that isn't JSON, or has an unexpected shape, fails with `BAD_RESPONSE`.
 - Amounts stay as HL's decimal strings. Scoring converts them to fixed-point, never via floats.
+- Spot balances may include HIP-4 outcome positions without a `token` (coin `o458`, `+103990`). They are accepted and never count as HYPE or KNTQ.
 
 Live check by hand (uses about 202 weight per address):
 
@@ -89,6 +94,23 @@ node scripts/probe-hl.ts 0xbd2d67376d2e9abb125a70e817896425f5f22289
 
 ```sh
 node scripts/probe-evm.ts 0xcf2115a890a19b706582692ce3513b61a507ad7c   # kHYPE ≈ 5247, rate ≈ 1.026
+```
+
+## Scoring
+
+`computePassport(snapshot, nowMs)` is pure: no clock reads and no I/O, so the same input always gives the same result.
+
+- **Exact maths.** Amounts are bigint in 1e8 units. HL strings are truncated past the 8th decimal (never rounded up), and strings like `1e-8` are refused. On-chain 18-decimal amounts are floored.
+- **The score.** `S = staked + 0.5 × liquid`.
+  - staked = delegated + undelegated.
+  - liquid = pending withdrawals + max(0, spot − borrowed) + sub-account spot + EVM HYPE + WHYPE + kHYPE × rate.
+- **Tiers.** T1 S ≥ 10. T2 S ≥ 100 and age ≥ 30 d. T3 S ≥ 1000 and age ≥ 90 d. A `missing` account is capped at T1.
+- **Rejections.** `AGENT_WALLET` (with the master address), `NOT_A_SIGNING_ACCOUNT` (vault, sub-account or any unknown role) and `MULTISIG_UNSUPPORTED`.
+- **Reasons** explain why the account isn't one tier higher, as codes only: `SCORE_BELOW_10|100|1000`, `ACCOUNT_AGE_BELOW_30D|90D`, `NO_HYPERCORE_HISTORY`, `PARTIAL_EVM_READ`.
+- **Cached facts.** The snapshot carries derived facts (first-seen time, genesis, all-time volume) so that re-checks can reuse cached values (§7.1, §7.2).
+
+```sh
+node scripts/probe-passport.ts 0xbd2d67376d2e9abb125a70e817896425f5f22289   # tier 2, stamps 189
 ```
 
 ## Rules

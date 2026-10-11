@@ -1,19 +1,9 @@
-import {
-  createPublicClient,
-  custom,
-  decodeFunctionData,
-  encodeFunctionResult,
-  multicall3Abi,
-  parseAbi,
-  toFunctionSelector,
-  type Address,
-  type Hex,
-} from "viem";
-import { hyperEvm } from "viem/chains";
+import type { Address } from "viem";
 import { beforeEach, describe, expect, it } from "vitest";
 import { HYPEREVM } from "../src/config.ts";
 import { EvmError, HyperEvmReader, KHYPE_RATE_BOUNDS, khypeInHype } from "../src/evm/hyperevm.ts";
 import { WeightLimiter } from "../src/ratelimit.ts";
+import { LIVE_RATE, mockHyperEvm } from "./mockEvm.ts";
 
 const WHALE = "0xcf2115a890a19b706582692ce3513b61a507ad7c" as Address; // khype_whale fixture
 const E18 = 10n ** 18n;
@@ -22,67 +12,11 @@ const E18 = 10n ** 18n;
 const live = {
   block: 48_215_210n,
   native: 3_240_004_234_594_851_000n,
-  whype: 0n,
   khype: 5_247_248_323_436_139_000_000n,
-  rate: 1_026_282_111_410_302_860n,
-  hypurr: 0n,
-  kntq: 0n,
+  rate: LIVE_RATE,
 };
 
-const abi = parseAbi([
-  "function getEthBalance(address) view returns (uint256)",
-  "function getBlockNumber() view returns (uint256)",
-  "function balanceOf(address) view returns (uint256)",
-  "function kHYPEToHYPE(uint256) view returns (uint256)",
-]);
-const sel = (sig: string) => toFunctionSelector(sig);
-
-type Call = { target: Address; callData: Hex };
-
-/** A viem transport that answers aggregate3 like HyperEVM, from `values`; records every request. */
-function mockChain() {
-  const state = {
-    values: { ...live } as Record<keyof typeof live, bigint>,
-    revert: new Set<keyof typeof live>(),
-    throwNext: 0,
-    requests: [] as Array<{ method: string; params: unknown }>,
-    calls: [] as Call[],
-  };
-
-  const answer = (c: Call): { success: boolean; returnData: Hex } => {
-    const key = ((): keyof typeof live | undefined => {
-      const s = c.callData.slice(0, 10);
-      const t = c.target.toLowerCase();
-      if (t === HYPEREVM.MULTICALL3.toLowerCase()) return s === sel("getBlockNumber()") ? "block" : "native";
-      if (t === HYPEREVM.STAKING_ACCOUNTANT.toLowerCase()) return "rate";
-      if (t === HYPEREVM.WHYPE.toLowerCase()) return "whype";
-      if (t === HYPEREVM.KHYPE.toLowerCase()) return "khype";
-      if (t === HYPEREVM.HYPURR.toLowerCase()) return "hypurr";
-      if (t === HYPEREVM.KNTQ.toLowerCase()) return "kntq";
-      return undefined;
-    })();
-    if (key === undefined || state.revert.has(key)) return { success: false, returnData: "0x" };
-    const fn = decodeFunctionData({ abi, data: c.callData }).functionName;
-    return { success: true, returnData: encodeFunctionResult({ abi, functionName: fn, result: state.values[key] }) };
-  };
-
-  const request = async ({ method, params }: { method: string; params: unknown }) => {
-    state.requests.push({ method, params });
-    if (state.throwNext > 0) {
-      state.throwNext--;
-      throw new Error("HTTP 429 Too Many Requests");
-    }
-    if (method !== "eth_call") throw new Error(`unexpected ${method}`);
-    const [tx] = params as [{ to: Address; data: Hex }, string];
-    const { args } = decodeFunctionData({ abi: multicall3Abi, data: tx.data });
-    const calls = (args[0] as readonly Call[]).map((c) => ({ target: c.target, callData: c.callData }));
-    state.calls.push(...calls);
-    return encodeFunctionResult({ abi: multicall3Abi, functionName: "aggregate3", result: calls.map(answer) });
-  };
-  // Like production: retries are the reader's, so each one passes the limiter.
-  const transport = custom({ request }, { retryCount: 0 });
-  return { state, client: createPublicClient({ chain: hyperEvm, transport }) };
-}
+const mockChain = () => mockHyperEvm({ [WHALE]: { native: live.native, khype: live.khype } });
 
 let chain: ReturnType<typeof mockChain>;
 let slept: number[];
@@ -142,7 +76,7 @@ describe("HyperEvmReader", () => {
     ["too high", KHYPE_RATE_BOUNDS.max + 1n],
     ["zero", 0n],
   ])("treats a kHYPE rate that is %s as unread", async (_label, rate) => {
-    chain.state.values.rate = rate;
+    chain.state.rate = rate;
     const h = await reader().holdings(WHALE);
     expect(h.khypeRate).toBeNull();
     expect(h.failed).toContain("khypeRate");

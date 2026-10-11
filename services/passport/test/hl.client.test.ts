@@ -83,6 +83,20 @@ describe("HlClient against the fixtures", () => {
     await expect(client().userToMultiSigSigners(addr("small"))).resolves.toBeNull();
   });
 
+  it("accepts spot entries without a token (HIP-4 outcome positions, seen live)", async () => {
+    const spot = {
+      balances: [
+        { coin: "HYPE", token: 150, total: "12.5", hold: "0.0", entryNtl: "0.0" },
+        { coin: "o458", total: "0.0", hold: "0.0", entryNtl: "0.0" },
+        { coin: "+103990", total: "0.0", hold: "0.0", entryNtl: "0.0" },
+      ],
+    };
+    mock.failNext(1, { status: 200, body: JSON.stringify(spot) });
+    const got = await client().spotClearinghouseState(addr("small"));
+    expect(got.balances.find((b) => b.token === 150)?.total).toBe("12.5");
+    expect(got.balances).toHaveLength(3);
+  });
+
   it("parses perps state in the live shape", async () => {
     await expect(client().clearinghouseState(addr("small"))).resolves.toMatchObject({ marginSummary: { accountValue: "0.0" } });
   });

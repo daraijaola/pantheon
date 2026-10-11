@@ -14,7 +14,9 @@ export const UserRole = z.looseObject({
 /** §2.2 (tests and support only). `validUntil` is null for an agent without expiry (nktkas/hyperliquid SDK types). */
 export const ExtraAgents = z.array(z.looseObject({ name: z.string(), address: hexAddress, validUntil: z.number().nullable() }));
 
-const SpotBalance = z.looseObject({ coin: z.string(), token: z.number().int(), total: decimal, hold: decimal });
+// `token` is absent on HIP-4 outcome positions (coin "o458", "+103990"): seen live 2026-10-11 on 4 of
+// 12 sampled KNTQ holders and typed in the nktkas/hyperliquid SDK. They never match HYPE or KNTQ.
+const SpotBalance = z.looseObject({ coin: z.string(), token: z.number().int().optional(), total: decimal, hold: decimal });
 
 /** §2.3. `total` includes HYPE supplied to lending. */
 export const SpotClearinghouseState = z.looseObject({ balances: z.array(SpotBalance) });
