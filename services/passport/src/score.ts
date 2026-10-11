@@ -79,13 +79,17 @@ function spotOf(spot: SpotClearinghouseState, token: number): bigint {
   return spot.balances.filter((b) => b.token === token).reduce((sum, b) => sum + pos(toE8(b.total)), 0n);
 }
 
+/** Gates (§2.1, §2.10): only an account's own key may link it. Used at challenge time and when scoring. */
+export function signingGate(role: UserRole, multiSig: MultiSigSigners): Rejection | null {
+  if (role.role === "agent") return { ok: false, error: "AGENT_WALLET", master: (role.data?.user as Address | undefined) ?? null };
+  if (!(SIGNING_ROLES as readonly string[]).includes(role.role)) return { ok: false, error: "NOT_A_SIGNING_ACCOUNT", role: role.role };
+  if (multiSig !== null) return { ok: false, error: "MULTISIG_UNSUPPORTED" };
+  return null;
+}
+
 export function computePassport(s: Snapshot, nowMs: number): Passport | Rejection {
-  // Gates (§2.1, §2.10): only an account's own key may link it.
-  if (s.role.role === "agent") return { ok: false, error: "AGENT_WALLET", master: (s.role.data?.user as Address | undefined) ?? null };
-  if (!(SIGNING_ROLES as readonly string[]).includes(s.role.role)) {
-    return { ok: false, error: "NOT_A_SIGNING_ACCOUNT", role: s.role.role };
-  }
-  if (s.multiSig !== null) return { ok: false, error: "MULTISIG_UNSUPPORTED" };
+  const rejected = signingGate(s.role, s.multiSig);
+  if (rejected) return rejected;
 
   // §4.1: staked counts 1.0 (≥ 7 days from spot); everything that can move in one transaction 0.5.
   const stakedE8 = pos(toE8(s.staking.delegated)) + pos(toE8(s.staking.undelegated));

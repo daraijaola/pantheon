@@ -60,6 +60,9 @@ src/hl/client.ts      one method per HL request type; budget, retries, typed HlE
 src/evm/hyperevm.ts   HyperEVM holdings in one Multicall3 call (§3)
 src/snapshot.ts       gathers one account's data (HL calls + HyperEVM read, in parallel)
 src/score.ts          PURE scoring: snapshot + time → tier, stamps, reasons (§4)
+src/eip712.ts         EIP-712 domain, types and Link payload shared with the UI and registry (§5.1)
+src/link.ts           challenge + signature checks for linking, hlKey (§5)
+src/db.ts             SQLite schema (§7.1) and the single-use challenge store
 scripts/probe-hl.ts   live probe, run by hand
 scripts/probe-evm.ts  live probe, run by hand
 scripts/probe-passport.ts  live end-to-end scoring, run by hand
@@ -69,7 +72,7 @@ test/mockEvm.ts       fake HyperEVM (Multicall3 per wallet) for tests
 test/fixtures/hl/     copies of docs/passport-fixtures (a test fails if they drift)
 ```
 
-Planned modules (spec §7): `link.ts`, `attest.ts`, `relayer.ts`, `scheduler.ts`, `api.ts`, `db.ts`.
+Planned modules (spec §7): `attest.ts`, `relayer.ts`, `scheduler.ts`, `api.ts`, `db.ts`.
 
 ## Hyperliquid client
 
@@ -112,6 +115,17 @@ node scripts/probe-evm.ts 0xcf2115a890a19b706582692ce3513b61a507ad7c   # kHYPE �
 ```sh
 node scripts/probe-passport.ts 0xbd2d67376d2e9abb125a70e817896425f5f22289   # tier 2, stamps 189
 ```
+
+## Linking
+
+1. `createChallenge` checks both addresses and rejects API wallets, vaults, sub-accounts and multi-sigs before anyone signs. It then stores a random 32-byte nonce valid for 15 minutes and returns the Link typed data as plain JSON.
+2. The HL wallet signs it, and the Elysium wallet signs the same data (one signature is enough if they are the same address). The UI passes the JSON through `toSignable()` first, because viem's types want bigint for `deadline`/`chainId`.
+3. `verifyLink` rebuilds the message from the stored challenge; only the signatures come from the client. It checks both signers, then consumes the nonce atomically, so only one verify can ever succeed.
+   - A bad signature does **not** burn the challenge.
+
+- **No `chainId` in the domain.** MetaMask (`@metamask/signature-controller` 40.0.0, `validation.js:106-116`) and Rabby (`provider/controller.ts:418-427`) refuse typed data whose domain `chainId` differs from the active network. The chain ID lives in the message instead.
+- **Wallet interop.** `test/wallet-interop.test.ts` drives viem/wagmi `signTypedData` through MetaMask's signer (`@metamask/eth-sig-util` V4) with the HL wallet on HyperEVM, Arbitrum and Ethereum. `package.json` `overrides` pins `uuid` ≥ 11.1.1 because of an advisory inside MetaMask's utils (dev-only).
+- **`hlKey = keccak256(pepper ‖ hlAccount)`**, which hides the HL address on-chain.
 
 ## Rules
 
