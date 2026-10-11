@@ -12,7 +12,9 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "check": "npm run typecheck && npm run lint && npm test"
+    "check": "npm run typecheck && npm run lint && npm test",
+    "test:contracts": "cd contracts-check && forge test",
+    "fixture:attestation": "node scripts/make-attestation-fixture.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

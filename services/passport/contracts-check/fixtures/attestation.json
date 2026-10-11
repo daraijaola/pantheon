@@ -1,0 +1,40 @@
+{
+  "attestor": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "registry": "0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f",
+  "first": {
+    "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+    "hlKey": "0x0cfa79b2dd0b5651283ca9bfacc64762bec7e4c23ea4b8351b81590c2fe31323",
+    "tier": 2,
+    "stamps": 5,
+    "issuedAt": 1791680000,
+    "expiry": 1792284800,
+    "deadline": 1791683600,
+    "chainId": 99801,
+    "digest": "0x7ccb3ca54d9849995906b6b6d032c565db11591f9aa8d0202436e7f42bdc07e1",
+    "sig": "0x57893fc157b12bd5f3b6ef3a203221f0d244c95d4e6bc40ad1fd29848f99529901db5bd413d3a8e9dbccb1e9dad65600142b2618a1e98d77f8d18c8bf990be0e1b"
+  },
+  "renewal": {
+    "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+    "hlKey": "0x0cfa79b2dd0b5651283ca9bfacc64762bec7e4c23ea4b8351b81590c2fe31323",
+    "tier": 3,
+    "stamps": 133,
+    "issuedAt": 1791683600,
+    "expiry": 1792288400,
+    "deadline": 1791687200,
+    "chainId": 99801,
+    "digest": "0xebfc27f6adf26d4db3212123114a705d082aff17f2dbf56877fa0ed0beb7c468",
+    "sig": "0xd747f10a9f410a1a915548ea7f7a374d249642328cc346a6a83d316d9dde7ad06477f9adaed34b02025b741cd3c24c4018f67184228087613fa59266093669d91c"
+  },
+  "downgrade": {
+    "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+    "hlKey": "0x0cfa79b2dd0b5651283ca9bfacc64762bec7e4c23ea4b8351b81590c2fe31323",
+    "tier": 0,
+    "stamps": 128,
+    "issuedAt": 1791687200,
+    "expiry": 1792292000,
+    "deadline": 1791690800,
+    "chainId": 99801,
+    "digest": "0x03ea545efc3d125e2fe80c098c2935ffd057f0b4efb81aacf493f938a69eb974",
+    "sig": "0x6f5491d27028fa4897ac26f5a255a73156ad16ed2f8c14c4edcfe01daf53fe9c6ea924b0f539d64ce73e06a49ac2cf886e8bc352df0849a33cd9dcd20758e8561b"
+  }
+}

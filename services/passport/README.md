@@ -28,6 +28,8 @@ cp .env.example .env   # local only, never committed
 | `npm run typecheck` | `tsc --noEmit` (strict) |
 | `npm run lint` | ESLint with typescript-eslint |
 | `npm run check` | All three; run before every commit |
+| `npm run test:contracts` | Foundry: the reference registry accepts our attestations (needs `forge`) |
+| `npm run fixture:attestation` | Rewrite the Foundry fixture after changing attestation code |
 
 ## Configuration
 
@@ -63,6 +65,10 @@ src/score.ts          PURE scoring: snapshot + time → tier, stamps, reasons (�
 src/eip712.ts         EIP-712 domain, types and Link payload shared with the UI and registry (§5.1)
 src/link.ts           challenge + signature checks for linking, hlKey (§5)
 src/db.ts             SQLite schema (§7.1) and the single-use challenge store
+src/attest.ts         build + sign Attestations; key/pepper file loaders (mode 0600/0400 only)
+contracts-check/      isolated Foundry project: our attestations vs the reference registry
+scripts/make-attestation-fixture.ts  writes contracts-check/fixtures/attestation.json
+scripts/probe-registry-call.ts  live, read-only: the Elysium node runs registry + our attestation in one eth_call
 scripts/probe-hl.ts   live probe, run by hand
 scripts/probe-evm.ts  live probe, run by hand
 scripts/probe-passport.ts  live end-to-end scoring, run by hand
@@ -72,7 +78,7 @@ test/mockEvm.ts       fake HyperEVM (Multicall3 per wallet) for tests
 test/fixtures/hl/     copies of docs/passport-fixtures (a test fails if they drift)
 ```
 
-Planned modules (spec §7): `attest.ts`, `relayer.ts`, `scheduler.ts`, `api.ts`, `db.ts`.
+Planned modules (spec §7): `relayer.ts`, `scheduler.ts`, `api.ts`, `db.ts`.
 
 ## Hyperliquid client
 
@@ -126,6 +132,17 @@ node scripts/probe-passport.ts 0xbd2d67376d2e9abb125a70e817896425f5f22289   # ti
 - **No `chainId` in the domain.** MetaMask (`@metamask/signature-controller` 40.0.0, `validation.js:106-116`) and Rabby (`provider/controller.ts:418-427`) refuse typed data whose domain `chainId` differs from the active network. The chain ID lives in the message instead.
 - **Wallet interop.** `test/wallet-interop.test.ts` drives viem/wagmi `signTypedData` through MetaMask's signer (`@metamask/eth-sig-util` V4) with the HL wallet on HyperEVM, Arbitrum and Ethereum. `package.json` `overrides` pins `uuid` ≥ 11.1.1 because of an advisory inside MetaMask's utils (dev-only).
 - **`hlKey = keccak256(pepper ‖ hlAccount)`**, which hides the HL address on-chain.
+
+## Attestations
+
+- `buildAttestation` sets issuedAt = now, expiry = +7 d, deadline = +1 h, chainId 99801.
+  - issuedAt is bumped to `lastIssuedAt + 1` when needed, because the registry wants strictly newer attestations.
+  - It refuses anything the registry would reject: tier > 3, stamp bits 8–31, a zero account or hlKey, or an issuedAt more than 10 min ahead.
+- `signAttestation` produces the 65-byte, low-s signature `HypePassportRegistry.submit` verifies. It reproduces the spec's §5.1 cross-check digest and signature byte for byte.
+- `contracts-check/` holds a reference copy of the spec's Appendix A registry (not deployed from here; the real one is P6 in `src/passport/`). Its 6 Foundry tests submit our signed attestations: accepted, renewal, tier-0 downgrade, replay, deadline, tampering. They also pass on a fork of Elysium testnet (`forge test --fork-url https://testnet-rpc.elysium.kinetiq.xyz`).
+- `loadAttestor` / `loadPepper` refuse files that group or others can read. Create them with `umask 077` (for example `umask 077; cast wallet new | ...`) so they start out as 0600.
+- **Live check (no transaction):** `forge build` in `contracts-check`, then `node scripts/probe-registry-call.ts`. A single `eth_call` makes the Elysium testnet node deploy the reference registry and submit a fresh attestation signed by `attest.ts`, all inside the call. Nothing is broadcast and no real key is used.
+  - On 2026-10-11 it returned: accepted (tier 2, 1.20×), a tampered tier → `BadSignature`, a late one → `DeadlinePassed`, signed for another registry → `BadSignature`.
 
 ## Rules
 

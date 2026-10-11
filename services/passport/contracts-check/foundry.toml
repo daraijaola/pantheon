@@ -1,0 +1,11 @@
+# Isolated Foundry project: proves the Passport service's attestations are accepted by the
+# reference HypePassportRegistry. Not part of the root build or CI. Run: npm run test:contracts
+[profile.default]
+src = "src"
+test = "test"
+out = "out"
+cache_path = "cache"
+libs = ["../../../lib"]
+solc_version = "0.8.30"
+evm_version = "cancun"
+fs_permissions = [{ access = "read", path = "./fixtures" }]
