@@ -1,0 +1,728 @@
+/* Landing-page showcase sections (How it works, What you get). Uses the site tokens when present, lab fallbacks otherwise. */
+.section {
+  --ink: var(--color-ink, #171717);
+  --paper: var(--color-paper, #f9f9f9);
+  --rule: var(--color-rule, #ebebeb);
+  --sans: var(--font-geist-sans, "Geist"), ui-sans-serif, system-ui, sans-serif;
+  --mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, monospace;
+  position: relative;
+  width: min(1112px, calc(100% - 32px));
+  margin: 0 auto;
+  font-family: var(--sans);
+  color: var(--ink);
+}
+
+/* ── header ── */
+.head {
+  padding: 112px 24px 56px;
+  text-align: center;
+}
+.eyebrow {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 450;
+  color: color-mix(in srgb, var(--ink) 80%, transparent);
+}
+.eyebrow span {
+  margin: 0 4px;
+  color: color-mix(in srgb, var(--ink) 20%, transparent);
+}
+.h2 {
+  text-wrap: balance;
+  margin: 14px 0 0;
+  font-size: 52px;
+  line-height: 56px;
+  letter-spacing: -0.52px;
+  font-weight: 500;
+}
+.h2 span {
+  color: color-mix(in srgb, var(--ink) 40%, transparent);
+}
+.sub {
+  margin: 16px auto 0;
+  max-width: 520px;
+  font-size: 16px;
+  line-height: 24px;
+  color: color-mix(in srgb, var(--ink) 80%, transparent);
+}
+
+/* ── body: steps on the left, live preview on the right ── */
+.body {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.steps {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--rule);
+}
+.step {
+  position: relative;
+  flex: 1 1 0;
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  grid-template-areas:
+    "num title"
+    ".   desc";
+  align-content: center;
+  row-gap: 6px;
+  padding: 22px 28px 22px 24px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.step:nth-child(4) {
+  border-bottom: 1px solid var(--rule);
+}
+.step:hover {
+  background: color-mix(in srgb, var(--ink) 2%, transparent);
+}
+.stepOn {
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+.stepOn::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -1px;
+  bottom: -1px;
+  width: 3px;
+  background: var(--ink);
+}
+.stepNum {
+  grid-area: num;
+  align-self: center;
+  font: 500 12px/26px var(--mono);
+  color: color-mix(in srgb, var(--ink) 40%, transparent);
+  transition: color 0.2s;
+}
+.stepOn .stepNum {
+  color: var(--ink);
+}
+.stepTitle {
+  grid-area: title;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 26px;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+  transition: color 0.2s;
+}
+.stepOn .stepTitle {
+  color: var(--ink);
+}
+.stepBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 12px/1 var(--mono);
+  color: color-mix(in srgb, var(--ink) 45%, transparent);
+}
+.stepDesc {
+  grid-area: desc;
+  font-size: 15px;
+  line-height: 22px;
+  color: color-mix(in srgb, var(--ink) 45%, transparent);
+  transition: color 0.2s;
+}
+.stepOn .stepDesc {
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
+}
+.progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--ink);
+  transform-origin: left;
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 470px;
+  padding: 48px 40px;
+  background-image: radial-gradient(color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 1px);
+  background-size: 16px 16px;
+  background-position: 8px 8px;
+}
+.example {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  font: 10px var(--mono);
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+.stageDesc {
+  display: none;
+}
+.cardWrap {
+  width: 100%;
+  max-width: 440px;
+  animation: rise 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── the app card ── */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 12px 32px -8px rgb(0 0 0 / 0.1);
+  font-size: 15px;
+}
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 24px;
+}
+.cardHead b,
+.row b {
+  font-weight: 500;
+}
+.cardFoot {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+  font-size: 12px;
+}
+.brandRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.muted {
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.strong {
+  font-weight: 500;
+}
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* swap fields */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 3.5%, transparent);
+}
+.fieldLabel {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.fieldRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.amount {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  font: 500 30px/36px var(--mono);
+  letter-spacing: -0.5px;
+}
+.placeholder {
+  color: color-mix(in srgb, var(--ink) 25%, transparent);
+}
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 26px;
+  margin-left: 2px;
+  background: var(--ink);
+  animation: blink 0.9s steps(2, start) infinite;
+}
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px 0 6px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 500;
+  font-size: 14px;
+}
+.chipLogo {
+  width: 20px;
+  height: 20px;
+}
+.chipIcon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font: 600 11px var(--mono);
+}
+.chipIcon svg {
+  fill: #fff;
+}
+.swapArrow {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -24px auto;
+  z-index: 1;
+  border: 3px solid #fff;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ink) 6%, #fff);
+  font-size: 13px;
+}
+.primary {
+  height: 42px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--ink);
+  color: #fff;
+  font: 500 14px var(--sans);
+  box-shadow:
+    inset 0 -6px 12px rgb(255 255 255 / 0.08),
+    0 2px 4px rgb(0 0 0 / 0.12);
+  transition: transform 0.12s, background-color 0.12s;
+}
+.pressed {
+  transform: scale(0.985);
+  background: color-mix(in srgb, var(--ink) 85%, #fff);
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.check {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+}
+
+/* stake */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 3.5%, transparent);
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.slider {
+  position: relative;
+  height: 4px;
+  margin: 6px 7px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.sliderFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--ink);
+}
+.sliderKnob {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%);
+}
+.note {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 18px;
+  color: color-mix(in srgb, var(--ink) 65%, transparent);
+}
+.lock {
+  flex: none;
+  margin-top: 2px;
+  fill: currentColor;
+  stroke: currentColor;
+}
+.short {
+  display: none;
+}
+.stepsFoot {
+  padding: 20px 24px 22px 60px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+}
+.stepsFoot span {
+  display: inline-block;
+  transition: transform 0.2s;
+}
+.stepsFoot:hover span {
+  transform: translateX(3px);
+}
+
+/* earn */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 11px var(--mono);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+.coins {
+  display: flex;
+  flex-direction: column;
+}
+.coin {
+  display: grid;
+  grid-template-columns: 24px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) calc(var(--lit, 0) * 4%), transparent);
+}
+.coinIcon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  font: 600 11px var(--mono);
+}
+.coinName {
+  font-weight: 500;
+  font-size: 14px;
+}
+.plus {
+  font: 11px var(--mono);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+/* boost */
+.boost {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 3.5%, transparent);
+}
+.meter {
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 3px;
+  height: 14px;
+}
+.tick {
+  border-radius: 1.5px;
+  background: var(--ink);
+  transition: opacity 0.2s;
+}
+.caption {
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.tiers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.tier {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  background: #fff;
+  font-size: 12px;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+.tier b {
+  font: 500 14px var(--mono);
+}
+.tierOn {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+
+/* logos: black-and-white version on demand */
+.mono {
+  filter: grayscale(1) brightness(0);
+}
+.ink {
+  filter: brightness(0);
+}
+
+/* ── phones: steps become a 4-up tab row, the description moves above the card ── */
+@media (max-width: 900px) {
+  .head {
+    padding: 72px 20px 40px;
+  }
+  .h2 {
+    font-size: 36px;
+    line-height: 40px;
+    letter-spacing: -0.36px;
+  }
+  .body {
+    grid-template-columns: 1fr;
+  }
+  .steps {
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+    overflow-x: auto;
+  }
+  .step {
+    flex: 1 0 auto;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "num"
+      "title";
+    row-gap: 2px;
+    padding: 14px 14px 16px;
+    border-bottom: 0;
+    border-right: 1px solid var(--rule);
+  }
+  .step:nth-child(4) {
+    border-right: 0;
+  }
+  .stepOn::before {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: -1px;
+    width: auto;
+    height: 3px;
+  }
+  .stepNum {
+    line-height: 16px;
+  }
+  .stepDesc,
+  .stepBrand,
+  .long,
+  .stepsFoot {
+    display: none;
+  }
+  .short {
+    display: inline;
+  }
+  .step {
+    flex: 1 1 0;
+  }
+  .stepTitle {
+    font-size: 14px;
+    line-height: 20px;
+    white-space: nowrap;
+  }
+  .progress {
+    bottom: -1px;
+  }
+  .stage {
+    min-height: 0;
+    padding: 28px 16px 32px;
+    gap: 18px;
+    place-items: stretch;
+  }
+  .stageDesc {
+    display: block;
+    margin: 0;
+    font-size: 15px;
+    line-height: 22px;
+    color: color-mix(in srgb, var(--ink) 70%, transparent);
+  }
+  .cardWrap {
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardWrap,
+  .caret,
+  .liveDot {
+    animation: none;
+  }
+}
+
+/* ── mirrored layout: preview on the left, steps on the right ── */
+.reverse {
+  grid-template-columns: 1fr 380px;
+}
+.reverse .steps {
+  order: 2;
+  border-right: 0;
+  border-left: 1px solid var(--rule);
+}
+.reverse .stage {
+  order: 1;
+}
+
+/* ── receipts (How it works) ── */
+.receipt {
+  gap: 12px;
+}
+.tag {
+  padding: 3px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  font: 500 11px var(--mono);
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+.tagInk {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.bigLine {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+}
+.big {
+  min-height: 36px;
+  font: 500 30px/36px var(--mono);
+  letter-spacing: -0.5px;
+}
+.dash {
+  height: 0;
+  border-top: 1px dashed color-mix(in srgb, var(--ink) 22%, transparent);
+}
+.rRow {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 15px;
+}
+.rSub {
+  padding-left: 14px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.rStrong {
+  color: var(--ink);
+  font-weight: 500;
+}
+.coinLine {
+  display: grid;
+  grid-template-columns: 76px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.bar {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 2px;
+  height: 8px;
+}
+.bar i {
+  border-radius: 1px;
+  background: var(--ink);
+  transition: opacity 0.15s;
+}
+.strikeWrap {
+  position: relative;
+}
+.strike {
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  top: 50%;
+  height: 1.5px;
+  background: var(--ink);
+  transform-origin: left;
+}
+.outline {
+  height: 40px;
+  border: 1px solid var(--ink);
+  border-radius: 11px;
+  background: #fff;
+  color: var(--ink);
+  font: 500 14px var(--sans);
+}
+.okDot {
+  margin-left: 8px;
+  font-family: var(--sans);
+}
+
+@media (max-width: 900px) {
+  .reverse {
+    grid-template-columns: 1fr;
+  }
+  .reverse .steps {
+    order: 0;
+    border-left: 0;
+  }
+}

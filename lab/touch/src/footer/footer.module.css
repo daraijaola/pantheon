@@ -1,0 +1,210 @@
+/* The footer: a hairline grid of cells (brand, partners, links, fine print), then the name in code. */
+.footer {
+  --ink: var(--color-ink, #171717);
+  --paper: var(--color-paper, #f9f9f9);
+  --rule: var(--color-rule, #ebebeb);
+  --sans: var(--font-geist-sans, "Geist"), ui-sans-serif, system-ui, sans-serif;
+  --mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, monospace;
+  width: min(1112px, calc(100% - 32px));
+  margin: 0 auto;
+  border-top: 1px solid var(--rule);
+  font-family: var(--sans);
+  color: var(--ink);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.cell,
+.col {
+  margin: 0;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.ink {
+  display: block;
+  width: auto;
+  filter: brightness(0);
+}
+.muted {
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+/* ── row 1: who we are, where we launch ── */
+.brand {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 248px;
+  padding: 40px 32px 28px;
+}
+.tagline {
+  margin: 24px 0 0;
+  font-size: 24px;
+  line-height: 30px;
+  letter-spacing: -0.24px;
+  font-weight: 500;
+}
+.status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: auto 0 0;
+  padding-top: 28px;
+  font: 12px/16px var(--mono);
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.partner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+.partner:hover,
+.follow:hover {
+  background: color-mix(in srgb, var(--ink) 2.5%, transparent);
+}
+.label {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.arrow {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+
+/* ── row 2: links ── */
+.colTitle {
+  margin: 0;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 14px;
+  font-weight: 500;
+}
+.col ul {
+  margin: 0;
+  padding: 10px 0 18px;
+  list-style: none;
+}
+.col a,
+.soon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 24px;
+  font-size: 14px;
+  line-height: 20px;
+  text-decoration: none;
+}
+.col a {
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+  transition: color 0.15s;
+}
+.col a:hover {
+  color: var(--ink);
+}
+.soon {
+  flex-wrap: wrap;
+  row-gap: 4px;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--ink) 40%, transparent);
+}
+.soon small {
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  font: 10px/1 var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.follow {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 24px 22px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+.follow b {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+}
+.follow .muted {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 18px;
+}
+.followCta {
+  margin-top: auto;
+  font-size: 14px;
+  font-weight: 450;
+}
+
+/* ── row 3: the fine print ── */
+.copy,
+.notice {
+  padding: 18px 24px;
+  font-size: 12px;
+  line-height: 18px;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.copy {
+  font-family: var(--mono);
+}
+.notice {
+  grid-column: span 3;
+}
+
+/* ── the name, in code ── */
+.giant {
+  padding: 64px 24px 56px;
+}
+.giant canvas {
+  display: block;
+  margin: 0 auto;
+}
+
+@media (max-width: 700px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .brand {
+    min-height: 0;
+    padding: 32px 20px 24px;
+  }
+  .tagline {
+    font-size: 22px;
+    line-height: 28px;
+  }
+  .partner {
+    gap: 28px;
+    padding: 20px;
+  }
+  .copy,
+  .notice {
+    grid-column: span 2;
+    padding: 16px 20px;
+  }
+  .giant {
+    padding: 40px 16px 32px;
+  }
+}
