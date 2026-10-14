@@ -21,15 +21,15 @@ const OUT = {
 
 type Item = { icon: IconName; title: string; desc: string; href?: string }; // no href = coming soon
 const FEATURES: Item[] = [
-  { icon: "passport", title: "HYPE Passport", desc: "Prove you hold HYPE. Earn up to 1.25× and get a vote.", href: "/passport" },
-  { icon: "trials", title: "The Trials", desc: "Each week, holders vote three coins into the basket.", href: "/trials" },
+  { icon: "passport", title: "HYPE Passport", desc: "Prove you hold HYPE and earn up to 1.25× more.", href: "/passport" },
+  { icon: "trials", title: "The Trials", desc: "How a coin earns its place in the basket.", href: "/trials" },
   { icon: "covenant", title: "Covenant", desc: "The ownerless contract every fee goes through.", href: "/covenant" },
   { icon: "delphi", title: "DELPHI", desc: "An AI that checks every coin for cheating and shows its proof.", href: "/delphi" },
 ];
 const RESOURCES: Item[] = [
   { icon: "terms", title: "Terms of use", desc: "The plain rules for using this site.", href: "/terms" },
   { icon: "github", title: "GitHub", desc: "The code behind PANTHEON.", href: OUT.github },
-  { icon: "x", title: "X", desc: "Launch news and the weekly vote.", href: OUT.x },
+  { icon: "x", title: "X", desc: "Launch news and every basket change.", href: OUT.x },
 ];
 
 const external = (href?: string) => (href?.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {});
@@ -159,7 +159,7 @@ export function SiteHeader({ code }: { code: string }) {
                   <span className={m.ext}>↗</span>
                 </span>
                 <MiniTemple code={code} className={m.mini} />
-                <span className={m.featuredText}>Ten coins hold it up. See who made it in this week.</span>
+                <span className={m.featuredText}>Up to ten coins hold it up. See which made it in.</span>
               </A>
               <a href={OUT.ascend} className={m.launch} onClick={close} {...external(OUT.ascend)}>
                 <span className={m.arrow}>→</span>

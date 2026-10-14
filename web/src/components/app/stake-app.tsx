@@ -163,7 +163,7 @@ function Stake({ d }: { d: Deployment }) {
           <div className={s.cell}>
             <p className={s.label}>The basket</p>
             {basket.length === 0 ? (
-              <p className={s.empty}>No basket yet. The first list is voted in through the Trials.</p>
+              <p className={s.empty}>No basket yet. The first list is waiting out its 24 hours on-chain. Until it starts, fees reach stakers as USDC.</p>
             ) : (
               <ul className={s.basket}>
                 {basket.map((c) => (

@@ -14,7 +14,7 @@ export type Feature = {
   diagram: ReactNode; // a worked example, shown beside the text
   steps: { title: string; desc: string }[];
   details: { title: string; sub: string; head: string[]; rows: ReactNode[][]; note?: string };
-  faq: { q: string; a: string }[];
+  faq: { q: string; a: ReactNode }[];
 };
 
 export function FeaturePage({ page }: { page: Feature }) {

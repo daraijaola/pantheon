@@ -110,7 +110,7 @@ export function Footer({ code, quiet = false }: { code: string; quiet?: boolean 
           <XLogo />
           <span>
             <b>@pantheonindex</b>
-            <span className={f.muted}>Launch news and the weekly vote.</span>
+            <span className={f.muted}>Launch news and every basket change.</span>
           </span>
           <span className={f.followCta}>Follow ↗</span>
         </a>

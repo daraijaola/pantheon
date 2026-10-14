@@ -327,12 +327,12 @@ export function Basket({ code, logos = "mono" }: { code: string; logos?: Logos }
           <span>{"//"}</span> The basket <span>{"\\\\"}</span>
         </p>
         <h2 id="basket-title" className={sc.h2}>
-          Ten coins hold it up.
+          Up to ten coins hold it up.
           <br />
-          <span>You help pick them.</span>
+          <span>Earned, not bought.</span>
         </h2>
         <p className={sc.sub}>
-          Seven earn their place by trading on Ascend. Three are voted in each week by HYPE Passport holders. No coin can be more than 20%.
+          They earn their place by trading on Ascend, and a coin DELPHI flags can never get in. Soon, HYPE Passport holders will vote three in each week. No coin can be more than 20%.
         </p>
       </header>
 
@@ -359,7 +359,7 @@ export function Basket({ code, logos = "mono" }: { code: string; logos?: Logos }
           ))}
         </ol>
         <p className={b.key}>
-          Example basket. <HypeMark logos={logos} size={12} /> marks the coins voted in by HYPE Passport holders.
+          Example basket. <HypeMark logos={logos} size={12} /> marks the seats HYPE Passport holders will vote on.
         </p>
       </div>
 

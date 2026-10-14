@@ -83,7 +83,7 @@ export function PassportCard() {
         <span className={`${s.num} ${s.strong}`}>1.20×</span>
       </div>
       <div className={s.rRow} style={line(t, 1400)}>
-        <span>Votes in the Trials</span>
+        <span>Votes in the Trials (soon)</span>
         <span className={`${s.num} ${s.strong}`}>2</span>
       </div>
       <div className={c.chips} style={line(t, 1600)}>
@@ -111,7 +111,7 @@ export function BallotCard() {
     <div className={s.card}>
       <div className={s.cardHead}>
         <span className={s.brandRow}>
-          <b>The Trials · week 12</b>
+          <b>The Trials · preview</b>
         </span>
         <span className={`${s.num} ${s.muted} ${c.small}`}>closes in 2d 14h</span>
       </div>
@@ -141,7 +141,7 @@ export function BallotCard() {
         Sign your vote · free
       </button>
       <p className={s.note} style={line(t, 1700)}>
-        The top three go in after 24 hours, unless Ascend vetoes one.
+        Coming after launch. The top three will go in after 24 hours, unless the guardian vetoes one.
       </p>
     </div>
   );

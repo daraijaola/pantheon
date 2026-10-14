@@ -152,7 +152,7 @@ function Passport({ d }: { d: Deployment }) {
                   <span className={s.tierName}>Tier {t.tier}</span>
                   <span className={s.tierNeed}>{t.need}</span>
                   <span className={s.num}>
-                    {t.boost} · {t.votes} {t.votes === 1 ? "vote" : "votes"}
+                    {t.boost} · {t.votes} {t.votes === 1 ? "vote" : "votes"} (soon)
                   </span>
                 </li>
               ))}
@@ -400,6 +400,7 @@ function PassportCard(p: {
             <div className={s.stat}>
               <span className={s.statK}>Votes in the Trials</span>
               <span className={s.statVStrong}>{votes}</span>
+              <span className={s.statNote}>Once voting opens</span>
             </div>
             <div className={s.stat}>
               <span className={s.statK}>Valid for</span>
