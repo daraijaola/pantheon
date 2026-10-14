@@ -6,6 +6,7 @@
 //   node scripts/explain.ts --all         every coin
 //   node scripts/explain.ts --force       explain again even if the coin's data has not changed
 //   node scripts/explain.ts --dry         list the coins and print the first one's coin_report; no Claude calls
+// Every run also rewrites out/site.json, the file the website reads.
 import Anthropic from "@anthropic-ai/sdk";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -13,6 +14,7 @@ import { getAddress, isAddress } from "viem";
 import { costOf, explainCoin, explanationKey, toExplainedMarkdown, type Explained } from "../src/ai/explain.ts";
 import { loadApiKey } from "../src/ai/key.ts";
 import { coinReport } from "../src/ai/tools.ts";
+import { siteBundle, type Saved } from "../src/ai/site.ts";
 import { loadWorkspace } from "../src/ai/workspace.ts";
 import { makeClient, mapLimit } from "../src/chain.ts";
 import { loadConfig } from "../src/config.ts";
@@ -36,7 +38,7 @@ const log = (m: string) => console.error(`[delphi-ai] ${m}`);
 try {
   const client = makeClient(cfg.elysiumRpc, (ms, what) => log(`RPC asked us to slow down (${what}): waiting ${ms / 1000} s`));
   // Cached funding only: explaining never spends the explorer allowance.
-  const { coins } = await collect({ client, store, cfg, explorer: null, log });
+  const { coins, head } = await collect({ client, store, cfg, explorer: null, log });
   const now = new Date();
   const reports = coins.map((d) => analyze(d, { explorerWeb: cfg.explorerWeb, now }));
   const ws = await loadWorkspace({ client, store, cfg, coins, reports });
@@ -61,7 +63,8 @@ try {
     await mapLimit(todo, 3, async (r) => {
       try {
         const x = await explainCoin(claude, ws, r.coin.token, { now });
-        writeFileSync(saved(r), `${JSON.stringify(x, null, 2)}\n`);
+        // The report is saved with its explanation, so the two are always shown together.
+        writeFileSync(saved(r), `${JSON.stringify({ ...x, report: r }, null, 2)}\n`);
         writeFileSync(join(dir, `${r.coin.token}.ai.md`), toExplainedMarkdown(r, x, cfg.explorerWeb));
         done.push(x);
         log(`${r.coin.token} ${r.verdict}: ${x.toolCalls.length} tool calls, ${x.usage.requests} requests, about $${costOf(x.usage).toFixed(3)}`);
@@ -78,7 +81,7 @@ try {
   const order: Record<CoinReport["verdict"], number> = { FLAG: 0, WATCH: 1, CLEAN: 2, NOT_ENOUGH_DATA: 3 };
   const rows = reports
     .filter((r) => existsSync(saved(r)))
-    .map((r) => ({ r, x: JSON.parse(readFileSync(saved(r), "utf8")) as Explained }))
+    .map((r) => ({ r, x: JSON.parse(readFileSync(saved(r), "utf8")) as Saved }))
     .sort((a, b) => order[a.r.verdict] - order[b.r.verdict] || b.r.stats.trades - a.r.stats.trades);
   if (!dry) {
     const lines = [
@@ -97,6 +100,11 @@ try {
     writeFileSync(join(cfg.outDir, "explained.md"), lines.join("\n"));
     log(`${rows.length} explained coins listed in ${cfg.outDir}/explained.md`);
   }
+
+  // The website's data: every verdict, and each explanation next to the report it explains.
+  const bundle = siteBundle({ reports, saved: rows.map(({ x }) => x), explorerWeb: cfg.explorerWeb, head: head.toString(), now });
+  writeFileSync(join(cfg.outDir, "site.json"), `${JSON.stringify(bundle)}\n`);
+  log(`site data for ${bundle.coins.length} coins (${Object.keys(bundle.explained).length} explained) in ${cfg.outDir}/site.json`);
 } finally {
   store.close();
 }

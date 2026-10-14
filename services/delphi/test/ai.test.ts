@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { explainCoin, explanationKey, plain, toExplainedMarkdown, validateExplanation, type Explanation } from "../src/ai/explain.ts";
 import { KeyError, loadApiKey } from "../src/ai/key.ts";
 import { amount, coinReport, listClusters, listHolders, listTrades, lookupTransaction, ToolInputError, walletProfile } from "../src/ai/tools.ts";
+import { siteBundle, type Saved } from "../src/ai/site.ts";
 import { makeWorkspace, type Currency, type FundingView } from "../src/ai/workspace.ts";
 import { analyze } from "../src/report.ts";
 import type { CoinData } from "../src/types.ts";
@@ -295,5 +296,41 @@ describe("explainCoin (against a local fake of the Claude API)", () => {
     expect(JSON.parse(String(results(1).content))).toMatchObject({ verdict: "FLAG" });
     expect(results(2)).toMatchObject({ is_error: true });
     expect(JSON.stringify(results(2).content)).toContain(hash(0xbad));
+  });
+});
+
+describe("siteBundle", () => {
+  const saved = (report: ReturnType<typeof workspace>["report"], key: string, withReport = false): Saved => ({
+    token: report.coin.token,
+    verdict: report.verdict,
+    rules: report.rules,
+    model: "claude-opus-5-5",
+    prompt: "explain-v1",
+    key,
+    generatedAt: "2026-10-14T00:00:00.000Z",
+    explanation: { verdict: report.verdict, headline: "Two linked wallets traded with themselves.", summary: "x".repeat(40), points: [], caveats: [] },
+    toolCalls: [],
+    usage: { requests: 1, input: 0, cacheWrite: 0, cacheRead: 0, output: 0 },
+    ...(withReport ? { report } : {}),
+  });
+
+  it("lists every coin worst first and pairs each explanation with the data it explained", () => {
+    const { ws, report } = workspace();
+    const reports = [...ws.reports.values()];
+    report.coin.name = "Bad\u202eName";
+    const b = siteBundle({ reports, saved: [saved(report, explanationKey(report))], explorerWeb: `${WEB}/`, head: "123" });
+    expect(b.counts).toMatchObject({ coins: 2, FLAG: 1 });
+    expect(b.coins[0]).toMatchObject({ token: TOKEN, verdict: "FLAG", name: "BadName", headline: "Two linked wallets traded with themselves." });
+    expect(b.coins[1]!.headline).toBeUndefined();
+    expect(b.explained[TOKEN.toLowerCase()]!.report.verdict).toBe("FLAG");
+    expect(b.explorer).toBe(WEB);
+  });
+
+  it("drops an explanation whose data has changed, unless it saved its own report", () => {
+    const { ws, report } = workspace();
+    const reports = [...ws.reports.values()];
+    expect(siteBundle({ reports, saved: [saved(report, "stale")], explorerWeb: WEB, head: "1" }).explained).toEqual({});
+    const kept = siteBundle({ reports, saved: [saved(report, "stale", true)], explorerWeb: WEB, head: "1" });
+    expect(Object.keys(kept.explained)).toEqual([TOKEN.toLowerCase()]);
   });
 });
