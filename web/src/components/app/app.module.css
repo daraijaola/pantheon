@@ -357,7 +357,167 @@
   color: color-mix(in srgb, var(--ink) 50%, transparent);
 }
 
+/* the Passport */
+.lead {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 22px;
+}
+.reasons {
+  margin: 0 0 16px;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 21px;
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+}
+.addrInput {
+  font: 500 16px/24px var(--mono) !important;
+}
+.list {
+  margin-bottom: 14px;
+}
+.steps {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.step {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.step:last-child {
+  border-bottom: 0;
+}
+.stepMark,
+.stepDone {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 12px;
+}
+.stepMark {
+  border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent);
+}
+.stepDone {
+  background: var(--ink);
+  color: #fff;
+}
+.stepText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.stepTitle {
+  font-size: 14px;
+  font-weight: 500;
+}
+.stepNote {
+  font-size: 13px;
+  line-height: 18px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.linkBtn {
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 13px/1 inherit;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.passport {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.portrait {
+  display: block;
+  width: 160px;
+  height: 160px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: #fff;
+}
+.passportBody {
+  min-width: 0;
+}
+.passportBody .label {
+  margin-bottom: 4px;
+}
+.tierBig {
+  margin: 0 0 16px;
+  font-size: 28px;
+  line-height: 32px;
+  font-weight: 500;
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+.badge {
+  padding: 4px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+}
+.actionsRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+.actionsRow .linkBtn {
+  margin-top: 0;
+}
+.tiers {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tiers li {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 2px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+}
+.tiers li:last-child {
+  border-bottom: 0;
+}
+.tierName {
+  grid-row: span 2;
+  font-weight: 500;
+}
+.tierNeed {
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+}
+.tiers .num {
+  text-align: left;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
 @media (max-width: 900px) {
+  .passport {
+    grid-template-columns: 1fr;
+  }
+  .portrait {
+    width: 120px;
+    height: 120px;
+  }
   .head {
     flex-direction: column;
     align-items: flex-start;

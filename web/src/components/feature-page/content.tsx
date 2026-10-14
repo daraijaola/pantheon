@@ -4,8 +4,6 @@
 import { BallotCard, CovenantCard, PassportCard } from "./cards";
 import type { Feature } from "./feature-page";
 
-const X = "https://x.com/pantheonindex";
-
 export const PASSPORT: Feature = {
   eyebrow: "HYPE Passport",
   title: (
@@ -17,8 +15,8 @@ export const PASSPORT: Feature = {
   ),
   sub: "One signature links your Hyperliquid wallet to Elysium. Your Passport then boosts what you earn from staking PNTH and gives you votes in the Trials.",
   actions: [
-    { label: "See the tiers", href: "#details", primary: true },
-    { label: "Follow for launch", href: X },
+    { label: "Get your Passport", href: "/passport/get", primary: true },
+    { label: "See the tiers", href: "#details" },
   ],
   diagram: <PassportCard />,
   steps: [
