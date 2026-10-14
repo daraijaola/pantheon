@@ -1,0 +1,128 @@
+/* The Covenant launch screen: the app's calm cells, plus a pick-one list and the coins already on it. */
+.pair {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.choice,
+.choiceOn {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+.choiceOn {
+  border-color: var(--ink);
+}
+.choice input,
+.choiceOn input {
+  margin: 3px 0 0;
+  accent-color: var(--ink);
+}
+.choiceText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.choiceLabel {
+  font-size: 14px;
+  font-weight: 500;
+}
+.choiceNote {
+  font-size: 13px;
+  line-height: 18px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.rules {
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+}
+.rules li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 14px;
+}
+.rules li span:first-child {
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.rules li span:last-child {
+  text-align: right;
+}
+
+.coins {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.coins li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.coins li:last-child {
+  border-bottom: 0;
+}
+.coins a {
+  font: 500 13px var(--mono);
+  color: var(--ink);
+  text-decoration: none;
+}
+.coins a:hover {
+  text-decoration: underline;
+}
+.how {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+
+.done {
+  margin: 0;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--ink) 3.5%, transparent);
+}
+.doneTitle {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0;
+  font-size: 14px;
+}
+.links a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+  .pair {
+    grid-template-columns: 1fr;
+  }
+  .done {
+    padding: 20px;
+  }
+}

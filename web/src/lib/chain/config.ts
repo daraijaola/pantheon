@@ -14,7 +14,11 @@ export const elysium = defineChain({
   testnet: true,
 });
 
-export const deployment = DEPLOYMENTS[process.env.NEXT_PUBLIC_DEPLOYMENT ?? "elysium-testnet"] ?? null;
+const deploymentName = process.env.NEXT_PUBLIC_DEPLOYMENT ?? "elysium-testnet";
+export const deployment = DEPLOYMENTS[deploymentName] ?? null;
+
+/** A block just before the contracts were deployed: event history (like the coins on Covenant) is read from here. */
+export const deployedFrom: bigint = deploymentName === "elysium-testnet" ? 9_127_000n : 9_100_000n;
 
 export const explorer = (kind: "tx" | "address" | "token", value: string) =>
   `${elysium.blockExplorers.default.url}/${kind}/${value}`;

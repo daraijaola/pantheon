@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, parseUnits, type TransactionReceipt } from "viem";
 import { useBlock, useConfig, useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain, useWriteContract } from "wagmi";
 import { getPublicClient, waitForTransactionReceipt } from "wagmi/actions";
 import { elysium, explorer } from "@/lib/chain/config";
@@ -13,7 +13,7 @@ import s from "./app.module.css";
 
 export type Hex = `0x${string}`;
 
-/** Send one or more transactions in order, waiting for each, then refresh every read. */
+/** Send one or more transactions in order, waiting for each, then refresh every read. Returns the receipts, or null if one failed. */
 export function useTx() {
   const config = useConfig();
   const { address } = useConnection();
@@ -23,9 +23,10 @@ export function useTx() {
   const [error, setError] = useState<string | null>(null);
   const [lastTx, setLastTx] = useState<Hex | null>(null);
 
-  const run = async (label: string, calls: readonly Parameters<typeof mutateAsync>[0][]) => {
+  const run = async (label: string, calls: readonly Parameters<typeof mutateAsync>[0][]): Promise<TransactionReceipt[] | null> => {
     setBusy(`${label}…`);
     setError(null);
+    const receipts: TransactionReceipt[] = [];
     try {
       for (const call of calls) {
         // Rewards accrue between the estimate and the block the transaction lands in, and each one
@@ -35,13 +36,13 @@ export function useTx() {
         const estimate = await client.estimateContractGas({ ...call, account: address } as Parameters<typeof client.estimateContractGas>[0]);
         const hash = await mutateAsync({ ...call, gas: (estimate * 3n) / 2n + 100_000n });
         setLastTx(hash);
-        await waitForTransactionReceipt(config, { hash });
+        receipts.push(await waitForTransactionReceipt(config, { hash }));
       }
       await qc.invalidateQueries();
-      return true;
+      return receipts;
     } catch (e) {
       setError(reason(e));
-      return false;
+      return null;
     } finally {
       setBusy(null);
     }
