@@ -11,12 +11,16 @@ out/
 /broadcast/*/31337/
 /broadcast/**/dry-run/
 
-# Docs
-docs/
-
 # Dotenv file
 .env
 .env.*
 !.env.example
 broadcast/
 node_modules/
+
+# Passport service runtime files (never commit data or keys)
+*.db
+*.sqlite
+*.sqlite-*
+*.key
+keys/

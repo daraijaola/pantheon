@@ -1,0 +1,106 @@
+/* Small additions to the showcase card language for the feature-page examples. */
+.with {
+  display: inline-flex;
+  white-space: nowrap;
+  align-items: center;
+  gap: 6px;
+}
+.pill {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  font: 10px/14px var(--mono);
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+.hint {
+  margin: -4px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  padding: 4px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+}
+.small {
+  font-size: 12px;
+}
+.lead {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+}
+.lead b {
+  font-weight: 500;
+  color: var(--ink);
+}
+.ballot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 3.5%, transparent);
+}
+.cand {
+  display: grid;
+  grid-template-columns: 112px 1fr 40px;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.candName {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 13px var(--mono);
+}
+.yours {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--ink);
+  font: 500 9px/14px var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--paper);
+}
+.track {
+  height: 8px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  overflow: hidden;
+}
+.track i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--ink);
+}
+.cand > :last-child {
+  text-align: right;
+}
+.jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.job {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 20px;
+}
+.when {
+  font: 500 12px/20px var(--mono);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}

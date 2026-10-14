@@ -1,15 +1,12 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import Link from "next/link";
 import { Basket } from "@/components/basket/basket";
 import { CodeHeadline } from "@/components/code-type/code-headline";
 import { CodeRain } from "@/components/code-type/code-rain";
 import { CodeTouch } from "@/components/code-type/code-touch";
-import { CodeWordmark } from "@/components/code-type/code-wordmark";
-import { Footer } from "@/components/footer/footer";
 import { HowItWorks } from "@/components/how-it-works/how-it-works";
+import { SiteShell } from "@/components/site-shell";
 import { WhatYouGet } from "@/components/what-you-get/what-you-get";
 import type { HeadlineWord } from "@/components/code-type/layout";
+import { packCode, readOurCode } from "@/lib/our-code";
 
 const SENTENCE = "The best of Ascend, in one token.";
 
@@ -23,63 +20,16 @@ const WORDS: HeadlineWord[] = [
   { text: "TOKEN.", muted: true },
 ];
 
-const NAV = ["Index", "Trials", "Passport", "Covenant"];
-
-// The letters and the background are made of our own contract code: the fork test that proves
-// PANTHEON's contracts can hold an Ascend creator role and collect its fees.
-async function readOurCode(): Promise<string> {
-  "use cache";
-  try {
-    return await readFile(path.join(process.cwd(), "..", "test", "fork", "AscendPoC.t.sol"), "utf8");
-  } catch {
-    return "contract RoleTaker{constructor(IAscendLaunchpad lp,PoolId id){lp.acceptCreator(id);}}";
-  }
-}
-
 // Clear around the heading (radial) and fade out before the hands (linear); both masks must pass.
 const RAIN_MASK =
   "radial-gradient(ellipse 60% 40% at 50% 34%, transparent 0%, transparent 30%, #000 88%), linear-gradient(to bottom, #000 0%, #000 45%, transparent 66%)";
 
 export default async function Home() {
   const code = await readOurCode();
-  const fill = code
-    .slice(Math.max(0, code.indexOf("contract ")))
-    .split("\n")
-    .filter((line) => !line.trim().startsWith("//"))
-    .join("")
-    .replace(/\s+/g, "");
+  const fill = packCode(code);
 
   return (
-    <div className="relative min-h-svh bg-paper text-ink">
-      {/* Frame: the two rails of the 1112px column run the full page. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-y-0 left-1/2 z-20 w-[min(1112px,calc(100%-32px))] -translate-x-1/2 border-x border-rule"
-      />
-
-      <header className="relative z-30 border-b border-rule bg-paper/90 backdrop-blur-sm">
-        <div className="mx-auto flex h-[72px] w-[min(1000px,calc(100%-64px))] items-center justify-between lg:h-[100px]">
-          <Link href="/" aria-label="PANTHEON home" className="text-ink">
-            <CodeWordmark text="PANTHEON" module={2.2} />
-          </Link>
-          <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
-            {NAV.map((item) => (
-              <a key={item} href="#" className="rounded-lg px-2.5 py-1.5 text-[15px] text-ink/80 transition-colors hover:bg-ink/5 hover:text-ink">
-                {item}
-              </a>
-            ))}
-          </nav>
-          <div className="flex items-center gap-2">
-            <a href="#" className="hidden rounded-lg px-2.5 py-1.5 text-[14px] font-[450] text-ink/80 hover:bg-ink/5 sm:block">
-              GitHub
-            </a>
-            <button type="button" className="h-8 rounded-lg bg-ink/5 px-3 text-[14px] font-[450] transition-colors hover:bg-ink/10">
-              Connect wallet
-            </button>
-          </div>
-        </div>
-      </header>
-
+    <SiteShell>
       <main>
         <section className="relative overflow-hidden border-b border-rule">
           {/* Falling code stays inside the frame, like Firecrawl keeps its decoration inside the column. */}
@@ -126,7 +76,6 @@ export default async function Home() {
         <WhatYouGet />
         <Basket code={fill} />
       </main>
-      <Footer code={fill} />
-    </div>
+    </SiteShell>
   );
 }

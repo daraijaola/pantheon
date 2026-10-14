@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Downloaded film stills and their portraits stay local (not ours to publish)
+research/
+out/
