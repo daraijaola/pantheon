@@ -35,7 +35,7 @@ describe("analyze", () => {
     const ev = r.findings[0]!.evidence;
     expect(ev.length).toBeGreaterThan(0);
     for (const e of ev) expect(e.url).toBe(`https://explorer.test/testnet-explorer/tx/${e.tx}`);
-    expect(r.stats).toEqual({ trades: 8, traders: 8, holders: 8, links: 1, fundingMissing: 0 });
+    expect(r.stats).toEqual({ trades: 8, outsideTrades: 0, traders: 8, holders: 8, links: 1, fundingMissing: 0 });
     expect(r.notes).toEqual([]);
   });
 

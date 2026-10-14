@@ -76,6 +76,7 @@ describe("assemble", () => {
       holder: TRADER,
       tokens: 51_346_021_915_738_560_314_784_874n,
       quote: 494_410_990n, // 494.41 USDC, routed through USDC from another coin
+      pool: launches[0]!.poolId,
       outside: false,
     });
   });

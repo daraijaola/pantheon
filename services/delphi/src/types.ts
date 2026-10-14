@@ -33,6 +33,8 @@ export type Trade = {
   /** Token amount (18 decimals) and quote amount (in the pool's other currency), both positive. */
   tokens: bigint;
   quote: bigint;
+  /** The pool it traded in. */
+  pool: Hex;
   /** Traded in a pool outside Ascend (same pool manager, no Ascend hook, no Ascend fee split). */
   outside: boolean;
 };

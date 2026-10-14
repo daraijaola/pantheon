@@ -74,23 +74,38 @@ const chrono = (a: Trade, b: Trade) => a.time - b.time || Number(a.block - b.blo
  * passing tokens around is one actor) are walked in time order, and every sell is matched against
  * that actor's buys from the last few minutes, by token amount (and the other way round). The matched
  * part is volume that changed nobody's position. Result: its share of all trading volume (in tokens).
+ * A buy and a sell in one transaction but in two different pools is arbitrage (it moves prices
+ * between pools back in line), not wash: those legs cancel out first and are never matched. Seen
+ * live: bought in the Ascend pool for 14.7 USDC, sold the same tokens in an outside pool for 119.7.
  */
 export function detectWash(d: CoinData): DetectorResult {
   const trades = d.trades.filter((t) => t.tokens > 0n && !isSystem(d, actor(t)));
   if (trades.length < RULES.wash.minTrades) return { enough: false, finding: null };
   // Measured in tokens, not quote: a coin can trade in pools priced in different currencies.
   const total = trades.reduce((s, t) => s + t.tokens, 0n);
+  const min = (a: bigint, b: bigint) => (a < b ? a : b);
 
   const cl = clusters(d.links, trades.map(actor));
   const matched = new Map<Trade, bigint>();
   for (const [, group] of groupBy(trades, (t) => cl.get(actor(t))!)) {
+    const unmatched = new Map(group.map((t) => [t, t.tokens]));
+    for (const legs of groupBy(group, (t) => lc(t.tx)).values()) {
+      for (const b of legs.filter((t) => t.side === "buy")) {
+        for (const s of legs.filter((t) => t.side === "sell" && lc(t.pool) !== lc(b.pool))) {
+          const m = min(unmatched.get(b)!, unmatched.get(s)!);
+          unmatched.set(b, unmatched.get(b)! - m);
+          unmatched.set(s, unmatched.get(s)! - m);
+        }
+      }
+    }
     const open: Array<{ t: Trade; left: bigint }> = [];
     for (const t of [...group].sort(chrono)) {
-      let left = t.tokens;
+      let left = unmatched.get(t)!;
       for (const o of open) {
         if (left === 0n) break;
         if (o.left === 0n || o.t.side === t.side || t.time - o.t.time > RULES.wash.pairWindowSec) continue;
-        const m = o.left < left ? o.left : left;
+        if (o.t.tx === t.tx && lc(o.t.pool) !== lc(t.pool)) continue; // arbitrage, not wash
+        const m = min(o.left, left);
         o.left -= m;
         left -= m;
         matched.set(o.t, (matched.get(o.t) ?? 0n) + m);

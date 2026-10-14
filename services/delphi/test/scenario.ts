@@ -17,13 +17,15 @@ export const ROUTER = addr(0xa2);
 export const TOKEN = addr(0xa3);
 export const FAUCET: Address = "0xf272Cc84C3BA9f1B498adE29aaeED1e7D2D9f3fD";
 export const T0 = 1_760_000_000;
+export const POOL = hash(0xb0);
+export const OUTSIDE_POOL = hash(0xb1);
 
 export function scenario(opts: { creator?: Address; launcher?: Address } = {}) {
   let seq = 1;
   const creator = opts.creator ?? addr(0xc0);
   const coin: Coin = {
     token: TOKEN,
-    poolId: hash(0xb0),
+    poolId: POOL,
     tokenIs0: false,
     creator,
     launcher: opts.launcher ?? creator,
@@ -46,14 +48,22 @@ export function scenario(opts: { creator?: Address; launcher?: Address } = {}) {
     fundings,
     buy(who: Address, millions: number, sec: number, payer: Address = who) {
       const b = at(sec);
-      trades.push({ ...b, side: "buy", trader: payer, holder: who, tokens: M(millions), quote: BigInt(millions * 1e6), outside: false });
+      trades.push({ ...b, side: "buy", trader: payer, holder: who, tokens: M(millions), quote: BigInt(millions * 1e6), pool: POOL, outside: false });
       transfers.push({ ...b, from: VAULT, to: who, value: M(millions) });
       return s;
     },
     sell(who: Address, millions: number, sec: number) {
       const b = at(sec);
-      trades.push({ ...b, side: "sell", trader: who, holder: who, tokens: M(millions), quote: BigInt(millions * 1e6), outside: false });
+      trades.push({ ...b, side: "sell", trader: who, holder: who, tokens: M(millions), quote: BigInt(millions * 1e6), pool: POOL, outside: false });
       transfers.push({ ...b, from: who, to: VAULT, value: M(millions) });
+      return s;
+    },
+    /** Buy in the Ascend pool and sell the same tokens in an outside pool, in one transaction. */
+    arb(who: Address, millions: number, sec: number, samePool = false) {
+      const b = at(sec);
+      const leg = { ...b, trader: who, holder: who, tokens: M(millions), quote: BigInt(millions * 1e6) };
+      trades.push({ ...leg, side: "buy", pool: POOL, outside: false });
+      trades.push({ ...leg, logIndex: 2, side: "sell", pool: samePool ? POOL : OUTSIDE_POOL, outside: !samePool });
       return s;
     },
     pass(from: Address, to: Address, millions: number, sec: number) {

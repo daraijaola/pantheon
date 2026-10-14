@@ -111,6 +111,21 @@ describe("wash trading", () => {
     expect(detectWash(s.build()).finding).toMatchObject({ severity: "flag", metrics: { washVolumePct: 60, roundTripWallets: 1 } });
   });
 
+  it("does not call arbitrage between two pools in one transaction wash trading", () => {
+    const bot = addr(0x400);
+    const s = honest(scenario());
+    for (let k = 0; k < 5; k++) s.arb(bot, 20, 50_000 + k * 60);
+    expect(detectWash(s.build())).toEqual({ enough: true, finding: null });
+  });
+
+  it("still catches a buy and sell of the same tokens in the same pool and transaction", () => {
+    const bot = addr(0x400);
+    const s = honest(scenario());
+    for (let k = 0; k < 5; k++) s.arb(bot, 20, 50_000 + k * 60, true);
+    // 200M of the 240M tokens traded are matched round trips.
+    expect(detectWash(s.build()).finding).toMatchObject({ severity: "flag", metrics: { washVolumePct: 83.33, roundTripWallets: 1 } });
+  });
+
   it("does not call a flip days later wash trading", () => {
     const s = honest(scenario());
     s.sell(addr(0x100), 5, 3 * 86_400).sell(addr(0x101), 5, 3 * 86_400 + 60);

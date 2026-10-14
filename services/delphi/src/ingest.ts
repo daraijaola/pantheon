@@ -136,6 +136,7 @@ export function assemble(input: {
         holder: holderOf(side, byTx.get(lc(s.tx)) ?? [], input.system, trader),
         tokens: tokenDelta < 0n ? -tokenDelta : tokenDelta,
         quote: quoteDelta < 0n ? -quoteDelta : quoteDelta,
+        pool: s.poolId,
         outside: lc(s.poolId) !== lc(l.poolId),
       };
     });

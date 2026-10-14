@@ -22,7 +22,7 @@ export type CoinReport = {
     url: string;
     launchUrl: string;
   };
-  stats: { trades: number; traders: number; holders: number; links: number; fundingMissing: number };
+  stats: { trades: number; outsideTrades: number; traders: number; holders: number; links: number; fundingMissing: number };
   verdict: Verdict;
   /** What limits this report (missing data), in plain words. */
   notes: string[];
@@ -75,6 +75,7 @@ export function analyze(d: CoinData, opts: { explorerWeb: string; now?: Date }):
     },
     stats: {
       trades: d.trades.length,
+      outsideTrades: d.trades.filter((t) => t.outside).length,
       traders: new Set(d.trades.map((t) => t.trader.toLowerCase())).size,
       holders: balances(d).size,
       links: d.links.length,
@@ -114,7 +115,7 @@ export function toMarkdown(r: CoinReport): string {
     "",
     `${mdText(c.name)} · [${c.token}](${c.url}) · launched ${c.launchTime} in [this transaction](${c.launchUrl})`,
     "",
-    `${r.stats.trades} trades by ${r.stats.traders} wallets · ${r.stats.holders} holders · ${r.stats.links} wallet links found`,
+    `${r.stats.trades} trades by ${r.stats.traders} wallets${r.stats.outsideTrades ? ` (${r.stats.outsideTrades} in pools outside Ascend, which pay no Ascend fee)` : ""} · ${r.stats.holders} holders · ${r.stats.links} wallet links found`,
     "",
     "| Check | Result |",
     "| --- | --- |",
