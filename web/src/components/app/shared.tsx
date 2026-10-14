@@ -13,7 +13,10 @@ import s from "./app.module.css";
 
 export type Hex = `0x${string}`;
 
-/** Send one or more transactions in order, waiting for each, then refresh every read. Returns the receipts, or null if one failed. */
+/**
+ * Send one or more transactions in order, waiting for each, then refresh every read. Returns the
+ * receipts, or null if one failed. `label` can name each step ("Buying PNTH (2 of 2)").
+ */
 export function useTx() {
   const config = useConfig();
   const { address } = useConnection();
@@ -23,12 +26,14 @@ export function useTx() {
   const [error, setError] = useState<string | null>(null);
   const [lastTx, setLastTx] = useState<Hex | null>(null);
 
-  const run = async (label: string, calls: readonly Parameters<typeof mutateAsync>[0][]): Promise<TransactionReceipt[] | null> => {
-    setBusy(`${label}…`);
+  const run = async (label: string | readonly string[], calls: readonly Parameters<typeof mutateAsync>[0][]): Promise<TransactionReceipt[] | null> => {
+    const step = (i: number) => `${typeof label === "string" ? label : (label[i] ?? label[label.length - 1])}…`;
+    setBusy(step(0));
     setError(null);
     const receipts: TransactionReceipt[] = [];
     try {
-      for (const call of calls) {
+      for (const [i, call] of calls.entries()) {
+        setBusy(step(i));
         // Rewards accrue between the estimate and the block the transaction lands in, and each one
         // costs an extra storage write, so give every action headroom over the estimate.
         const client = getPublicClient(config, { chainId: elysium.id });

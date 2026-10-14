@@ -50,10 +50,15 @@ function Stake({ d }: { d: Deployment }) {
   const burned = pub.data?.[4].result;
 
   const tokens = Array.from(new Set([...basket.map((c) => c.token as Hex), ...rewardTokens]));
-  const syms = useReadContracts({
-    contracts: tokens.map((t) => ({ address: t, abi: erc20Abi, functionName: "symbol" }) as const),
+  // Each coin's symbol and decimals (USDC has 6, Ascend coins 18), so amounts read right.
+  const meta = useReadContracts({
+    contracts: tokens.flatMap((t) => [
+      { address: t, abi: erc20Abi, functionName: "symbol" } as const,
+      { address: t, abi: erc20Abi, functionName: "decimals" } as const,
+    ]),
   });
-  const symbol = (t: Hex) => (syms.data?.[tokens.indexOf(t)]?.result as string | undefined) ?? short(t);
+  const symbol = (t: Hex) => (meta.data?.[tokens.indexOf(t) * 2]?.result as string | undefined) ?? short(t);
+  const decimals = (t: Hex) => Number((meta.data?.[tokens.indexOf(t) * 2 + 1]?.result as number | undefined) ?? 18);
 
   const mine = useReadContracts({
     contracts: [
@@ -142,7 +147,7 @@ function Stake({ d }: { d: Deployment }) {
                     <a href={explorer("token", e.token)} target="_blank" rel="noreferrer">
                       {symbol(e.token)}
                     </a>
-                    <span className={s.num}>{onChain ? fmt(e.amount) : "—"}</span>
+                    <span className={s.num}>{onChain ? fmt(e.amount, decimals(e.token)) : "—"}</span>
                   </li>
                 ))}
               </ul>

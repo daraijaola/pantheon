@@ -246,10 +246,19 @@
   background: color-mix(in srgb, var(--ink) 5%, transparent);
   color: var(--ink);
 }
-a.ghost {
+a.ghost,
+a.primarySmall {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
+}
+.more summary {
+  margin-bottom: 0;
+  font-size: 14px;
+  cursor: pointer;
+}
+.more[open] summary {
+  margin-bottom: 14px;
 }
 .ghost:hover {
   background: color-mix(in srgb, var(--ink) 10%, transparent);

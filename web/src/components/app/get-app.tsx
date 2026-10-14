@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { encodeAbiParameters, erc20Abi, keccak256, pad, parseAbi, parseUnits, toHex, zeroAddress } from "viem";
-import { useBalance, useConnection, useReadContracts } from "wagmi";
+import { useBalance, useConnection, useReadContracts, useWatchAsset } from "wagmi";
 import { swapperAbi } from "@/lib/chain/abi";
 import { deployment, elysium, explorer } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
@@ -72,11 +72,15 @@ function estimate(usdc: bigint, sqrtP: bigint, pnthIs0: boolean): bigint {
 
 // ------------------------------------------------------------------ the screen
 
+type Call = Parameters<ReturnType<typeof useTx>["run"]>[1][number];
+const QUICK = 100n * 10n ** 6n; // the one-click buy: 100 test USDC
+
 function Get({ d }: { d: Deployment & { swapper: Hex } }) {
   const { address, isConnected, chainId } = useConnection();
   const onChain = isConnected && chainId === elysium.id;
   const me = (address ?? zeroAddress) as Hex;
   const tx = useTx();
+  const watch = useWatchAsset();
   const [amount, setAmount] = useState("100");
 
   const hype = useBalance({ address: me, chainId: elysium.id, query: { enabled: onChain, refetchInterval: 10_000 } });
@@ -84,20 +88,39 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
     contracts: [
       { address: d.usdc, abi: erc20Abi, functionName: "balanceOf", args: [me] },
       { address: d.pnth, abi: erc20Abi, functionName: "balanceOf", args: [me] },
+      { address: d.usdc, abi: erc20Abi, functionName: "allowance", args: [me, d.swapper] },
       { address: d.launchpad, abi: LAUNCHPAD, functionName: "poolManager" },
       { address: d.launchpad, abi: LAUNCHPAD, functionName: "emaSqrtPrice", args: [d.pnthPool] },
     ],
     query: { refetchInterval: 10_000 },
   });
-  const usdc = onChain ? reads.data?.[0].result : undefined;
-  const pnth = onChain ? reads.data?.[1].result : undefined;
-  const pm = reads.data?.[2].result as Hex | undefined;
-  const sqrtP = reads.data?.[3].result ?? 0n;
+  const usdc = onChain ? (reads.data?.[0].result ?? 0n) : 0n;
+  const pnth = onChain ? (reads.data?.[1].result ?? 0n) : 0n;
+  const allowance = onChain ? (reads.data?.[2].result ?? 0n) : 0n;
+  const pm = reads.data?.[3].result as Hex | undefined;
+  const sqrtP = reads.data?.[4].result ?? 0n;
 
   const key = pm ? poolKey(d.pnth, d.usdc, d.launchpad, pm) : null;
   // The key must hash to PNTH's pool id, or the buy would go somewhere else: check before offering it.
   const keyOk = !!key && keccak256(encodeAbiParameters(POOL_KEY, [key])).toLowerCase() === d.pnthPool.toLowerCase();
   const pnthIs0 = key?.currency0.toLowerCase() === d.pnth.toLowerCase();
+  const hasGas = (hype.data?.value ?? 0n) > 0n;
+
+  const mint = (v: bigint): Call => ({ address: d.usdc, abi: MINTABLE, functionName: "mint", args: [me, v] });
+  const approve = (v: bigint): Call => ({ address: d.usdc, abi: erc20Abi, functionName: "approve", args: [d.swapper, v] });
+  const swap = (v: bigint): Call => ({ address: d.swapper, abi: swapperAbi, functionName: "swapExactIn", args: [key!, !pnthIs0, v] });
+
+  /** Only the steps still needed, each named in the button while the wallet asks. */
+  const buySteps = (v: bigint, makeUsdc: boolean) => {
+    const steps: [string, Call][] = [];
+    if (makeUsdc) steps.push(["Making test USDC", mint(v)]);
+    if (allowance < v) steps.push(["Letting the swap use it", approve(v)]);
+    steps.push(["Buying PNTH", swap(v)]);
+    return tx.run(
+      steps.map(([label], i) => (steps.length > 1 ? `${label} (${i + 1} of ${steps.length})` : label)),
+      steps.map(([, call]) => call),
+    );
+  };
 
   let spend: bigint | null = null;
   try {
@@ -105,30 +128,8 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
   } catch {
     spend = null;
   }
-  const about = spend ? estimate(spend, sqrtP, pnthIs0) : 0n;
-  const hasGas = (hype.data?.value ?? 0n) > 0n;
-  const tooMuch = spend !== null && usdc !== undefined && spend > usdc;
-
-  const getUsdc = () => tx.run("Getting test USDC", [{ address: d.usdc, abi: MINTABLE, functionName: "mint", args: [me, MINT] }]);
-  const buy = () =>
-    key &&
-    spend &&
-    tx.run("Buying", [
-      { address: d.usdc, abi: erc20Abi, functionName: "approve", args: [d.swapper, spend] },
-      { address: d.swapper, abi: swapperAbi, functionName: "swapExactIn", args: [key, !pnthIs0, spend] },
-    ]);
-
-  const label = !onChain
-    ? "Connect your wallet first"
-    : !hasGas
-      ? "Get test HYPE for gas first"
-      : !keyOk
-        ? "Reading the pool…"
-        : !spend
-          ? "Enter an amount"
-          : tooMuch
-            ? "Not enough test USDC"
-            : "Buy PNTH";
+  const blocked = !onChain ? "Connect your wallet first" : !hasGas ? "Get test HYPE for gas first" : !keyOk ? "Reading the pool…" : null;
+  const customLabel = blocked ?? (!spend ? "Enter an amount" : spend > usdc ? "Not enough test USDC" : "Buy PNTH");
 
   return (
     <main className={s.page}>
@@ -144,55 +145,77 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
       <div className={s.grid}>
         <div className={s.main}>
           <section className={s.cell}>
-            <p className={s.label}>Three steps</p>
+            <p className={s.label}>Your test wallet</p>
             <ol className={s.steps}>
               <Step
                 done={hasGas}
                 title="Test HYPE for gas"
-                note={onChain ? `You have ${fmt(hype.data?.value)} HYPE. A little covers many transactions.` : "Every transaction needs a little."}
+                note={onChain ? `You have ${fmt(hype.data?.value)} HYPE. A little covers many transactions.` : "Every transaction needs a little. The faucet gives it for free."}
                 action={
                   <a className={s.ghost} href={FAUCET} target="_blank" rel="noreferrer">
                     Faucet ↗
                   </a>
                 }
               />
-              <Step
-                done={(usdc ?? 0n) > 0n}
-                title="Test USDC"
-                note={onChain ? `You have ${fmt(usdc, 6)} USDC. Ascend’s test USDC is free to make.` : "Ascend’s test USDC is free to make."}
-                action={
-                  <button type="button" className={s.ghost} disabled={!onChain || !hasGas || !!tx.busy} onClick={getUsdc}>
-                    Get 1,000
-                  </button>
-                }
-              />
-              <Step done={(pnth ?? 0n) > 0n} title="Buy PNTH" note={onChain ? `You have ${fmt(pnth)} PNTH.` : "Straight from PNTH’s pool on Ascend."} />
+              <Step done={usdc > 0n} title="Test USDC" note={onChain ? `You have ${fmt(usdc, 6)} USDC.` : "Ascend’s test USDC, made for you as you buy."} />
+              <Step done={pnth > 0n} title="PNTH" note={onChain ? `You have ${fmt(pnth)} PNTH.` : "Bought straight from PNTH’s pool on Ascend."} />
             </ol>
           </section>
 
           <section className={s.cell}>
-            <label className={s.field}>
-              <span className={s.fieldTop}>
-                <span>You spend</span>
-                <button type="button" className={s.max} disabled={!usdc} onClick={() => usdc && setAmount(String(Number(usdc) / 1e6))}>
-                  Max
-                </button>
-              </span>
-              <span className={s.inputRow}>
-                <input inputMode="decimal" value={amount} placeholder="0" onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} />
-                <span className={s.unit}>USDC</span>
-              </span>
-            </label>
-            <p className={s.hint}>You get about {fmt(about)} PNTH, at the pool’s recent average price after the 1% fee.</p>
-            <button type="button" className={s.primary} disabled={label !== "Buy PNTH" || !!tx.busy} onClick={buy}>
-              {tx.busy ?? label}
+            <button type="button" className={s.primary} disabled={!!blocked || !!tx.busy} onClick={() => buySteps(QUICK, usdc < QUICK)}>
+              {tx.busy ?? blocked ?? "Get test PNTH"}
             </button>
+            <p className={s.hint}>
+              One click: we make 100 test USDC for you and buy about {fmt(estimate(QUICK, sqrtP, pnthIs0))} PNTH with it. Your wallet asks up to three times: to make the USDC, to let
+              the swap use it, and to buy.
+            </p>
             <TxNote error={tx.error} lastTx={tx.lastTx} />
-            {(pnth ?? 0n) > 0n && (
-              <p className={s.hint}>
-                Next: <Link href="/stake">stake your PNTH</Link> to earn a share of the basket.
-              </p>
+            {pnth > 0n && (
+              <div className={s.unlock}>
+                <span>You have {fmt(pnth)} PNTH.</span>
+                <span className={s.unlockActions}>
+                  <button
+                    type="button"
+                    className={s.ghost}
+                    disabled={watch.isPending || watch.isSuccess}
+                    onClick={() => watch.mutate({ type: "ERC20", options: { address: d.pnth, symbol: "PNTH", decimals: 18 } })}
+                  >
+                    {watch.isSuccess ? "Added to your wallet" : "Add to your wallet"}
+                  </button>
+                  <Link href="/stake" className={s.primarySmall}>
+                    Stake it
+                  </Link>
+                </span>
+              </div>
             )}
+          </section>
+
+          <section className={s.cell}>
+            <details className={s.more}>
+              <summary>Buy a different amount</summary>
+              <label className={s.field}>
+                <span className={s.fieldTop}>
+                  <span>You spend</span>
+                  <button type="button" className={s.max} disabled={usdc === 0n} onClick={() => setAmount(String(Number(usdc) / 1e6))}>
+                    Max
+                  </button>
+                </span>
+                <span className={s.inputRow}>
+                  <input inputMode="decimal" value={amount} placeholder="0" onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} />
+                  <span className={s.unit}>USDC</span>
+                </span>
+              </label>
+              <p className={s.hint}>You get about {fmt(spend ? estimate(spend, sqrtP, pnthIs0) : 0n)} PNTH, at the pool’s recent average price after the 1% fee.</p>
+              <div className={s.actionsRow}>
+                <button type="button" className={s.primarySmall} disabled={customLabel !== "Buy PNTH" || !!tx.busy} onClick={() => spend && buySteps(spend, false)}>
+                  {customLabel}
+                </button>
+                <button type="button" className={s.linkBtn} disabled={!!blocked || !!tx.busy} onClick={() => tx.run("Making test USDC", [mint(MINT)])}>
+                  Make 1,000 test USDC
+                </button>
+              </div>
+            </details>
           </section>
         </div>
 
@@ -206,11 +229,11 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
           <div className={s.cell}>
             <p className={s.label}>Good to know</p>
             <p className={s.hint}>
-              The buy goes through a small swap helper whose code is{" "}
+              Ascend’s own app opens to the public soon. Until then, buys here go through a small swap helper whose code is{" "}
               <a href={explorer("address", d.swapper)} target="_blank" rel="noreferrer">
                 verified on the explorer
               </a>
-              . Prices move with every trade. Once PNTH launches for real, it’s bought on Ascend itself.
+              . Prices move with every trade.
             </p>
           </div>
         </aside>
