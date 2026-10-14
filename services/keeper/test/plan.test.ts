@@ -1,4 +1,5 @@
 import { describe as group, expect, it } from "vitest";
+import { withMargin } from "../src/keeper.ts";
 import { batches, describe, useful, type Simulated } from "../src/plan.ts";
 import { addr, DEP, none } from "./fakes.ts";
 
@@ -39,5 +40,12 @@ group("batches", () => {
   it("splits into groups of at most n", () => {
     expect(batches([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
     expect(batches([], 2)).toEqual([]);
+  });
+});
+
+group("withMargin", () => {
+  it("adds 50%: enough for the unstake that ran out of gas on the fork (estimated 104,476, re-estimated 136,040)", () => {
+    expect(withMargin(104_476n)).toBe(156_714n);
+    expect(withMargin(104_476n)).toBeGreaterThan(136_040n);
   });
 });

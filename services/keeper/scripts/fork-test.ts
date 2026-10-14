@@ -27,8 +27,8 @@ const TRADER: Address = "0x000000000000000000000000000000000000ac1d";
 const cfg = { ...loadConfig({ ...process.env, ELYSIUM_RPC: FORK, KEEPER_MODE: "live" }), passportApi: "http://127.0.0.1:9" };
 const dep = cfg.deployment;
 const client = makeClient(FORK);
-const test = createTestClient({ mode: "anvil", chain: elysium(FORK), transport: http(FORK) });
-const trader = createWalletClient({ account: TRADER, chain: elysium(FORK), transport: http(FORK) });
+const test = createTestClient({ mode: "anvil", chain: elysium(FORK), transport: http(FORK, { timeout: 300_000 }) });
+const trader = createWalletClient({ account: TRADER, chain: elysium(FORK), transport: http(FORK, { timeout: 300_000 }) });
 
 const tokenAbi = parseAbi(["function mint(address to, uint256 value)", "function approve(address spender, uint256 value) returns (bool)"]);
 const stakeAbi = parseAbi(["function stake(uint256 amount)"]);
@@ -75,7 +75,7 @@ const keyFile = join(mkdtempSync(join(tmpdir(), "keeper-fork-")), "keeper.key");
 writeFileSync(keyFile, ANVIL_KEY);
 chmodSync(keyFile, 0o600);
 const account = privateKeyToAccount(readKeeperKey(keyFile));
-const wallet = createWalletClient({ account, chain: elysium(FORK), transport: http(FORK) });
+const wallet = createWalletClient({ account, chain: elysium(FORK), transport: http(FORK, { timeout: 300_000 }) });
 const chain = createChain(client, cfg, wallet);
 const state: State = { stakedCursor: cfg.fromBlock.toString(), stakers: [], sweep: 0, pokesSince: 0 };
 const round = (mode: "dry" | "live" = "live"): Promise<Report> =>

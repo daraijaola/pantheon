@@ -94,6 +94,10 @@ All have working defaults; set them in `services/keeper/.env` (not committed).
 - **The public RPC** runs `eth_simulateV1` with events. `debug_traceCall` needs a paid key, and we don't need
   it. Like DELPHI, the client paces requests and backs off on the RPC's rate-limit code `-32017`.
 - **An empty round** (no fees, no basket USDC, no boost changes) sends nothing and costs nothing.
+- **Gas margin: every send gets its estimate plus 50%.** Staking and fee routing cost more when time has
+  passed since their last update, and the estimate runs on an earlier block than the transaction. On a
+  fork, an unstake estimated at 104,476 gas ran out of gas; re-estimated, it needed 136,040. Only gas used
+  is paid for. (Site users are covered by their wallet's own buffer.)
 - **Fork test, live mode:** 11/11 checks pass (4,999 PNTH burned from a 1M PNTH sell's fees; a staker's
   working balance 5,000,000 → 5,250,010 after 3 days).
 - **Service:** keeps its state across a restart; an unreachable RPC logs "round failed" and it carries on;

@@ -146,6 +146,13 @@ export function passportFeed(api: string, fetchFn: typeof fetch = fetch): PokesF
   };
 }
 
+/**
+ * Gas for a send: the estimate plus 50% (MetaMask's default buffer too). Staking and fee routing cost more when time has passed since
+ * their last update (more to write), and the estimate runs on an earlier block than the transaction:
+ * seen on a fork, an unstake estimated at 104,476 gas needed 136,040. Only gas used is paid for.
+ */
+export const withMargin = (estimate: bigint) => (estimate * 3n) / 2n;
+
 /** The real chain access, over viem. `wallet` is only given in live mode. */
 export function createChain(client: PublicClient, cfg: Config, wallet?: WalletClient): KeeperChain {
   const dep = cfg.deployment;
@@ -209,7 +216,9 @@ export function createChain(client: PublicClient, cfg: Config, wallet?: WalletCl
     balance: (a) => client.getBalance({ address: a }),
     async send(call) {
       if (!wallet?.account) throw new Error("no keeper key loaded (practice mode)");
-      const hash = await wallet.writeContract({ address: call.address, abi: call.abi, functionName: call.functionName, args: call.args, account: wallet.account, chain: client.chain } as never);
+      const req = { address: call.address, abi: call.abi, functionName: call.functionName, args: call.args, account: wallet.account } as never;
+      const gas = withMargin(await client.estimateContractGas(req));
+      const hash = await wallet.writeContract({ ...(req as object), chain: client.chain, gas } as never);
       const receipt = await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
       return {
         hash,
