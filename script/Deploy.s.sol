@@ -52,8 +52,18 @@ contract Deploy is Script {
 
     function run() external returns (Deployed memory d) {
         Config memory c = _config();
-        vm.startBroadcast();
-        d = _deploy(c, msg.sender);
+        // The deployer's key comes from the DEPLOYER_KEY environment variable (filled from its key file
+        // at launch, so it never sits on a command line), or from forge's own wallet flags.
+        uint256 pk = vm.envOr("DEPLOYER_KEY", uint256(0));
+        address deployer;
+        if (pk != 0) {
+            deployer = vm.addr(pk);
+            vm.startBroadcast(pk);
+        } else {
+            deployer = msg.sender;
+            vm.startBroadcast();
+        }
+        d = _deploy(c, deployer);
         vm.stopBroadcast();
         require(LP.poolCreator(d.pool) == d.router, "router does not hold the creator role");
         _record(c, d);

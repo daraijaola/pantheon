@@ -53,6 +53,10 @@ const SAY: Record<string, string> = {
   BAD_HL_SIGNATURE: "The signature didn’t come from that Hyperliquid wallet.",
   BAD_ELYSIUM_SIGNATURE: "The signature didn’t come from your Elysium wallet.",
   INVALID_ADDRESS: "That isn’t a valid wallet address.",
+  HTTP_500: "The Passport service isn’t running yet. Try again soon.",
+  HTTP_502: "The Passport service isn’t running yet. Try again soon.",
+  HTTP_503: "The Passport service is busy. Try again in a minute.",
+  HTTP_504: "The Passport service took too long. Try again in a minute.",
 };
 const say = (code: string) => SAY[code] ?? `The Passport service said: ${code}.`;
 const badge = (name: string) =>
@@ -66,6 +70,7 @@ type Verified = { tier: number; reasons?: string[]; multiplier?: string; txHash?
 async function api<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/passport${path}`, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
   const json = await res.json().catch(() => ({}));
+  if (res.status >= 500 && !json.error) throw new Error(`HTTP_${res.status}`);
   if (!res.ok) throw new Error(json.error ?? `HTTP_${res.status}`);
   return json as T;
 }

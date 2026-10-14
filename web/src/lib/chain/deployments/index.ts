@@ -1,3 +1,4 @@
+import testnet from "./elysium-testnet.json";
 import local from "./local.json";
 
 /** PANTHEON's contract addresses per network, written by `script/Deploy.s.sol`. */
@@ -16,9 +17,9 @@ export type Deployment = {
   indexVault: `0x${string}`;
 };
 
-// "local" is the private copy of testnet on our server (dev only). The live testnet deployment is
-// added here once it exists; until then the app says PANTHEON isn't live yet.
+// "elysium-testnet" is the live deployment (Oct 14, verified on the explorer). "local" is the private
+// copy of testnet on our server, for development only.
 export const DEPLOYMENTS: Record<string, Deployment | undefined> = {
+  "elysium-testnet": testnet as Deployment,
   local: local as Deployment,
-  "elysium-testnet": undefined,
 };
