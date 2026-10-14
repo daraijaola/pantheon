@@ -1,0 +1,50 @@
+# PANTHEON keeper. Install:
+#   sudo install -m 0644 deploy/pantheon-keeper.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now pantheon-keeper
+# Logs (one JSON line per round): journalctl -u pantheon-keeper -f
+#
+# Practice mode ("dry") by default: it simulates every round on the live chain and sends nothing, with
+# no key at all. Live mode (KEEPER_MODE=live in .env) needs a gas-only key in /var/lib/keeper/keys/
+# (mode 0600); creating or funding that key needs Micheal's OK.
+
+[Unit]
+Description=PANTHEON keeper: PNTH fees, basket buys, staking boosts (practice mode unless set live)
+After=network-online.target pantheon-passport.service
+Wants=network-online.target
+
+[Service]
+User=ayinde
+Group=ayinde
+WorkingDirectory=/srv/hackathon/pantheon/services/keeper
+ExecStart=/usr/bin/node --env-file-if-exists=.env src/main.ts
+Environment=NODE_ENV=production
+Environment=STATE_FILE=/var/lib/keeper/state.json
+StateDirectory=keeper
+StateDirectoryMode=0700
+Restart=on-failure
+RestartSec=30
+TimeoutStopSec=20
+UMask=0077
+
+# Lock-down: read-only system and code, writes only to /var/lib/keeper, no new privileges.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
