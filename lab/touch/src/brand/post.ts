@@ -139,11 +139,87 @@ function draw() {
   spaced("BUYS FILL THE BASKET. SELLS BURN $PNTH.", W / 2, (bottomRule + H) / 2, 76, "center");
 }
 
+/**
+ * The teaser: ink background, the temple drawn in light code, whole at the roof and dissolving into
+ * loose characters towards the ground, and one word under it.
+ */
+function teaser() {
+  g.fillStyle = INK_C;
+  g.fillRect(0, 0, W, H);
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+
+  const C = 300;
+  const t = buildTemple(C, code);
+  const tw = 2000;
+  const cellW = tw / C;
+  const fontPx = cellW / 0.6;
+  const lineH = fontPx * 1.17;
+  const th = t.rows * lineH;
+  const ox = (W - tw) / 2;
+  const oy = (H - th) / 2 - 110;
+  g.font = `400 ${fontPx}px ${MONO}`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  for (const q of t.cells) {
+    // Solid from the roof down to the middle of the columns, then the stone falls away.
+    const depth = q.r / t.rows;
+    const keep = depth < 0.55 ? 1 : Math.max(0, 1 - (depth - 0.55) / 0.42);
+    if (rnd() > keep) {
+      if (rnd() < 0.18) {
+        g.globalAlpha = 0.16;
+        g.fillStyle = PAPER;
+        g.fillText(q.ch, ox + q.c * cellW + cellW / 2, oy + (q.r + rnd() * 6) * lineH + lineH / 2);
+      }
+      continue;
+    }
+    const x = ox + q.c * cellW;
+    const y = oy + q.r * lineH;
+    if (!q.line && q.d >= INK) {
+      g.globalAlpha = keep;
+      g.fillStyle = PAPER;
+      g.fillRect(x, y, cellW + 0.5, lineH + 0.5);
+      g.fillStyle = INK_C;
+      g.globalAlpha = 0.5 * keep;
+    } else {
+      g.fillStyle = PAPER;
+      g.globalAlpha = (q.line ? 1 : Math.min(1, q.d * 1.05)) * keep;
+    }
+    g.fillText(q.ch, x + cellW / 2, y + lineH / 2);
+  }
+  const { r0, rows } = t.frieze;
+  const size = rows * lineH * 0.5;
+  const text = "THE BEST OF ASCEND";
+  const step = size * 0.6 * 1.85;
+  const width = (text.length - 1) * step;
+  g.globalAlpha = 1;
+  g.fillStyle = INK_C;
+  g.fillRect(W / 2 - width / 2 - step, oy + (r0 + 0.5) * lineH, width + 2 * step, (rows - 1) * lineH);
+  g.fillStyle = PAPER;
+  g.font = `500 ${size}px ${MONO}`;
+  for (let j = 0; j < text.length; j++) g.fillText(text[j], W / 2 - width / 2 + j * step, oy + (r0 + rows / 2) * lineH);
+
+  g.font = `500 84px ${MONO}`;
+  g.textAlign = "left";
+  g.textBaseline = "middle";
+  g.fillStyle = PAPER;
+  const word = "SOON.";
+  const stepW = 84 * 0.6 * 1.6;
+  let x = W / 2 - (word.length * stepW) / 2;
+  for (const ch of word) {
+    g.fillText(ch, x, H - 190);
+    x += stepW;
+  }
+}
+
+const mode = new URLSearchParams(location.search).get("v");
+
 document.fonts
   .load(`600 20px ${MONO}`)
   .then(() => document.fonts.load(`500 20px ${MONO}`))
   .then(() => document.fonts.load(`400 20px ${MONO}`))
   .then(() => {
-    draw();
+    if (mode === "teaser") teaser();
+    else draw();
     document.body.dataset.ready = "1";
   });
