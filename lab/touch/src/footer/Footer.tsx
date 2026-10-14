@@ -30,7 +30,7 @@ const COLUMNS: { title: string; items: Item[] }[] = [
       { label: "HYPE Passport", href: "/passport" },
       { label: "The Trials", href: "/trials" },
       { label: "Covenant", href: "/covenant" },
-      { label: "DELPHI" },
+      { label: "DELPHI", href: "/delphi" },
     ],
   },
   {

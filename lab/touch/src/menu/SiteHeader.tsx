@@ -22,7 +22,7 @@ const FEATURES: Item[] = [
   { icon: "passport", title: "HYPE Passport", desc: "Prove you hold HYPE. Earn up to 1.25× and get a vote.", href: "/passport" },
   { icon: "trials", title: "The Trials", desc: "Each week, holders vote three coins into the basket.", href: "/trials" },
   { icon: "covenant", title: "Covenant", desc: "The ownerless contract every fee goes through.", href: "/covenant" },
-  { icon: "delphi", title: "DELPHI", desc: "An AI that reads the chain and shows its proof." },
+  { icon: "delphi", title: "DELPHI", desc: "An AI that checks every coin for cheating and shows its proof.", href: "/delphi" },
 ];
 const RESOURCES: Item[] = [
   { icon: "terms", title: "Terms of use", desc: "The plain rules for using this site.", href: "/terms" },

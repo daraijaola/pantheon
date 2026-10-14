@@ -1,0 +1,272 @@
+/* DELPHI: an inside screen, calm like the app. The verdict pills are the only marks, in ink only. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font: 500 12px/1 var(--mono);
+  white-space: nowrap;
+}
+.FLAG {
+  background: var(--ink);
+  color: #fff;
+}
+.WATCH {
+  border: 1px solid var(--ink);
+  color: var(--ink);
+}
+.CLEAN {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
+}
+.NOT_ENOUGH_DATA {
+  border: 1px dashed color-mix(in srgb, var(--ink) 30%, transparent);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.scan {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font: 12px/16px var(--mono);
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+  white-space: nowrap;
+}
+
+.inline {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* the explained coins */
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.item a {
+  display: grid;
+  grid-template-columns: 132px 1fr auto;
+  gap: 16px;
+  align-items: start;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--rule);
+  color: inherit;
+  text-decoration: none;
+}
+.item:last-child a {
+  border-bottom: 0;
+}
+.coin {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.sym {
+  font: 500 15px/20px var(--mono);
+  overflow-wrap: anywhere;
+}
+.headline {
+  margin: 0;
+  font-size: 15px;
+  line-height: 22px;
+}
+.item a:hover .headline {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.go {
+  font-size: 14px;
+  color: color-mix(in srgb, var(--ink) 40%, transparent);
+}
+
+/* every coin */
+.all summary {
+  font-size: 14px;
+  cursor: pointer;
+}
+.tableWrap {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table th {
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--rule);
+  font-weight: 400;
+  text-align: left;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.table td {
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+}
+.table .n {
+  font: 13px var(--mono);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.table a {
+  font: 500 13px var(--mono);
+  color: var(--ink);
+}
+
+/* the side notes */
+.defs {
+  margin: 0;
+}
+.defs dt {
+  margin-top: 14px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.defs dt:first-child {
+  margin-top: 0;
+}
+.defs dd {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 19px;
+  color: color-mix(in srgb, var(--ink) 65%, transparent);
+}
+.para {
+  margin: 0;
+  font-size: 14px;
+  line-height: 21px;
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+}
+.para + .para {
+  margin-top: 10px;
+}
+.para a,
+.more {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.more {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+/* one coin's report */
+.title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.big {
+  margin: 0 0 12px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+}
+.summary {
+  margin: 0;
+  font-size: 15px;
+  line-height: 24px;
+  color: color-mix(in srgb, var(--ink) 80%, transparent);
+}
+.points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.point {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 15px;
+  line-height: 23px;
+}
+.point:first-child {
+  padding-top: 0;
+}
+.point:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.proof {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.tx {
+  padding: 3px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: #fff;
+  font: 12px/16px var(--mono);
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+  text-decoration: none;
+}
+.tx:hover {
+  border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+  color: var(--ink);
+}
+.caveats {
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+  font-size: 14px;
+  line-height: 21px;
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+}
+.caveats li + li {
+  margin-top: 6px;
+}
+.check {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 14px;
+}
+.state {
+  font: 12px/20px var(--mono);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.found {
+  font: 600 12px/20px var(--mono);
+  color: var(--ink);
+}
+.basketIn,
+.basketOut {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 20px;
+}
+.basketIn {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+.basketOut {
+  border: 1px solid var(--ink);
+}
+
+@media (max-width: 900px) {
+  .scan {
+    align-items: flex-start;
+  }
+  .item a {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .go {
+    display: none;
+  }
+}
