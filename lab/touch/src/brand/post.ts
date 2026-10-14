@@ -16,9 +16,12 @@ const code = source
   .join("")
   .replace(/\s+/g, "");
 
-const W = 3200;
-const H = 1800;
-const M = 200; // the rails, like the site's
+const mode = new URLSearchParams(location.search).get("v");
+// X posts are 16:9; link previews (Open Graph) are 1.91:1. Everything is laid out at 3200 wide, then scaled.
+const W = mode === "og" ? 2400 : 3200;
+const H = mode === "og" ? 1260 : 1800;
+const k = W / 3200;
+const M = 200 * k; // the rails, like the site's
 
 const c = document.createElement("canvas");
 c.id = "post";
@@ -84,20 +87,20 @@ function draw() {
   g.fillStyle = RULE;
   g.fillRect(M, 0, 2, H);
   g.fillRect(W - M, 0, 2, H);
-  const topRule = 330;
-  const bottomRule = 1500;
+  const topRule = Math.round(H * 0.1833);
+  const bottomRule = Math.round(H * 0.8333);
   g.fillRect(M, topRule, W - 2 * M, 2);
   g.fillRect(M, bottomRule, W - 2 * M, 2);
 
   // the wordmark, top left, and where it lives, top right
-  const mod = 13;
-  word("PANTHEON", M + 90, (topRule - GLYPH_ROWS * mod) / 2, mod);
-  spaced("LIVE ON ELYSIUM TESTNET", W - M - 90, topRule / 2, 56, "right");
+  const mod = 13 * k;
+  word("PANTHEON", M + 90 * k, (topRule - GLYPH_ROWS * mod) / 2, mod);
+  spaced("LIVE ON ELYSIUM TESTNET", W - M - 90 * k, topRule / 2, 56 * k, "right");
 
   // the temple, centred between the rules
   const C = 300;
   const t = buildTemple(C, code);
-  const tw = 1900;
+  const tw = 1900 * k;
   const cellW = tw / C;
   const fontPx = cellW / 0.6;
   const lineH = fontPx * 1.17;
@@ -136,7 +139,7 @@ function draw() {
   for (let j = 0; j < text.length; j++) g.fillText(text[j], W / 2 - width / 2 + j * step, oy + (r0 + rows / 2) * lineH);
 
   // what it does, in one line
-  spaced("BUYS FILL THE BASKET. SELLS BURN $PNTH.", W / 2, (bottomRule + H) / 2, 76, "center");
+  spaced("BUYS FILL THE BASKET. SELLS BURN $PNTH.", W / 2, (bottomRule + H) / 2, 76 * k, "center");
 }
 
 /**
@@ -211,8 +214,6 @@ function teaser() {
     x += stepW;
   }
 }
-
-const mode = new URLSearchParams(location.search).get("v");
 
 document.fonts
   .load(`600 20px ${MONO}`)

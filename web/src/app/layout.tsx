@@ -26,8 +26,23 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://pantheonindex.com"),
   title: "PANTHEON · The best of Ascend, in one token.",
   description: "The index of Ascend. Buys build the basket. Sells burn the supply.",
+  // How a shared link looks on X, Discord and Telegram (the image is app/opengraph-image.png).
+  openGraph: {
+    type: "website",
+    siteName: "PANTHEON",
+    url: "/",
+    title: "PANTHEON · The best of Ascend, in one token.",
+    description: "One token that holds the best Ascend coins. Buys fill the basket, sells burn PNTH. Live on Elysium testnet.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@pantheonindex",
+    title: "PANTHEON · The best of Ascend, in one token.",
+    description: "One token that holds the best Ascend coins. Buys fill the basket, sells burn PNTH. Live on Elysium testnet.",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
