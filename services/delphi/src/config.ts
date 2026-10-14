@@ -1,4 +1,4 @@
-// DELPHI: settings and the detection rules' thresholds. Read-only service: no keys, no transactions.
+// DELPHI: settings and the detection rules' thresholds. Read-only service: no wallet keys, no transactions.
 import { getAddress, isAddress, type Address } from "viem";
 import { z } from "zod";
 

@@ -18,6 +18,7 @@
     "better-sqlite3": false
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.134.0",
     "better-sqlite3": "^13.0.3",
     "viem": "^2.57.5",
     "zod": "^4.6.7"
