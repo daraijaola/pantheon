@@ -18,7 +18,7 @@ Each step is a script that is already run on testnet (`script/Deploy.s.sol`):
 
 1. Deploy the HYPE Passport registry. Its attestor is the Passport service. Its guardian is Ascend if they agree to hold it, otherwise a multisig.
 2. Deploy the Covenant factory.
-3. Launch PNTH through the factory: 1 billion supply, no presale, no team allocation and no dev-buy (a Covenant launch can't have one). Covenant's jobs are set at launch and can never change.
+3. Launch PNTH through the factory (`TEAM` = the team multisig, `TEAM_BPS=1500`): 1 billion supply, no presale, no team tokens and no dev-buy (a Covenant launch can't have one). Covenant's jobs are set at launch and can never change.
 4. Deploy the basket list, the staking contract and the basket vault.
 5. Verify every contract on the explorer and publish the addresses on pantheonindex.com/security.
 6. Point the site, the Passport service, the keeper and DELPHI at mainnet.
@@ -27,15 +27,15 @@ Each step is a script that is already run on testnet (`script/Deploy.s.sol`):
 ## Before mainnet
 
 - An outside review of the five core contracts (Covenant, the basket list, the vault, staking and the Passport registry), paid for from the grant.
-- A multisig for the curator. The guardian goes to Ascend if they accept.
+- A multisig for the curator, and one for the team's 15% share. The guardian goes to Ascend if they accept.
 - The keeper running on its own: it routes PNTH's fees, buys the basket and refreshes Passport boosts.
 - The Trials vote: HYPE Passport holders vote three coins into the basket each week.
 
 ## Token plan
 
 - 1,000,000,000 PNTH, the Ascend standard. No presale, no team tokens, no dev-buy.
-- Every trade pays Ascend's 1% fee: 0.5% to Ascend and 0.5% to PNTH's Covenant. Covenant's half from buys goes to the basket for stakers, and its half from sells is burned.
-- **Open:** whether the team takes a small share of Covenant's half to keep building. It's 0% today, and it has to be decided before launch, because Covenant's jobs can't change afterwards.
+- Every trade pays Ascend's 1% fee: 0.5% to Ascend and 0.5% to PNTH's Covenant.
+- Of Covenant's half: **85% does PNTH's jobs** (on buys it goes to the basket for stakers, on sells it's burned) and **15% pays the team**, to a public multisig. That's about 0.075% of each trade. The share is fixed at launch and can never be raised. The testnet version runs at 0%; the setting is `TEAM_BPS` in `script/Deploy.s.sol`.
 
 ## After launch
 

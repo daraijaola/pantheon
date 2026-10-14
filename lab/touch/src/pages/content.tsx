@@ -124,7 +124,7 @@ export const COVENANT: Feature = {
     },
     {
       title: "It does its jobs",
-      desc: "On buys, the fee buys the basket and pays it out to stakers. On sells, it burns PNTH. Every action leaves a public receipt.",
+      desc: "On buys, 85% of the fee buys the basket for stakers. On sells, 85% burns PNTH. 15% of both pays the team. Every action leaves a public receipt.",
     },
     { title: "Nobody can change it", desc: "There is no owner, no admin key and no upgrade. Its jobs were set the moment it was created." },
   ],
@@ -141,7 +141,10 @@ export const COVENANT: Feature = {
     note: "Fees paid in the coin can be burned, paid or streamed. Fees paid in USDC can be paid, sent to the PANTHEON basket or streamed. Up to six jobs a side.",
   },
   faq: [
-    { q: "Can the PANTHEON team take the fees?", a: "No. The fees go to the contract, and the contract can only do the jobs it was given." },
+    {
+      q: "Can the PANTHEON team take the fees?",
+      a: "Only its fixed share: 15% of PNTH’s fees pay the team, set when PNTH launches on mainnet and impossible to raise. The rest can only be burned or go to the basket. On testnet the team’s share is 0%.",
+    },
     {
       q: "What if something needs fixing?",
       a: "It can’t be upgraded, so it is kept small and simple, and its code is public for anyone to review before launch.",

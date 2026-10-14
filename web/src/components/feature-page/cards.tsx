@@ -187,11 +187,15 @@ export function CovenantCard() {
       <div className={c.jobs}>
         <div className={c.job} style={line(t, 950)}>
           <span className={c.when}>On buys</span>
-          <span>buys the basket and pays it to stakers</span>
+          <span>85% buys the basket for stakers</span>
         </div>
         <div className={c.job} style={line(t, 1150)}>
           <span className={c.when}>On sells</span>
-          <span>burns PNTH for good</span>
+          <span>85% burns PNTH for good</span>
+        </div>
+        <div className={c.job} style={line(t, 1300)}>
+          <span className={c.when}>Both</span>
+          <span>15% pays the team, fixed forever</span>
         </div>
       </div>
       <div className={s.dash} style={line(t, 1400)} />

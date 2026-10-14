@@ -1,7 +1,8 @@
 "use client";
 
 // Section 01 · How it works. Where every trade's 1% fee goes, told as receipts people already know how to read.
-// Numbers are exact for the example: a $100 buy pays $1.00; half (50¢) buys the basket by weight.
+// Numbers are exact for the example: a $100 buy pays $1.00; half (50¢) is PANTHEON's, of which 85%
+// (42.5¢) buys the basket by weight and 15% (7.5¢) pays the team.
 
 import type { CSSProperties } from "react";
 import { AscendMark, decrypt, ease, fmt, span, type Logos } from "@/components/showcase/kit";
@@ -61,12 +62,16 @@ function BuyReceipt({ t, logos }: { t: number; logos: Logos }) {
         <span className={s.num}>${fmt(count(t, 950, 0.5), 2)}</span>
       </div>
       <div className={`${s.rRow} ${s.rSub} ${s.rStrong}`} style={line(t, 1150)}>
-        <span>↳ to PANTHEON</span>
-        <span className={s.num}>${fmt(count(t, 1150, 0.5), 2)}</span>
+        <span>↳ to the basket</span>
+        <span className={s.num}>{fmt(count(t, 1150, 42.5), 1)}¢</span>
+      </div>
+      <div className={`${s.rRow} ${s.rSub}`} style={line(t, 1300)}>
+        <span>↳ to the team</span>
+        <span className={s.num}>{fmt(count(t, 1300, 7.5), 1)}¢</span>
       </div>
       <div className={s.dash} style={line(t, 1500)} />
       <span className={s.fieldLabel} style={line(t, 1600)}>
-        PANTHEON’s 50¢ bought
+        The basket’s 42.5¢ bought
       </span>
       {SHOWN.map(([name, w], i) => {
         const at = 1800 + i * 180;
@@ -79,14 +84,14 @@ function BuyReceipt({ t, logos }: { t: number; logos: Logos }) {
                 <i key={k} style={{ opacity: k < Math.round((w / 20) * 10 * fill) ? 1 : 0.12 }} />
               ))}
             </span>
-            <span className={s.num}>{fmt(count(t, at, w * 0.5), 1)}¢</span>
+            <span className={s.num}>{fmt(count(t, at, w * 0.425), 1)}¢</span>
           </div>
         );
       })}
       <div className={s.coinLine} style={line(t, 2400)}>
         <span className={s.muted}>+ 7 more</span>
         <span />
-        <span className={s.num}>{fmt(count(t, 2400, REST * 0.5), 1)}¢</span>
+        <span className={s.num}>{fmt(count(t, 2400, REST * 0.425), 1)}¢</span>
       </div>
       <p className={s.note} style={line(t, 2800)}>
         These coins are locked, then paid out to people who stake PNTH.
@@ -98,7 +103,7 @@ function BuyReceipt({ t, logos }: { t: number; logos: Logos }) {
 function SellReceipt({ t, logos }: { t: number; logos: Logos }) {
   const amount = span(t, 150, 650);
   const burn = ease(span(t, 1500, 2100));
-  const circulating = 1_000_000_000 - 50 * ease(span(t, 2300, 3000));
+  const circulating = 1_000_000_000 - 42.5 * ease(span(t, 2300, 3000));
   return (
     <div className={`${s.card} ${s.receipt}`}>
       <ReceiptHead logos={logos} kind="SELL" />
@@ -121,9 +126,13 @@ function SellReceipt({ t, logos }: { t: number; logos: Logos }) {
       <div className={`${s.rRow} ${s.rSub} ${s.rStrong} ${s.burnRow}`} style={line(t, 1150)}>
         <span>↳ burned forever</span>
         <span className={`${s.num} ${s.strikeWrap}`}>
-          {burn > 0 && burn < 1 ? decrypt("50 PNTH", 1 - burn) : `${fmt(count(t, 1150, 50))} PNTH`}
+          {burn > 0 && burn < 1 ? decrypt("42.5 PNTH", 1 - burn) : `${fmt(count(t, 1150, 42.5), 1)} PNTH`}
           <span className={s.strike} style={{ transform: `scaleX(${burn})` }} />
         </span>
+      </div>
+      <div className={`${s.rRow} ${s.rSub}`} style={line(t, 1300)}>
+        <span>↳ to the team</span>
+        <span className={s.num}>{fmt(count(t, 1300, 7.5), 1)} PNTH</span>
       </div>
       <div className={s.dash} style={line(t, 2100)} />
       <span className={s.fieldLabel} style={line(t, 2200)}>
@@ -143,8 +152,9 @@ function RulesCard({ t }: { t: number }) {
   const rows: [string, string, boolean?][] = [
     ["Fee on every trade", "1%"],
     ["Ascend gets", "half"],
-    ["Our half, on buys", "→ the basket"],
-    ["Our half, on sells", "→ burned"],
+    ["Our half, on buys", "85% → the basket"],
+    ["Our half, on sells", "85% → burned"],
+    ["The team", "15%, fixed"],
     ["Owner", "none", true],
     ["Who can change this", "no one", true],
   ];
@@ -190,10 +200,10 @@ export function HowItWorks({ logos = "mono" }: { logos?: Logos }) {
       key: "buy",
       title: "When someone buys",
       short: "Buys",
-      desc: "Half the 1% fee goes to Ascend. Our half buys Ascend’s 10 best coins and pays them out to people who stake PNTH.",
+      desc: "Half the 1% fee goes to Ascend. Of our half, 85% buys Ascend’s best coins and pays them out to people who stake PNTH, and 15% pays the team.",
       brand: <>on <AscendMark logos={logos} size={15} /></>,
     },
-    { key: "sell", title: "When someone sells", short: "Sells", desc: "Half the fee goes to Ascend. Our half is burned, so there are fewer PNTH, forever." },
+    { key: "sell", title: "When someone sells", short: "Sells", desc: "Half the fee goes to Ascend. Of our half, 85% is burned, so there are fewer PNTH forever, and 15% pays the team." },
     { key: "rules", title: "Who controls it", short: "Rules", desc: "No one. The rules are locked into the contract at launch. Not even we can change them." },
   ];
   return (

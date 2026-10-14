@@ -22,6 +22,8 @@ import {PantheonStaking, IRewardList} from "../src/staking/PantheonStaking.sol";
 ///   CURATOR    who may propose basket lists        GUARDIAN  who may veto them (offered to Ascend)
 ///   MAX_RUN_CAP  most USDC per coin per basket run (6 decimals)   MAX_STALE  oldest usable price average (s)
 ///   PNTH_NAME / PNTH_SYMBOL / PNTH_SALT
+///   TEAM / TEAM_BPS  the team's wallet and its fixed share of PNTH's fees on both sides (1500 = 15%;
+///                    unset = 0%). Set at launch: Covenant can never change it.
 /// Run: forge script script/Deploy.s.sol --rpc-url elysium --broadcast (with the deployer's key)
 contract Deploy is Script {
     IAscendLaunchpad constant LP = IAscendLaunchpad(0xE2f6254508DEB93Da081837F545e0bAF7b00d8E9);
@@ -37,6 +39,8 @@ contract Deploy is Script {
         string symbol;
         bytes32 salt;
         address usdc;
+        address team;
+        uint16 teamBps;
     }
 
     struct Deployed {
@@ -79,6 +83,10 @@ contract Deploy is Script {
         c.symbol = vm.envOr("PNTH_SYMBOL", string("PNTH"));
         c.salt = keccak256(bytes(vm.envOr("PNTH_SALT", string("pantheon-v1"))));
         c.usdc = LP.baseQuote();
+        c.team = vm.envOr("TEAM", address(0));
+        c.teamBps = uint16(vm.envOr("TEAM_BPS", uint256(0)));
+        require(c.teamBps <= 2_000, "team share above 20%");
+        require(c.teamBps == 0 || c.team != address(0), "TEAM_BPS needs a TEAM wallet");
     }
 
     function _deploy(Config memory c, address deployer) internal returns (Deployed memory d) {
@@ -89,23 +97,46 @@ contract Deploy is Script {
         // The launch, the registry and staking come next; the basket vault is the third deploy after it.
         address predictedIndex = vm.computeCreateAddress(deployer, vm.getNonce(deployer) + 3);
         (d.pnth, d.pool, d.router) =
-            factory.launch(c.name, c.symbol, c.usdc, c.salt, _tokenLegs(), _quoteLegs(predictedIndex));
+            factory.launch(c.name, c.symbol, c.usdc, c.salt, _tokenLegs(c), _quoteLegs(c, predictedIndex));
 
         d.registry = address(new ConstituentRegistry(LP, c.usdc, d.pnth, c.curator, c.guardian, c.maxRunCap));
         d.staking = address(new PantheonStaking(ERC20(d.pnth), IHypePassport(d.passport), IRewardList(d.registry)));
         d.index = address(new IndexVault(LP, ConstituentRegistry(d.registry), IStakingRewards(d.staking), c.maxStale));
         require(d.index == predictedIndex, "basket vault is not where PNTH's router sends USDC");
+        _logJobs(d.router);
     }
 
-    /// PNTH's jobs: every PNTH fee (from sells) is burned; every USDC fee (from buys) goes to the basket.
-    function _tokenLegs() internal pure returns (CovenantRouter.Leg[] memory legs) {
-        legs = new CovenantRouter.Leg[](1);
-        legs[0] = CovenantRouter.Leg(CovenantRouter.Job.BURN, 10_000, address(0));
+    /// PNTH's jobs: PNTH fees (from sells) are burned and USDC fees (from buys) go to the basket, less the
+    /// team's fixed share of each when TEAM_BPS is set.
+    function _tokenLegs(Config memory c) internal pure returns (CovenantRouter.Leg[] memory legs) {
+        return _withTeam(CovenantRouter.Leg(CovenantRouter.Job.BURN, 10_000, address(0)), c);
     }
 
-    function _quoteLegs(address index) internal pure returns (CovenantRouter.Leg[] memory legs) {
-        legs = new CovenantRouter.Leg[](1);
-        legs[0] = CovenantRouter.Leg(CovenantRouter.Job.INDEX, 10_000, index);
+    function _quoteLegs(Config memory c, address index) internal pure returns (CovenantRouter.Leg[] memory legs) {
+        return _withTeam(CovenantRouter.Leg(CovenantRouter.Job.INDEX, 10_000, index), c);
+    }
+
+    function _withTeam(CovenantRouter.Leg memory main, Config memory c) internal pure returns (CovenantRouter.Leg[] memory legs) {
+        if (c.teamBps == 0) {
+            legs = new CovenantRouter.Leg[](1);
+            legs[0] = main;
+            return legs;
+        }
+        legs = new CovenantRouter.Leg[](2);
+        main.bps = 10_000 - c.teamBps;
+        legs[0] = main;
+        legs[1] = CovenantRouter.Leg(CovenantRouter.Job.PAY, c.teamBps, c.team);
+    }
+
+    /// PNTH's jobs as its router stored them (side 0: PNTH fees, side 1: USDC fees), for the log.
+    function _logJobs(address router) internal view {
+        for (uint8 side; side < 2; ++side) {
+            CovenantRouter.Leg[] memory legs = CovenantRouter(router).legs(side);
+            for (uint256 i; i < legs.length; ++i) {
+                console2.log(side == 0 ? "PNTH fees, job / bps:" : "USDC fees, job / bps:", uint8(legs[i].job), legs[i].bps);
+                console2.log("  to:", legs[i].target);
+            }
+        }
     }
 
     function _record(Config memory c, Deployed memory d) internal {
@@ -121,6 +152,10 @@ contract Deploy is Script {
         vm.serializeAddress(k, "pnthRouter", d.router);
         vm.serializeAddress(k, "constituentRegistry", d.registry);
         vm.serializeAddress(k, "staking", d.staking);
+        if (c.teamBps > 0) {
+            vm.serializeAddress(k, "team", c.team);
+            vm.serializeUint(k, "teamBps", c.teamBps);
+        }
         string memory json = vm.serializeAddress(k, "indexVault", d.index);
         console2.log(json);
         if (vm.envOr("WRITE_DEPLOYMENT", false)) {

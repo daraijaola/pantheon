@@ -194,7 +194,7 @@ export function WhatYouGet({ logos = "mono" }: { logos?: Logos }) {
   const steps: ShowcaseStep[] = [
     { key: "buy", title: "Buy PNTH", short: "Buy", desc: "Swap USDC for PNTH on Ascend, like any other coin.", brand: <>on <AscendMark logos={logos} size={15} /></> },
     { key: "stake", title: "Stake it", short: "Stake", desc: "Put your PNTH to work. Leave any time; it unlocks 3 days after you ask." },
-    { key: "earn", title: "Earn the basket", short: "Earn", desc: "Ascend’s 10 best coins drip into your wallet, every day you stay." },
+    { key: "earn", title: "Earn the basket", short: "Earn", desc: "Ascend’s best coins drip into your wallet, every day you stay." },
     { key: "boost", title: "Boost it", short: "Boost", desc: "Stay longer to earn up to 1.5×. Prove you hold HYPE for up to 1.25× more.", brand: <>with <HypeMark logos={logos} size={16} /></> },
   ];
   return (
