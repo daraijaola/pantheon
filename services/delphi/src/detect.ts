@@ -83,8 +83,38 @@ export function detectWash(d: CoinData): DetectorResult {
   if (trades.length < RULES.wash.minTrades) return { enough: false, finding: null };
   // Measured in tokens, not quote: a coin can trade in pools priced in different currencies.
   const total = trades.reduce((s, t) => s + t.tokens, 0n);
-  const min = (a: bigint, b: bigint) => (a < b ? a : b);
+  const matched = roundTrips(d);
+  const washTokens = [...matched.values()].reduce((s, m) => s + m, 0n);
+  const share = pct(washTokens, total);
+  const severity = grade(share, RULES.wash);
+  if (!severity) return { enough: true, finding: null };
 
+  const washers = new Set([...matched.keys()].map(actor));
+  const linked = linksWithin(d.links, washers);
+  const minutes = RULES.wash.pairWindowSec / 60;
+  return {
+    enough: true,
+    finding: {
+      detector: "wash",
+      severity,
+      summary: `${share}% of trading volume is fast round trips: ${washers.size} wallet(s)${linked.length ? " (some linked)" : ""} bought and sold the same tokens back within ${minutes} minutes.`,
+      metrics: { washVolumePct: share, roundTripWallets: washers.size, trades: trades.length, roundTripTrades: matched.size },
+      evidence: [
+        ...[...matched.keys()].sort(chrono).slice(0, 8).map((t) => ({ what: `${short(actor(t))} ${t.side}`, tx: t.tx })),
+        ...linked.map(linkEvidence),
+      ],
+    },
+  };
+}
+
+/**
+ * The round-trip matching behind the wash check: for each trade, how many of its tokens were matched
+ * by an opposite trade of the same actor within the window (arbitrage legs excluded). Also used by the
+ * Trials to take wash volume out of a coin's real volume, exactly as the verdicts count it.
+ */
+export function roundTrips(d: CoinData): Map<Trade, bigint> {
+  const trades = d.trades.filter((t) => t.tokens > 0n && !isSystem(d, actor(t)));
+  const min = (a: bigint, b: bigint) => (a < b ? a : b);
   const cl = clusters(d.links, trades.map(actor));
   const matched = new Map<Trade, bigint>();
   for (const [, group] of groupBy(trades, (t) => cl.get(actor(t))!)) {
@@ -114,28 +144,7 @@ export function detectWash(d: CoinData): DetectorResult {
       open.push({ t, left });
     }
   }
-
-  const washTokens = [...matched.values()].reduce((s, m) => s + m, 0n);
-  const share = pct(washTokens, total);
-  const severity = grade(share, RULES.wash);
-  if (!severity) return { enough: true, finding: null };
-
-  const washers = new Set([...matched.keys()].map(actor));
-  const linked = linksWithin(d.links, washers);
-  const minutes = RULES.wash.pairWindowSec / 60;
-  return {
-    enough: true,
-    finding: {
-      detector: "wash",
-      severity,
-      summary: `${share}% of trading volume is fast round trips: ${washers.size} wallet(s)${linked.length ? " (some linked)" : ""} bought and sold the same tokens back within ${minutes} minutes.`,
-      metrics: { washVolumePct: share, roundTripWallets: washers.size, trades: trades.length, roundTripTrades: matched.size },
-      evidence: [
-        ...[...matched.keys()].sort(chrono).slice(0, 8).map((t) => ({ what: `${short(actor(t))} ${t.side}`, tx: t.tx })),
-        ...linked.map(linkEvidence),
-      ],
-    },
-  };
+  return matched;
 }
 
 /** Token balances of non-system wallets, replayed from Transfer events. */

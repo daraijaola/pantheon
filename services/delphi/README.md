@@ -69,6 +69,59 @@ The key is read from `/var/lib/delphi/keys/anthropic.key` (owner `ayinde`, mode 
 
 All settings have working testnet defaults (see `.env.example`). `better-sqlite3` ships prebuilt binaries, so its install script is denied in `package.json` (`allowScripts`).
 
+## The Trials: from DELPHI's scan to a basket proposal
+
+```sh
+node scripts/trials.ts                    # next round: out/trials/round-N.json + round-N.tree.json
+node scripts/trials.ts --coins 7 --cap-usdc 100
+node scripts/trials.ts --round 1 --count-creator --compare ../../deployments/trials/round-1.json
+```
+
+It rebuilds every coin from DELPHI's data and ranks them by **independent trading volume in USDC**: volume
+in the coin's Ascend pool, minus trades by the creator (and the launcher, and any wallet DELPHI links to
+them), minus wash round trips, counted by the same matching the verdicts use. The top coins share the
+basket in proportion to that volume, none above the cap.
+
+**Why not count the creator:** test USDC can be minted for free. Live on Oct 14, round 1's top coin FGK
+showed "17,000,170 USDC", but 17M of that was the creator buying their own coin, and other wallets traded
+about 170 USDC. Three "CRB" coins had 61,700–594,000 USDC each, and every coin's only trade was a dev-buy by
+the same wallet.
+
+**Rules come from the contract.** The coin count, the 20% cap, the 72-hour age and the per-run cap limit
+are read from the deployed `ConstituentRegistry` (`MAX_N`, `MAX_WEIGHT_BPS`, `MIN_AGE`, `maxRunCap`). It
+also checks: priced in USDC, not PNTH, never a DELPHI FLAG.
+
+**It checks before anyone sends anything.** It dry-runs `propose` as the curator on the live chain. Round 2
+was accepted. A list with a too-young coin swapped in was refused with `BadList(4)`, the same rule.
+
+**Anyone can verify a round:**
+- The registry stores `keccak256` of the exact bytes of the round file (Micheal's propose script). The
+  same scan always gives the same bytes, whatever order the data was read in.
+- Round 1's published file hashes exactly to the fingerprint of proposal 0; a test pins this.
+- The file's `merkleRoot` is an OpenZeppelin standard Merkle tree with one leaf per coin considered: token,
+  pool, verdict, total, wash, creator and independent volume, rank, weight, cap. Any coin's row can be
+  proven on its own with the tree file.
+- `out/` isn't committed: when a round is proposed, its two files go into `deployments/trials/`.
+
+**It warns about coins the basket won't buy when the round can start** (after the registry's 24-hour wait;
+the wait, the 48-hour limit and the 5% band are read from the contracts):
+- a price average that will be too old by then;
+- a price more than 5% above its average.
+
+After a quiet spell the average lags behind the price. FGK, pumped by its creator, was 43,635% above it. The
+curator can leave such a coin out with `--exclude 0xTOKEN:reason` (one per coin), and the reason is recorded in
+the round file.
+
+**Rehearsed end to end on a local fork** (`node scripts/fork-trials.ts out/trials/round-N.json`):
+- The curator proposes exactly as Micheal's script does. The registry stores the file's fingerprint and the
+  exact list, refuses to start it before 24 hours, then starts it.
+- The basket buys 0 of 5 coins with no settle trades (all stale), 4 of 5 after one 0.01 USDC trade each, and
+  **5 of 5 after small settle trades spread over 6 hours**. Settle the coins a few hours before the round
+  starts.
+
+**Micheal's own reader:** a parse-only copy of his `propose` script (the same `vm.parseJson*` calls and
+`keccak256(bytes(json))`) reads the round-2 file correctly and gives the same fingerprint as this script.
+
 ## Commands
 
 | Command | What it does |
