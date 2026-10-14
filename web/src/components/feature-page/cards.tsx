@@ -209,3 +209,50 @@ export function CovenantCard() {
     </div>
   );
 }
+
+// ── Security: every key, and what it can do ──
+const KEYS: [string, string][] = [
+  ["Covenant", "no owner"],
+  ["Staking", "no owner"],
+  ["Basket vault", "no owner"],
+  ["Curator", "proposes lists"],
+  ["Guardian", "can only say no"],
+  ["Passport signer", "8-day certificates"],
+];
+
+export function KeysCard() {
+  const t = useIntro(2800);
+  return (
+    <div className={`${s.card} ${s.receipt}`}>
+      <div className={s.cardHead}>
+        <span className={s.brandRow}>
+          <Lock />
+          <b>Keys and what they can do</b>
+        </span>
+        <span className={`${s.tag} ${s.tagInk}`} style={stamp(t, 2000)}>
+          NO KEY MOVES FUNDS
+        </span>
+      </div>
+      <div className={s.rows}>
+        {KEYS.map(([k, v], i) => (
+          <div key={k} className={s.row} style={line(t, 150 + i * 160)}>
+            <span className={s.muted}>{k}</span>
+            <span className={`${s.num} ${s.strong}`}>{v}</span>
+          </div>
+        ))}
+      </div>
+      <div className={s.dash} style={line(t, 1200)} />
+      <div className={s.rRow} style={line(t, 1300)}>
+        <span>Wait before a list changes</span>
+        <span className={`${s.num} ${s.strong}`}>24h</span>
+      </div>
+      <div className={s.rRow} style={line(t, 1450)}>
+        <span>Most any coin can weigh</span>
+        <span className={`${s.num} ${s.strong}`}>20%</span>
+      </div>
+      <p className={s.note} style={line(t, 1700)}>
+        Every contract we wrote is verified on the Elysium explorer.
+      </p>
+    </div>
+  );
+}

@@ -38,7 +38,7 @@ const COLUMNS: { title: string; items: Item[] }[] = [
   },
   {
     title: "Developers",
-    items: [{ label: "GitHub", href: LINKS.github }, { label: "Contracts" }, { label: "Security" }],
+    items: [{ label: "GitHub", href: LINKS.github }, { label: "Contracts", href: "/security#details" }, { label: "Security", href: "/security" }],
   },
 ];
 

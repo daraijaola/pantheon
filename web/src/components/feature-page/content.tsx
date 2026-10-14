@@ -1,7 +1,7 @@
 // What each feature page says. Only what is built is stated as fact (the contracts, the Passport
 // service, DELPHI); the Trials vote is named as coming. Plain words only.
 
-import { BallotCard, CovenantCard, PassportCard } from "./cards";
+import { BallotCard, CovenantCard, KeysCard, PassportCard } from "./cards";
 import type { Feature } from "./feature-page";
 
 export const PASSPORT: Feature = {
@@ -157,6 +157,78 @@ export const COVENANT: Feature = {
           . Every burn and payment it makes is on the explorer, and its code is verified there.
         </>
       ),
+    },
+  ],
+};
+
+const EXPLORER = "https://elysium.kinetiq.xyz/testnet-explorer/address/";
+const at = (address: string) => (
+  <a href={EXPLORER + address} target="_blank" rel="noreferrer">
+    {address.slice(0, 6)}…{address.slice(-4)}
+  </a>
+);
+
+export const SECURITY: Feature = {
+  eyebrow: "Security",
+  title: (
+    <>
+      Every rule is in the code.
+      <br />
+      <span>Check it yourself.</span>
+    </>
+  ),
+  sub: "PANTHEON is live on the Elysium testnet and hasn’t been audited yet. This page lists every contract, every key and what it can do, and how we test them.",
+  actions: [
+    { label: "See every contract", href: "#details", primary: true },
+    { label: "Read DELPHI", href: "/delphi" },
+  ],
+  diagram: <KeysCard />,
+  steps: [
+    {
+      title: "No owner where the money is",
+      desc: "Covenant, staking and the basket vault have no owner, no admin key and no upgrade. Nobody can take what they hold, including us.",
+    },
+    {
+      title: "Small, slow powers",
+      desc: "The keys that exist can only propose or block a basket list, which waits 24 hours, or sign Passports that expire within 8 days. Staking caps any Passport boost at 1.25×.",
+    },
+    {
+      title: "Tested against real Ascend",
+      desc: "24 contract tests, 7 of them against a copy of Ascend’s live testnet, including a 1,000-run test that stakers can never be paid more than came in. Slither, the standard automatic checker, found nothing real.",
+    },
+  ],
+  details: {
+    title: "Every contract",
+    sub: "All live on the Elysium testnet. Every contract we wrote is verified on the explorer. PNTH itself is a standard Ascend token, made by Ascend’s launchpad.",
+    head: ["Contract", "What it does", "Address"],
+    rows: [
+      ["PNTH", "The token: a standard Ascend coin with a fixed supply of 1 billion.", at("0x048aCeb334cb1835dc897a749C5985e169EAb1C5")],
+      ["Covenant for PNTH", "Takes PNTH’s fees and does its jobs: burn on sells, basket on buys.", at("0xE0Fb49DBDC3406cF1f175EeCABDFb282a7a98b66")],
+      ["Covenant factory", "Launches coins on Covenant, for anyone.", at("0x42b9F24d88Ca015CC59E516B272F7A46a87Fa35a")],
+      ["Basket list", "The coins in the basket: proposals, the 24-hour wait, vetoes.", at("0xD8cEA0015E2C876ab5fa6D9178b46B57d65c6087")],
+      ["Basket vault", "Buys the basket near Ascend’s own average price, then pays it out.", at("0xE636003Feb05D0FB8f6016733C3d723446C9f221")],
+      ["Staking", "Holds staked PNTH and streams the basket to stakers.", at("0x30c88fce1fAD545Df0fC603287f93F0f94076224")],
+      ["HYPE Passport", "Records Passports that the Passport service signs.", at("0x0Eb4A8eB47364Be9d18410AF2f850db92b807290")],
+      ["Swap helper", "Testnet only: lets the site buy PNTH from its Ascend pool.", at("0x31A67d054D34Ec18cb23A43B0E3ad1F756aA1500")],
+    ],
+    note: "The basket vault only buys within 5% of Ascend’s own average price, keeps each buy small, and skips a coin for a run after a big price move.",
+  },
+  faq: [
+    {
+      q: "Has it been audited?",
+      a: "Not yet. It runs on testnet, and an audit comes before mainnet. Until then our contracts are verified on the explorer, every note from Slither (the standard automatic checker) is answered in our code repository, and the code goes public on GitHub before launch.",
+    },
+    {
+      q: "Who holds the keys?",
+      a: "We do, for now. The curator proposes basket lists. The guardian, a separate key, can veto a list or switch Passports off. We’d like Ascend to hold the guardian on mainnet. The Passport service signs Passports. None of these keys can move anyone’s funds.",
+    },
+    {
+      q: "What could go wrong?",
+      a: "A coin in the basket can lose value. Someone could try to push a price before the vault buys, which is why it only buys near Ascend’s average and keeps buys small. Passport tiers depend on our service reading Hyperliquid correctly.",
+    },
+    {
+      q: "Found a problem?",
+      a: "Message @pantheonindex on X and we’ll take it private. We’ve already reported one issue in Ascend itself to their team.",
     },
   ],
 };

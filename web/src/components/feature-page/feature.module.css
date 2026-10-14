@@ -194,6 +194,12 @@
   vertical-align: top;
   color: color-mix(in srgb, var(--ink) 75%, transparent);
 }
+.table td a {
+  white-space: nowrap;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .table td:first-child {
   font-weight: 500;
   color: var(--ink);
