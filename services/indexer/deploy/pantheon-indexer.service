@@ -1,0 +1,49 @@
+# PANTHEON indexer (the site's live numbers). Install:
+#   sudo install -m 0644 deploy/pantheon-indexer.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now pantheon-indexer
+# Logs: journalctl -u pantheon-indexer -f
+#
+# Read-only: no keys, nothing to sign. Listens on 127.0.0.1:8789; the site forwards /api/stats,
+# /api/basket and /api/receipts here (a Next.js rewrite).
+
+[Unit]
+Description=PANTHEON indexer: burns, basket, receipts, staking for the site (127.0.0.1:8789)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ayinde
+Group=ayinde
+WorkingDirectory=/srv/hackathon/pantheon/services/indexer
+ExecStart=/usr/bin/node --env-file-if-exists=.env src/server.ts
+Environment=NODE_ENV=production
+Environment=STATE_FILE=/var/lib/indexer/index.json
+StateDirectory=indexer
+StateDirectoryMode=0700
+Restart=on-failure
+RestartSec=30
+TimeoutStopSec=20
+UMask=0077
+
+# Lock-down: read-only system and code, writes only to /var/lib/indexer, no new privileges.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
