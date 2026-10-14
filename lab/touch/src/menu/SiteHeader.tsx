@@ -124,9 +124,9 @@ export function SiteHeader({ code }: { code: string }) {
         <a href={OUT.github} className={m.ghost} {...external(OUT.github)}>
           GitHub
         </a>
-        <button type="button" className={m.wallet}>
-          Connect wallet
-        </button>
+        <A href="/stake" className={m.wallet}>
+          Open app
+        </A>
         <button type="button" className={m.burger} aria-expanded={open} aria-controls="site-menu" aria-label={open ? "Close menu" : "Open menu"} onClick={() => setOpen((v) => !v)}>
           <span />
           <span />
@@ -171,9 +171,9 @@ export function SiteHeader({ code }: { code: string }) {
               <A href="#" className={m.btnInk} onClick={close}>
                 Buy $PNTH
               </A>
-              <button type="button" className={m.btnGhost}>
-                Connect wallet
-              </button>
+              <A href="/stake" className={m.btnGhost} onClick={close}>
+                Open app
+              </A>
             </div>
           </nav>
         </>

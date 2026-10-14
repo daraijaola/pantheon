@@ -22,13 +22,19 @@ const COLUMNS: { title: string; items: Item[] }[] = [
     title: "PANTHEON",
     items: [
       { label: "How it works", href: "/#how-it-works" },
-      { label: "Stake PNTH", href: "/#what-you-get" },
       { label: "The basket", href: "/#basket" },
+      { label: "Stake PNTH", href: "/stake" },
+      { label: "Terms of use", href: "/terms" },
     ],
   },
   {
     title: "Features",
-    items: [{ label: "HYPE Passport" }, { label: "The Trials" }, { label: "Covenant" }, { label: "DELPHI" }],
+    items: [
+      { label: "HYPE Passport", href: "/passport" },
+      { label: "The Trials", href: "/trials" },
+      { label: "Covenant", href: "/covenant" },
+      { label: "DELPHI" },
+    ],
   },
   {
     title: "Developers",
@@ -48,7 +54,7 @@ function XLogo() {
 
 const WORDMARK = [{ text: "PANTHEON" }];
 
-export function Footer({ code }: { code: string }) {
+export function Footer({ code, quiet = false }: { code: string; quiet?: boolean }) {
   return (
     <footer className={f.footer}>
       <div className={f.grid}>
@@ -115,9 +121,11 @@ export function Footer({ code }: { code: string }) {
         </p>
       </div>
 
-      <div className={f.giant}>
-        <CodeHeadline words={WORDMARK} fill={code} label="PANTHEON" maxCharW={9} maxHeightVh={0.3} density={2} startOnView decorative />
-      </div>
+      {!quiet && (
+        <div className={f.giant}>
+          <CodeHeadline words={WORDMARK} fill={code} label="PANTHEON" maxCharW={9} maxHeightVh={0.3} density={2} startOnView decorative />
+        </div>
+      )}
     </footer>
   );
 }

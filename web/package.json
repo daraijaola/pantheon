@@ -9,9 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.104.2",
     "next": "16.4.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "viem": "^2.57.7",
+    "wagmi": "^3.7.7"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",

@@ -113,6 +113,8 @@ contract Deploy is Script {
         vm.serializeAddress(k, "staking", d.staking);
         string memory json = vm.serializeAddress(k, "indexVault", d.index);
         console2.log(json);
-        if (vm.envOr("WRITE_DEPLOYMENT", false)) vm.writeJson(json, "deployments/elysium-testnet.json");
+        if (vm.envOr("WRITE_DEPLOYMENT", false)) {
+            vm.writeJson(json, vm.envOr("DEPLOYMENT_FILE", string("deployments/elysium-testnet.json")));
+        }
     }
 }

@@ -24,3 +24,7 @@ node_modules/
 *.sqlite-*
 *.key
 keys/
+
+# Dev-only chain state (the private anvil copy of testnet)
+deployments/local.json
+deployments/dev-*.json

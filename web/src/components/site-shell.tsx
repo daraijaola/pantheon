@@ -2,8 +2,9 @@ import { Footer } from "@/components/footer/footer";
 import { SiteHeader } from "@/components/menu/site-header";
 import { packCode, readOurCode } from "@/lib/our-code";
 
-/** Every page: the frame rails, the header with its Explore menu, the page, the footer. */
-export async function SiteShell({ children }: { children: React.ReactNode }) {
+/** Every page: the frame rails, the header with its Explore menu, the page, the footer.
+ * `quiet` (app screens) drops the footer's big code-type name: inside the app nothing shouts. */
+export async function SiteShell({ children, quiet = false }: { children: React.ReactNode; quiet?: boolean }) {
   const fill = packCode(await readOurCode());
   return (
     <div className="relative min-h-svh bg-paper text-ink">
@@ -14,7 +15,7 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
       />
       <SiteHeader code={fill} />
       {children}
-      <Footer code={fill} />
+      <Footer code={fill} quiet={quiet} />
     </div>
   );
 }
