@@ -93,10 +93,11 @@ On the fork it makes every kind of event:
 Then it indexes from the deployment block and checks each answer against the fork's own numbers: burn
 sink, vault USDC before and after, the staking total, and the active list. **Last run: 26/26 (28 events).**
 
-**Found in that run, for the basket:** after the 1 USDC settle trades, 3 of the 5 coins were skipped as
-"price more than 5% above its average". In these thin pools the settle buy itself seems to push the price
-past the basket's buying range. Settle trades should be smaller, or a buy and sell, or made well before
-the rebalance.
+**Found in that run, for the basket (corrected on Oct 15):** after the 1 USDC settle trades, 3 of the 5 coins were
+skipped as "price more than 5% above its average". Testing showed the cause is **time, not trade size**: after a long
+quiet spell a coin's price average lags behind its price, and even 0.01 USDC settle trades leave it out of the
+basket's range. Small settle trades spread over a few hours let the average catch up. In DELPHI's Trials rehearsal,
+5 of 5 coins were bought after 6 hours of them.
 
 ## Commands
 
