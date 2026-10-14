@@ -8,6 +8,7 @@ import {PoolId} from "infinity-core/src/types/PoolId.sol";
 import {PoolKey} from "infinity-core/src/types/PoolKey.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 import {Swapper} from "../test/fork/AscendPoC.t.sol";
+import {CovenantFactory} from "../src/covenant/CovenantFactory.sol";
 import {CovenantRouter} from "../src/covenant/CovenantRouter.sol";
 import {ConstituentRegistry} from "../src/index/ConstituentRegistry.sol";
 import {IndexVault} from "../src/index/IndexVault.sol";
@@ -25,6 +26,7 @@ interface IMintable {
 ///   buyAndStake(usdc, bps)    buys PNTH with Ascend's test USDC (public mint) and stakes part of it
 ///   sell(amount)              sells PNTH; Covenant burns PNTH's share of the fee
 ///   settle(file)              a 1 USDC trade on each basket coin, so its price average is fresh
+///   launchDemo(name, symbol)  a coin launched on Covenant, like the site's launch screen does
 ///   keep(k)                   what the keeper bot does: route PNTH's fees, then buy the basket
 contract Testnet is Script {
     IAscendLaunchpad constant LP = IAscendLaunchpad(0xE2f6254508DEB93Da081837F545e0bAF7b00d8E9);
@@ -102,6 +104,24 @@ contract Testnet is Script {
             sw.swapExactIn(_key(tokens[i], usdc), usdc < tokens[i], 1e6);
         }
         vm.stopBroadcast();
+    }
+
+    /// A coin launched on Covenant the way the site's launch screen does it: sell fees half burned, half
+    /// paid to the deployer; buy fees half paid to the deployer, half sent to the PANTHEON basket.
+    function launchDemo(string calldata name, string calldata symbol) external {
+        address me = _start();
+        CovenantRouter.Leg[] memory sells = new CovenantRouter.Leg[](2);
+        sells[0] = CovenantRouter.Leg(CovenantRouter.Job.BURN, 5_000, address(0));
+        sells[1] = CovenantRouter.Leg(CovenantRouter.Job.PAY, 5_000, me);
+        CovenantRouter.Leg[] memory buys = new CovenantRouter.Leg[](2);
+        buys[0] = CovenantRouter.Leg(CovenantRouter.Job.PAY, 5_000, me);
+        buys[1] = CovenantRouter.Leg(CovenantRouter.Job.INDEX, 5_000, _addr(".indexVault"));
+        (address token,, address router) = CovenantFactory(_addr(".covenantFactory")).launch(
+            name, symbol, LP.baseQuote(), keccak256(bytes(symbol)), sells, buys
+        );
+        vm.stopBroadcast();
+        console2.log("coin:", token);
+        console2.log("its Covenant:", router);
     }
 
     function keep(uint256 k) external {
