@@ -15,7 +15,43 @@ Spec: [`docs/PASSPORT_SPEC.md`](../../docs/PASSPORT_SPEC.md). Owner: Ayinde. Tic
 npm start          # node --env-file-if-exists=.env src/server.ts
 ```
 
-Refuses to start without `REGISTRY_ADDRESS`, or with key/pepper files that group or others can read. Listens on `127.0.0.1:$PORT` only. Caddy exposes it under `/api/passport/*`. `SIGTERM` finishes in-flight requests and closes the database.
+Refuses to start without `REGISTRY_ADDRESS`, or with key/pepper files that group or others can read. Listens on `127.0.0.1:$PORT` only. `SIGTERM` finishes in-flight requests and closes the database.
+
+**Startup check against the chain.** Before listening, the service reads the registry and refuses to start unless:
+- the RPC is on chain 99801,
+- there is a contract at `REGISTRY_ADDRESS`,
+- its `ATTESTOR` is the address of our attestor key file,
+- its `DOMAIN_SEPARATOR` equals the one we sign for,
+- and it is not retired.
+
+Without this check, a wrong key or registry would let the service run while every passport it signs bounces on-chain. It also proves the key file matches its public address without anyone opening the key.
+
+## On the server (P10)
+
+The live service is the systemd unit `pantheon-passport` (file in `deploy/`, installed in `/etc/systemd/system/`). The site forwards `pantheonindex.com/api/passport/*` to it (a Next.js rewrite), so Caddy needs no change.
+
+```sh
+sudo systemctl status pantheon-passport        # running? since when?
+sudo systemctl restart pantheon-passport       # after changing code or .env
+journalctl -u pantheon-passport -f             # live logs
+curl -s https://pantheonindex.com/api/passport/health
+```
+
+- **It runs as `ayinde`**, because the key files under `/var/lib/passport/keys` are owned by `ayinde` (mode 0600). The spec suggests a separate `passport` user; moving the keys needs Micheal's OK.
+- **Locked down:** the system and the code are read-only to it. It can write only to `/var/lib/passport`, gains no privileges, and has no devices or kernel access. `systemd-analyze security` rates it 3.0 ("OK").
+- **Checked on Oct 14:** it answers through the public site, comes back after `systemctl restart`, and restarts by itself 5 s after being killed. It starts at boot (`enabled`). A failed startup check stops retrying after 10 tries in 5 minutes.
+- **Logs** never contain request bodies, so no Hyperliquid address or signature. An unexpected error is logged with its name, first line and code locations only, because viem's full messages include the call data, and that can hold the Hyperliquid address being read.
+- **Settings:** `services/passport/.env` (not committed) holds only `REGISTRY_ADDRESS`. Keys stay in their files.
+
+## P9 end-to-end checks
+
+`scripts/e2e.ts <elysium-address>` compares the API with the registry for one account (tier, validity), lists its `PassportIssued` and `Unlinked` transactions, checks that `/passport/stats` counts it, and shows any rebind cooldown. It is read-only and uses no keys:
+
+```sh
+node --env-file-if-exists=.env scripts/e2e.ts 0x…
+```
+
+The tests that need people with wallets are written up in `P9-TESTS.md`.
 
 ## Setup
 
@@ -82,6 +118,7 @@ src/issue.ts          sign + store one attestation (shared by API and scheduler)
 src/relayer.ts        submits attestations on Elysium: one tx, or batched through Multicall3
 src/scheduler.ts      re-checks, renewals, relaying, Unlinked watch, keeper pokes (§7.2)
 src/server.ts         entry point: config + keys + clients + API + scheduler on 127.0.0.1
+src/preflight.ts      startup check: the registry trusts our attestor and shares our signing domain
 contracts-check/      isolated Foundry project: our attestations vs the reference registry
 scripts/make-attestation-fixture.ts  writes contracts-check/fixtures/attestation.json
 scripts/probe-registry-call.ts  live, read-only: the Elysium node runs registry + our attestation in one eth_call
@@ -90,6 +127,8 @@ scripts/probe-recheck.ts  live: light daily re-check vs full snapshot on real wa
 scripts/probe-hl.ts   live probe, run by hand
 scripts/probe-evm.ts  live probe, run by hand
 scripts/probe-passport.ts  live end-to-end scoring, run by hand
+scripts/e2e.ts        P9 checker: API vs registry for one account, its transactions, stats
+deploy/pantheon-passport.service  the systemd unit (P10)
 test/setup.ts         blocks live network calls in tests
 test/mockHl.ts        fake HL /info on 127.0.0.1, answering from the fixtures
 test/mockEvm.ts       fake HyperEVM (Multicall3 per wallet) for tests
@@ -210,9 +249,9 @@ Errors are `{error, detail?}`, with `Retry-After` where it applies:
   - The next check lands 12–36 h later at random. A failed relay or an unreachable upstream is retried in 5 minutes with a **fresh** signature, never a resubmitted old one.
   - It records keeper pokes for passports issued with a new tier, for unlinks, and for expiries.
 
-## Behind Caddy (P10)
+## Behind Caddy (optional)
 
-Tested with Caddy 2.6.2 (the version on hackbox) in front of the real server. Add to the site block:
+Not used now: the site forwards `/api/passport/*` itself. If Caddy ever routes it directly, this was tested with Caddy 2.6.2 (the version on hackbox) in front of the real server. Add to the site block:
 
 ```caddy
 # HYPE Passport: only /api/passport/*, with /api stripped (service routes are /passport/*).

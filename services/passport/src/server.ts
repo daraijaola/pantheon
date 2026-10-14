@@ -11,6 +11,7 @@ import { createElysiumClient, createRegistryReader } from "./registry.ts";
 import { createElysiumRelayer } from "./relayer.ts";
 import { Scheduler } from "./scheduler.ts";
 import { PassportService } from "./service.ts";
+import { createPreflightReader, preflight, PreflightError } from "./preflight.ts";
 
 const config = loadConfig();
 if (!config.registryAddress) {
@@ -32,6 +33,18 @@ const deps = {
   attestor: loadAttestor(config.attestorKeyFile),
   relayer,
 };
+// The registry must trust our attestor and share our signing domain, or every passport would bounce.
+try {
+  await preflight(createPreflightReader(elysium, config.registryAddress), {
+    chainId: config.chainId,
+    registry: config.registryAddress,
+    attestor: deps.attestor.address,
+  });
+} catch (e) {
+  if (!(e instanceof PreflightError)) throw e;
+  console.error(`refusing to start: ${e.message}`);
+  process.exit(1);
+}
 const service = new PassportService({ ...deps, pepper: loadPepper(config.pepperFile) });
 const scheduler = new Scheduler(deps);
 

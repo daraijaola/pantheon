@@ -1,0 +1,52 @@
+# HYPE Passport service (P10). Install:
+#   sudo install -m 0644 deploy/pantheon-passport.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now pantheon-passport
+# Logs: journalctl -u pantheon-passport -f
+#
+# Runs as ayinde: the key files under /var/lib/passport/keys were created for (and are owned by) ayinde,
+# mode 0600. The spec suggests a separate `passport` user; moving the keys to one needs Micheal's OK.
+# The site forwards pantheonindex.com/api/passport/* here, so no Caddy change is needed.
+
+[Unit]
+Description=PANTHEON HYPE Passport service (127.0.0.1:8787)
+After=network-online.target
+Wants=network-online.target
+# A failed startup check (wrong registry or key) must not retry forever.
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+User=ayinde
+Group=ayinde
+WorkingDirectory=/srv/hackathon/pantheon/services/passport
+ExecStart=/usr/bin/node --env-file-if-exists=.env src/server.ts
+Environment=NODE_ENV=production
+Restart=on-failure
+RestartSec=5
+# The service finishes in-flight requests and closes its database on SIGTERM.
+TimeoutStopSec=20
+UMask=0077
+
+# Lock-down: read-only system and code, writes only to its own data folder, no new privileges.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/passport
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

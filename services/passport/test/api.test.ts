@@ -284,3 +284,24 @@ describe("stats, health, unknown routes", () => {
     expect((await get("/nope")).json()).toEqual({ error: "NOT_FOUND" });
   });
 });
+
+describe("log redaction", () => {
+  it("keeps an unexpected error's name, first line and code locations, but no call data", async () => {
+    const { ContractFunctionExecutionError, ContractFunctionRevertedError, parseAbi } = await import("viem");
+    const { redactError } = await import("../src/api.ts");
+    const abi = parseAbi(["function balanceOf(address) view returns (uint256)"]);
+    const hl = "0xcf2181b5d5f0ea3ee5d3a1a2f44d2e3b1f87ad7c";
+    const err = new ContractFunctionExecutionError(new ContractFunctionRevertedError({ abi, functionName: "balanceOf" }), {
+      abi,
+      functionName: "balanceOf",
+      args: [hl],
+      contractAddress: "0x0000000000000000000000000000000000000001",
+    });
+    expect(err.message.toLowerCase()).toContain(hl.slice(2)); // viem puts the call (and the address) in the message
+    const out = redactError(err);
+    expect(JSON.stringify(out).toLowerCase()).not.toContain(hl.slice(2));
+    expect(out.type).toBe("ContractFunctionExecutionError");
+    expect(out.stack).toMatch(/^\s*at /);
+    expect(redactError("plain text")).toMatchObject({ type: "Error", message: "plain text" });
+  });
+});

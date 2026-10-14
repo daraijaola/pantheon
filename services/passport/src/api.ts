@@ -122,8 +122,19 @@ export function buildApp(service: PassportService, opts: ApiOptions = {}): Fasti
     if (err.statusCode !== undefined && err.statusCode >= 400 && err.statusCode < 500) {
       return reply.code(400).send({ error: "BAD_REQUEST", detail: err.message });
     }
-    req.log.error(err);
+    req.log.error({ err: redactError(err) }, "internal error");
     return reply.code(500).send({ error: "INTERNAL" });
   });
   return app;
+}
+
+/**
+ * Log redaction (spec P10): an unexpected error can carry an RPC request in its message (viem lists the
+ * call data, which holds the Hyperliquid address being read). Keep only its name, first line and code
+ * locations, never the rest of the message or its causes.
+ */
+export function redactError(err: unknown): { type: string; message: string; stack: string } {
+  const e = err instanceof Error ? err : new Error(String(err));
+  const frames = (e.stack ?? "").split("\n").filter((l) => l.trimStart().startsWith("at "));
+  return { type: e.name, message: e.message.split("\n")[0]!.slice(0, 200), stack: frames.join("\n") };
 }
