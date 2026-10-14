@@ -246,6 +246,11 @@
   background: color-mix(in srgb, var(--ink) 5%, transparent);
   color: var(--ink);
 }
+a.ghost {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
 .ghost:hover {
   background: color-mix(in srgb, var(--ink) 10%, transparent);
 }

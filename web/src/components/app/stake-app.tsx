@@ -104,7 +104,11 @@ function Stake({ d }: { d: Deployment }) {
           <div className={s.cell}>
             <p className={s.label}>Your PNTH</p>
             <div className={s.stats}>
-              <Stat k="In your wallet" v={onChain ? fmt(wallet) : "—"} />
+              <Stat
+                k="In your wallet"
+                v={onChain ? fmt(wallet) : "—"}
+                note={onChain && wallet === 0n ? <Link href="/get">Get test PNTH</Link> : undefined}
+              />
               <Stat k="Staked" v={onChain ? fmt(staked) : "—"} strong />
               <Stat
                 k="Unlocking"

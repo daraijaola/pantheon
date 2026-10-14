@@ -168,8 +168,8 @@ export function SiteHeader({ code }: { code: string }) {
               </a>
             </section>
             <div className={m.sheetActions}>
-              <A href="#" className={m.btnInk} onClick={close}>
-                Buy $PNTH
+              <A href="/get" className={m.btnInk} onClick={close}>
+                Get $PNTH
               </A>
               <A href="/stake" className={m.btnGhost} onClick={close}>
                 Open app

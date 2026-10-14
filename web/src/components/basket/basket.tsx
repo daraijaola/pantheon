@@ -6,6 +6,7 @@
 
 import { useEffect, useRef } from "react";
 import { advanceRatio, cssColor, fitCanvas, monoFamily, prefersReducedMotion, SCRAMBLE, watchActive } from "@/components/code-type/runtime";
+import A from "next/link";
 import { decrypt, ease, HypeMark, span, type Logos } from "@/components/showcase/kit";
 import sc from "@/components/showcase/showcase.module.css";
 import b from "./basket.module.css";
@@ -364,12 +365,12 @@ export function Basket({ code, logos = "mono" }: { code: string; logos?: Logos }
       </div>
 
       <div className={b.cta}>
-        <a className={b.btnInk} href="#">
-          Buy $PNTH
-        </a>
-        <a className={b.btnGhost} href="#">
+        <A className={b.btnInk} href="/get">
+          Get $PNTH
+        </A>
+        <A className={b.btnGhost} href="/passport/get">
           Get a HYPE Passport
-        </a>
+        </A>
       </div>
     </section>
   );

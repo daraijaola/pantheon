@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Basket } from "@/components/basket/basket";
 import { CodeHeadline } from "@/components/code-type/code-headline";
 import { CodeRain } from "@/components/code-type/code-rain";
@@ -56,9 +57,9 @@ export default async function Home() {
             </p>
 
             <div className="rise mt-6 flex w-full flex-col gap-3 [animation-delay:750ms] sm:w-auto sm:flex-row">
-              <a href="#" className="btn-ink inline-flex h-10 items-center justify-center rounded-[10px] px-4 text-[14px] font-[450] sm:h-9">
-                Buy $PNTH
-              </a>
+              <Link href="/get" className="btn-ink inline-flex h-10 items-center justify-center rounded-[10px] px-4 text-[14px] font-[450] sm:h-9">
+                Get $PNTH
+              </Link>
               <a
                 href="#basket"
                 className="inline-flex h-10 items-center justify-center rounded-[10px] bg-ink/5 px-4 text-[14px] font-[450] transition-colors hover:bg-ink/10 sm:h-9"
