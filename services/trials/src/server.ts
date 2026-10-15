@@ -16,12 +16,19 @@ const chain = defineChain({
 });
 const client = createPublicClient({ chain, transport: http(cfg.rpc, { retryCount: 3, timeout: 20_000 }) });
 const PASSPORT = parseAbi(["function tierOf(address account) view returns (uint8)"]);
+const STAKING = parseAbi(["function accounts(address) view returns (uint256 staked, uint256 cooling, uint256 working, uint64 coolEnd, uint64 stakeStart)"]);
 
 const app = buildApp(
   {
     rounds: () => loadRounds(cfg.roundsDir),
     ballots: new Ballots(cfg.stateFile),
-    tierOf: async (voter) => Number(await client.readContract({ address: cfg.passportRegistry, abi: PASSPORT, functionName: "tierOf", args: [voter] })),
+    standingOf: async (voter) => {
+      const [tier, account] = await Promise.all([
+        client.readContract({ address: cfg.passportRegistry, abi: PASSPORT, functionName: "tierOf", args: [voter] }),
+        client.readContract({ address: cfg.staking, abi: STAKING, functionName: "accounts", args: [voter] }),
+      ]);
+      return { tier: Number(tier), staked: account[0] };
+    },
     chainId: cfg.chainId,
   },
   { logger: true },

@@ -5,7 +5,7 @@ import { getAddress, type Address } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../src/api.ts";
-import { domain, problem, signer, types, type Ballot, type BallotInput } from "../src/ballot.ts";
+import { domain, MIN_STAKE, problem, signer, types, weightOf, type Ballot, type BallotInput, type Standing } from "../src/ballot.ts";
 import { loadRounds, statusOf, type RoundDef } from "../src/round.ts";
 import { Ballots } from "../src/state.ts";
 import { tally, winners } from "../src/tally.ts";
@@ -38,10 +38,12 @@ function round(over: Partial<RoundDef> = {}): RoundDef {
   };
 }
 
-const ballot = (voter: Address, coins: Address[], tier: number, signedAt = T0 + 10): Ballot => ({
+const ballot = (voter: Address, coins: Address[], weight: number, signedAt = T0 + 10): Ballot => ({
   voter,
   coins,
-  tier,
+  weight,
+  staked: "0",
+  tier: weight,
   signedAt,
   signature: "0x",
   receivedAt: signedAt,
@@ -107,7 +109,17 @@ describe("ballots", () => {
 });
 
 describe("counting", () => {
-  it("weighs each ballot by tier, and breaks ties by independent trading", () => {
+  it("gives 1 vote for staking PNTH and 1, 2 or 3 more for a Passport", () => {
+    const pnth = (n: bigint) => n * 10n ** 18n;
+    expect(weightOf({ staked: 0n, tier: 0 })).toBe(0);
+    expect(weightOf({ staked: MIN_STAKE - 1n, tier: 0 })).toBe(0);
+    expect(weightOf({ staked: MIN_STAKE, tier: 0 })).toBe(1);
+    expect(weightOf({ staked: pnth(10_000n), tier: 0 })).toBe(1); // one wallet, one vote, however much it stakes
+    expect(weightOf({ staked: 0n, tier: 2 })).toBe(2);
+    expect(weightOf({ staked: pnth(1n), tier: 3 })).toBe(4);
+  });
+
+  it("weighs each ballot, and breaks ties by independent trading", () => {
     const r = round();
     const all = [ballot(coin(1), [D, C], 3), ballot(coin(2), [C, B], 1), ballot(coin(3), [B], 2)];
     expect(tally(r, all).map((c) => [c.token, c.votes, c.voters])).toEqual([
@@ -139,28 +151,28 @@ describe("the ballot box", () => {
 });
 
 describe("the API", () => {
-  function app(tiers: Record<string, number> = {}, nowSec = T0 + 100) {
+  function app(wallets: Record<string, Standing> = {}, nowSec = T0 + 100) {
     const box = new Ballots(join(mkdtempSync(join(tmpdir(), "trials-")), "ballots.json"));
     const a = buildApp({
       rounds: () => [round()],
       ballots: box,
-      tierOf: async (v) => tiers[v.toLowerCase()] ?? 0,
+      standingOf: async (v) => wallets[v.toLowerCase()] ?? { staked: 0n, tier: 0 },
       chainId: CHAIN,
       now: () => nowSec,
     });
     return { a, box };
   }
 
-  it("takes a signed ballot from a Passport holder and counts it", async () => {
+  it("takes a signed ballot from a staker with a Passport and counts it", async () => {
     const key = generatePrivateKey();
     const voter = privateKeyToAccount(key).address;
-    const { a } = app({ [voter.toLowerCase()]: 2 });
+    const { a } = app({ [voter.toLowerCase()]: { staked: MIN_STAKE, tier: 1 } });
     const res = await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(key, [C, A]) });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ ok: true, result: "added", ballot: { tier: 2, coins: [C, A] } });
+    expect(res.json()).toMatchObject({ ok: true, result: "added", ballot: { weight: 2, staked: MIN_STAKE.toString(), tier: 1, coins: [C, A] } });
     const cur = (await a.inject({ url: `/trials/current?voter=${voter}` })).json();
     // C and A tie on 2 votes each; A has more independent trading, so it leads
-    expect(cur).toMatchObject({ round: 3, status: "open", ballots: 1, leaders: [A, C], you: { tier: 2, ballot: { coins: [C, A] } } });
+    expect(cur).toMatchObject({ round: 3, status: "open", ballots: 1, leaders: [A, C], you: { weight: 2, tier: 1, ballot: { coins: [C, A] } } });
     expect(cur.candidates.slice(0, 2).map((c: { token: string; votes: number }) => [c.token, c.votes])).toEqual([
       [A, 2],
       [C, 2],
@@ -170,10 +182,20 @@ describe("the API", () => {
     expect(full.ballotList[0].signature).toMatch(/^0x[0-9a-f]{130}$/);
   });
 
-  it("refuses wallets without a Passport, forged signatures and closed rounds", async () => {
+  it("takes a staker with no Passport as 1 vote", async () => {
     const key = generatePrivateKey();
-    const { a } = app();
-    expect((await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(key, [A]) })).json()).toEqual({ error: "NO_PASSPORT" });
+    const voter = privateKeyToAccount(key).address;
+    const { a } = app({ [voter.toLowerCase()]: { staked: MIN_STAKE, tier: 0 } });
+    expect((await a.inject({ url: `/trials/current?voter=${voter}` })).json().you).toMatchObject({ weight: 1, staked: MIN_STAKE.toString(), tier: 0, ballot: null });
+    expect((await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(key, [B]) })).json()).toMatchObject({ ok: true, ballot: { weight: 1 } });
+    expect((await a.inject({ url: "/trials/current" })).json().leaders).toEqual([B]);
+  });
+
+  it("refuses wallets with nothing staked and no Passport, forged signatures and closed rounds", async () => {
+    const key = generatePrivateKey();
+    const { a } = app({ [privateKeyToAccount(key).address.toLowerCase()]: { staked: MIN_STAKE - 1n, tier: 0 } });
+    const none = await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(key, [A]) });
+    expect([none.statusCode, none.json()]).toEqual([403, { error: "NO_VOTES" }]);
 
     const other = privateKeyToAccount(generatePrivateKey()).address;
     const forged = { ...(await signed(key, [A])), voter: other };

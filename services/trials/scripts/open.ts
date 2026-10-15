@@ -66,7 +66,8 @@ const def = RoundDef.parse({
   closesAt,
   seats,
   method:
-    `HYPE Passport holders pick up to ${seats} coins; each pick counts 1, 2 or 3 votes by Passport tier. The ${seats} coins with the most votes ` +
+    `Wallets with PNTH staked pick up to ${seats} coins; each pick counts 1 vote for the stake, plus 1, 2 or 3 more for a HYPE Passport ` +
+    `(by tier; a Passport alone also votes). The ${seats} coins with the most votes ` +
     `take ${seats} seats in round ${round}'s basket; equal votes go to the coin with more independent trading. The other seats go to the ` +
     `coins with the most independent trading, by DELPHI's count (round ${delphiRound} data).`,
   source: { delphiRound, scannedAt: delphiFile.scannedAt },

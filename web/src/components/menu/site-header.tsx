@@ -21,7 +21,7 @@ const OUT = {
 
 type Item = { icon: IconName; title: string; desc: string; href?: string }; // no href = coming soon
 const FEATURES: Item[] = [
-  { icon: "passport", title: "HYPE Passport", desc: "Prove you hold HYPE. Earn up to 1.25× and get a vote.", href: "/passport" },
+  { icon: "passport", title: "HYPE Passport", desc: "Prove you hold HYPE. Earn up to 1.25× and extra votes.", href: "/passport" },
   { icon: "trials", title: "The Trials", desc: "Vote coins into the basket.", href: "/trials" },
   { icon: "covenant", title: "Covenant", desc: "The ownerless contract every fee goes through.", href: "/covenant" },
   { icon: "delphi", title: "DELPHI", desc: "An AI that checks every coin for cheating and shows its proof.", href: "/delphi" },

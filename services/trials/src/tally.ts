@@ -1,5 +1,6 @@
-// Counting: each ballot adds its voter's tier (1, 2 or 3) to every coin it picked. The seats go to the
-// coins with the most votes; equal votes go to the coin with more independent trading. Pure functions.
+// Counting: each ballot adds its weight (1 for staking PNTH, plus the Passport tier) to every coin it
+// picked. The seats go to the coins with the most votes; equal votes go to the coin with more independent
+// trading. Pure functions.
 import type { Address } from "viem";
 import type { Ballot } from "./ballot.ts";
 import type { RoundDef } from "./round.ts";
@@ -12,7 +13,7 @@ export function tally(r: RoundDef, ballots: readonly Ballot[]): Count[] {
     for (const coin of b.coins) {
       const c = counts.get(coin.toLowerCase());
       if (!c) continue; // checked on arrival; a coin dropped from the round just doesn't count
-      c.votes += b.tier;
+      c.votes += b.weight;
       c.voters += 1;
     }
   }

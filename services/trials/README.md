@@ -1,11 +1,25 @@
 # The Trials: the basket vote
 
-HYPE Passport holders pick coins for PANTHEON's basket. A vote is a free signature, not a transaction: the
-wallet signs "in round N, I vote for these coins" (EIP-712). The service checks the signature and the
-voter's Passport on-chain, and counts each pick as 1, 2 or 3 votes by Passport tier. One Passport is one
-voter, and a newer ballot replaces an older one until the vote closes.
+PNTH stakers and HYPE Passport holders pick coins for PANTHEON's basket. A vote is a free signature, not a
+transaction: the wallet signs "in round N, I vote for these coins" (EIP-712). The service checks the
+signature, then reads the wallet's stake and Passport on-chain:
 
-Owner: Micheal. It holds no keys and signs nothing; it only reads Passport tiers from the chain.
+| The wallet has | Votes on each coin it picks |
+|---|---|
+| At least 1 PNTH staked (`MIN_STAKE`; tokens that are unlocking don't count) | 1 |
+| A HYPE Passport, tier 1, 2 or 3 | 1, 2 or 3 more (a Passport alone also votes) |
+
+So a staker with a tier 3 Passport puts 4 votes on each pick. One wallet is one voter, and a newer ballot
+replaces an older one until the vote closes. Each ballot keeps the stake, tier and weight it was counted
+with.
+
+Why stake: it's what PNTH holders do to earn the basket, so the people who vote are the people paid by it.
+A stake can't be moved to another wallet to vote twice in a round, because unstaking takes 3 days and
+rounds are shorter than that. Keep them shorter. On testnet the bar is 1 PNTH and test PNTH is free, so one
+person with many wallets can cast many votes; on mainnet PNTH costs money, and `MIN_STAKE` should be set
+with the launch price in mind.
+
+Owner: Micheal. It holds no keys and signs nothing; it only reads stakes and Passport tiers from the chain.
 
 ## How a round works
 
@@ -29,8 +43,8 @@ Anyone can recount: `GET /api/trials/rounds/3` returns every ballot with its sig
 
 | Route | What it gives |
 |---|---|
-| `GET /trials/current[?voter=0x…]` | The newest round: status, times, candidates with live votes, the leaders, and, with `voter`, that wallet's tier and ballot |
-| `POST /trials/vote` | `{round, voter, coins, signedAt, signature}`. Errors are codes: `NO_PASSPORT`, `BAD_SIGNATURE`, `CLOSED`, `NOT_OPEN`, `WRONG_ROUND`, `TOO_MANY_COINS`, `DUPLICATE_COIN`, `NOT_A_CANDIDATE`, `STALE_SIGNATURE` (older than 10 minutes), `OLDER_BALLOT`, `RATE_LIMITED` |
+| `GET /trials/current[?voter=0x…]` | The newest round: status, times, candidates with live votes, the leaders, and, with `voter`, that wallet's votes (`weight`), `staked`, `tier` and ballot |
+| `POST /trials/vote` | `{round, voter, coins, signedAt, signature}`. Errors are codes: `NO_VOTES` (no PNTH staked and no Passport), `BAD_SIGNATURE`, `CLOSED`, `NOT_OPEN`, `WRONG_ROUND`, `TOO_MANY_COINS`, `DUPLICATE_COIN`, `NOT_A_CANDIDATE`, `STALE_SIGNATURE` (older than 10 minutes), `OLDER_BALLOT`, `RATE_LIMITED` |
 | `GET /trials/rounds/:n` | A whole round with every signed ballot |
 | `GET /health` | `{ok, round, status}` |
 

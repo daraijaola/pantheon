@@ -1,8 +1,8 @@
 "use client";
 
-// The Trials vote: an inside screen, calm. HYPE Passport holders pick up to three coins with a free
-// signature; the service (services/trials) checks it and counts it by Passport tier. Live counts refresh
-// every few seconds, and every ballot is public, so anyone can recount.
+// The Trials vote: an inside screen, calm. PNTH stakers pick up to three coins with a free signature;
+// the service (services/trials) checks it and counts 1 vote for the stake plus the Passport tier. Live
+// counts refresh every few seconds, and every ballot is public, so anyone can recount.
 
 import Link from "next/link";
 import { useState } from "react";
@@ -27,7 +27,7 @@ export function TrialsApp() {
 
 type Verdict = "CLEAN" | "WATCH" | "NOT_ENOUGH_DATA";
 type Coin = { token: Hex; symbol: string | null; verdict: Verdict; headline?: string; realUsdc: string; rank: number; votes: number; voters: number };
-type Ballot = { voter: Hex; coins: Hex[]; tier: number; signedAt: number };
+type Ballot = { voter: Hex; coins: Hex[]; weight: number; tier: number; signedAt: number };
 type Current = {
   round: number;
   status: "upcoming" | "open" | "closed";
@@ -37,7 +37,8 @@ type Current = {
   candidates: Coin[];
   leaders: Hex[];
   ballots: number;
-  you?: { voter: Hex; tier: number | null; ballot: Ballot | null };
+  // weight = votes on each coin picked: 1 for staking PNTH, plus the Passport tier. Null if the chain didn't answer.
+  you?: { voter: Hex; weight: number | null; tier: number | null; ballot: Ballot | null };
 };
 
 // The ballot's EIP-712 shape. It must match services/trials/src/ballot.ts exactly, or no vote will count.
@@ -52,7 +53,7 @@ const TYPES = {
 } as const;
 
 const SAY: Record<string, string> = {
-  NO_PASSPORT: "This wallet has no valid HYPE Passport, so it can’t vote yet.",
+  NO_VOTES: "This wallet has no PNTH staked, so it can’t vote yet. Stake any amount, then sign again.",
   BAD_SIGNATURE: "The signature didn’t match this wallet. Try again.",
   CLOSED: "This vote has closed.",
   NOT_OPEN: "This vote hasn’t opened yet.",
@@ -60,7 +61,7 @@ const SAY: Record<string, string> = {
   TOO_MANY_COINS: "Pick fewer coins.",
   NOT_A_CANDIDATE: "One of those coins isn’t in this round.",
   RATE_LIMITED: "Too many tries. Wait a minute and sign again.",
-  CHAIN_UNAVAILABLE: "We couldn’t read your Passport from the chain just now. Try again in a minute.",
+  CHAIN_UNAVAILABLE: "We couldn’t read your stake from the chain just now. Try again in a minute.",
 };
 const VERDICT: Record<Verdict, string> = { CLEAN: "Clean", WATCH: "Watch", NOT_ENOUGH_DATA: "Not enough data" };
 const usdc = (raw: string) => (Number(raw) / 1e6).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -95,7 +96,9 @@ function Trials() {
   if (q.error) return <Shell sub="The vote service didn’t answer. Try again in a minute." />;
   if (!r) return <Shell sub="No vote is open right now. The next round opens here." />;
 
-  const tier = r.you?.tier ?? null;
+  const weight = r.you?.weight ?? null;
+  const tier = r.you?.tier ?? 0;
+  const staker = weight !== null && weight > tier;
   const mine = r.you?.ballot ?? null;
   // What's ticked: the voter's own picks once they start changing them, otherwise their saved ballot.
   const choice = picked ?? mine?.coins ?? [];
@@ -104,7 +107,7 @@ function Trials() {
     setSent(false);
     setPicked(has(c) ? choice.filter((x) => x.toLowerCase() !== c.toLowerCase()) : choice.length < r.seats ? [...choice, c] : choice);
   };
-  const canVote = r.status === "open" && onChain && (tier ?? 0) > 0;
+  const canVote = r.status === "open" && onChain && (weight ?? 0) > 0;
   // A fixed order (by real trading), so rows never jump while someone is picking. Leaders show on the side.
   const coins = [...r.candidates].sort((a, b) => a.rank - b.rank);
   const top = Math.max(1, ...coins.map((c) => c.votes));
@@ -148,10 +151,10 @@ function Trials() {
       ? "The vote hasn’t opened yet"
       : r.status === "closed"
         ? "This vote has closed"
-        : tier === null
-          ? "Checking your Passport…"
-          : tier === 0
-            ? "You need a HYPE Passport to vote"
+        : weight === null
+          ? "Checking your stake…"
+          : weight === 0
+            ? "Stake PNTH to vote"
             : choice.length === 0
               ? `Pick up to ${r.seats} coins`
               : mine && !changed
@@ -170,8 +173,8 @@ function Trials() {
           </p>
           <h1 className={s.h1}>Vote on the next basket</h1>
           <p className={s.sub}>
-            HYPE Passport holders pick up to {r.seats} coins. The {r.seats} with the most votes join PANTHEON’s basket, and the other seats go to the coins with the most
-            real trading. Voting is a free signature.
+            Anyone with PNTH staked picks up to {r.seats} coins, and a HYPE Passport adds votes. The {r.seats} with the most votes join PANTHEON’s basket, and the other
+            seats go to the coins with the most real trading. Voting is a free signature.
           </p>
         </div>
         <WalletBar />
@@ -182,16 +185,26 @@ function Trials() {
           <section className={s.cell}>
             <p className={s.label}>Your vote</p>
             {!onChain ? (
-              <p className={s.empty}>Connect the wallet that holds your HYPE Passport.</p>
-            ) : tier === 0 ? (
+              <p className={s.empty}>Connect the wallet you stake PNTH with.</p>
+            ) : weight === 0 ? (
               <p className={s.empty}>
-                This wallet has no HYPE Passport, so it can’t vote. <Link href="/passport/get">Get your Passport</Link>: it takes one signature, and nothing leaves your wallet.
+                This wallet has no PNTH staked, so it can’t vote yet. <Link href="/stake">Stake any amount of PNTH</Link> and come back. No PNTH?{" "}
+                <Link href="/get">Get some free</Link>.
               </p>
-            ) : tier === null ? (
-              <p className={s.empty}>Checking your Passport on the chain…</p>
+            ) : weight === null ? (
+              <p className={s.empty}>Checking your stake on the chain…</p>
             ) : (
               <p className={s.empty}>
-                Your tier {tier} Passport gives you {tier} {tier === 1 ? "vote" : "votes"} on each coin you pick.
+                {staker && tier > 0
+                  ? `Staking gives you 1 vote, and your tier ${tier} Passport adds ${tier}: ${weight} votes on each coin you pick.`
+                  : staker
+                    ? "Staking PNTH gives you 1 vote on each coin you pick. "
+                    : `Your tier ${tier} Passport gives you ${tier} ${tier === 1 ? "vote" : "votes"} on each coin you pick. Staking PNTH adds 1 more.`}
+                {staker && tier === 0 && (
+                  <>
+                    A <Link href="/passport/get">HYPE Passport</Link> adds up to 3 more.
+                  </>
+                )}
                 {mine && !changed && ` You voted for ${mine.coins.map((c) => symOf(r, c)).join(", ")}. You can change it until the vote closes.`}
               </p>
             )}
@@ -268,7 +281,7 @@ function Trials() {
           <div className={s.cell}>
             <p className={s.label}>How it works</p>
             <ul className={t.rules}>
-              <li>One Passport is one voter. Tier 1, 2 or 3 gives 1, 2 or 3 votes on each coin you pick.</li>
+              <li>One wallet is one voter. Staking PNTH gives 1 vote on each coin you pick, and a HYPE Passport adds 1, 2 or 3 more.</li>
               <li>Only coins DELPHI hasn’t flagged, with real trading, old enough to enter the basket.</li>
               <li>When it closes, the new list goes on-chain and waits 24 hours, and the guardian can veto it.</li>
             </ul>

@@ -2,7 +2,7 @@
   "name": "@pantheon/trials",
   "version": "0.1.0",
   "private": true,
-  "description": "The Trials vote: HYPE Passport holders pick the basket's voted seats with free signed ballots",
+  "description": "The Trials vote: PNTH stakers and HYPE Passport holders pick the basket's voted seats with free signed ballots",
   "type": "module",
   "engines": {
     "node": ">=24.12"

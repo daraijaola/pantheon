@@ -118,7 +118,7 @@ export function BallotCard() {
         <span className={`${s.num} ${s.muted} ${c.small}`}>closes in 2d 14h</span>
       </div>
       <p className={c.lead} style={line(t, 100)}>
-        Three seats are open. Your Passport gives you <b>2 votes</b>.
+        Three seats are open. Your stake and Passport give you <b>3 votes</b>.
       </p>
       <div className={c.ballot}>
         {CANDIDATES.map(([name, pct], i) => {

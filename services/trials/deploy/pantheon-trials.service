@@ -1,13 +1,13 @@
-# PANTHEON Trials vote (signed ballots from HYPE Passport holders). Install:
+# PANTHEON Trials vote (signed ballots from PNTH stakers and HYPE Passport holders). Install:
 #   sudo install -m 0644 deploy/pantheon-trials.service /etc/systemd/system/
 #   sudo systemctl daemon-reload && sudo systemctl enable --now pantheon-trials
 # Logs: journalctl -u pantheon-trials -f
 #
-# No keys, nothing to sign: it only reads Passport tiers from the chain. Listens on 127.0.0.1:8790; the
-# site forwards /api/trials/* here (a Next.js rewrite). Ballots live in /var/lib/trials.
+# No keys, nothing to sign: it only reads PNTH stakes and Passport tiers from the chain. Listens on
+# 127.0.0.1:8790; the site forwards /api/trials/* here (a Next.js rewrite). Ballots live in /var/lib/trials.
 
 [Unit]
-Description=PANTHEON Trials vote: signed ballots from HYPE Passport holders (127.0.0.1:8790)
+Description=PANTHEON Trials vote: signed ballots from PNTH stakers and HYPE Passport holders (127.0.0.1:8790)
 After=network-online.target
 Wants=network-online.target
 

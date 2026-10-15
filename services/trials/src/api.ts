@@ -1,22 +1,22 @@
 // The vote's web API (the site forwards /api/trials/* here):
-//   GET  /trials/current[?voter=0x…]  the open round: candidates with live counts, and the voter's own ballot and tier
+//   GET  /trials/current[?voter=0x…]  the open round: candidates with live counts, and the voter's own ballot and votes
 //   POST /trials/vote                 a signed ballot
 //   GET  /trials/rounds/:n            a whole round, every signed ballot included, so anyone can recount it
 //   GET  /health
 import Fastify, { type FastifyServerOptions } from "fastify";
 import { getAddress, isAddress, type Address } from "viem";
-import { BallotInput, problem, signer, type Ballot } from "./ballot.ts";
+import { BallotInput, problem, signer, weightOf, type Ballot, type Standing } from "./ballot.ts";
 import { currentRound, statusOf, type RoundDef } from "./round.ts";
 import type { Ballots } from "./state.ts";
 import { tally, winners } from "./tally.ts";
 
-/** A voter's Passport tier right now: 1, 2 or 3 votes, or 0 with no valid Passport. */
-export type TierOf = (voter: Address) => Promise<number>;
+/** A wallet's PNTH stake and Passport tier right now, read from the chain. */
+export type StandingOf = (voter: Address) => Promise<Standing>;
 
 export type Deps = {
   rounds: () => RoundDef[];
   ballots: Ballots;
-  tierOf: TierOf;
+  standingOf: StandingOf;
   chainId: number;
   now?: () => number;
 };
@@ -46,14 +46,14 @@ export function buildApp(deps: Deps, opts: FastifyServerOptions = {}) {
   const app = Fastify({ ...opts, trustProxy: "127.0.0.1" });
   const now = () => (deps.now ? deps.now() : Math.floor(Date.now() / 1000));
   const hits = new Map<string, number[]>();
-  const tierCache = new Map<string, { tier: number; at: number }>();
+  const cache = new Map<string, { standing: Standing; at: number }>();
 
-  const cachedTier = async (voter: Address) => {
-    const hit = tierCache.get(voter.toLowerCase());
-    if (hit && Date.now() - hit.at < 60_000) return hit.tier;
-    const tier = await deps.tierOf(voter);
-    tierCache.set(voter.toLowerCase(), { tier, at: Date.now() });
-    return tier;
+  const cachedStanding = async (voter: Address) => {
+    const hit = cache.get(voter.toLowerCase());
+    if (hit && Date.now() - hit.at < 60_000) return hit.standing;
+    const standing = await deps.standingOf(voter);
+    cache.set(voter.toLowerCase(), { standing, at: Date.now() });
+    return standing;
   };
 
   app.get("/health", async () => {
@@ -69,9 +69,10 @@ export function buildApp(deps: Deps, opts: FastifyServerOptions = {}) {
     if (!v) return body;
     if (!isAddress(v, { strict: false })) return reply.code(400).send({ error: "INVALID_ADDRESS" });
     const voter = getAddress(v);
-    // If the chain doesn't answer, the tier is null and the site says so instead of guessing.
-    const tier = await cachedTier(voter).catch(() => null);
-    return { ...body, you: { voter, tier, ballot: deps.ballots.get(r.round, voter) ?? null } };
+    // If the chain doesn't answer, the votes are null and the site says so instead of guessing.
+    const st = await cachedStanding(voter).catch(() => null);
+    const you = st ? { weight: weightOf(st), staked: st.staked.toString(), tier: st.tier } : { weight: null, staked: null, tier: null };
+    return { ...body, you: { voter, ...you, ballot: deps.ballots.get(r.round, voter) ?? null } };
   });
 
   app.get<{ Params: { n: string } }>("/trials/rounds/:n", async (req, reply) => {
@@ -104,16 +105,26 @@ export function buildApp(deps: Deps, opts: FastifyServerOptions = {}) {
     }
     if (who.toLowerCase() !== b.voter.toLowerCase()) return reply.code(400).send({ error: "BAD_SIGNATURE" });
 
-    let tier: number;
+    let st: Standing;
     try {
-      tier = await deps.tierOf(b.voter); // always fresh for a vote
+      st = await deps.standingOf(b.voter); // always fresh for a vote
     } catch {
       return reply.code(503).send({ error: "CHAIN_UNAVAILABLE" });
     }
-    if (tier < 1) return reply.code(403).send({ error: "NO_PASSPORT" });
-    tierCache.set(b.voter.toLowerCase(), { tier, at: Date.now() });
+    cache.set(b.voter.toLowerCase(), { standing: st, at: Date.now() });
+    const weight = weightOf(st);
+    if (weight < 1) return reply.code(403).send({ error: "NO_VOTES" });
 
-    const ballot: Ballot = { voter: b.voter, coins: b.coins, tier, signedAt: b.signedAt, signature: b.signature, receivedAt: now() };
+    const ballot: Ballot = {
+      voter: b.voter,
+      coins: b.coins,
+      weight,
+      staked: st.staked.toString(),
+      tier: st.tier,
+      signedAt: b.signedAt,
+      signature: b.signature,
+      receivedAt: now(),
+    };
     const result = deps.ballots.put(r.round, ballot);
     if (result === "older") return reply.code(409).send({ error: "OLDER_BALLOT" });
     return { ok: true, result, ballot };

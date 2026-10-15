@@ -152,7 +152,7 @@ function Passport({ d }: { d: Deployment }) {
                   <span className={s.tierName}>Tier {t.tier}</span>
                   <span className={s.tierNeed}>{t.need}</span>
                   <span className={s.num}>
-                    {t.boost} · {t.votes} {t.votes === 1 ? "vote" : "votes"}
+                    {t.boost} · +{t.votes} {t.votes === 1 ? "vote" : "votes"}
                   </span>
                 </li>
               ))}
@@ -398,8 +398,8 @@ function PassportCard(p: {
               <span className={s.statVStrong}>{p.mult.toFixed(2)}×</span>
             </div>
             <div className={s.stat}>
-              <span className={s.statK}>Votes in the Trials</span>
-              <span className={s.statVStrong}>{votes}</span>
+              <span className={s.statK}>Extra votes in the Trials</span>
+              <span className={s.statVStrong}>+{votes}</span>
               <span className={s.statNote}>
                 <Link href="/trials/vote">Vote in the Trials</Link>
               </span>

@@ -4,7 +4,7 @@
   "opensAt": 1792065600,
   "closesAt": 1792231200,
   "seats": 3,
-  "method": "HYPE Passport holders pick up to 3 coins; each pick counts 1, 2 or 3 votes by Passport tier. The 3 coins with the most votes take 3 seats in round 3's basket; equal votes go to the coin with more independent trading. The other seats go to the coins with the most independent trading, by DELPHI's count (round 2 data).",
+  "method": "Wallets with PNTH staked pick up to 3 coins; each pick counts 1 vote for the stake, plus 1, 2 or 3 more for a HYPE Passport (by tier; a Passport alone also votes). The 3 coins with the most votes take 3 seats in round 3's basket; equal votes go to the coin with more independent trading. The other seats go to the coins with the most independent trading, by DELPHI's count (round 2 data).",
   "source": {
     "delphiRound": 2,
     "scannedAt": "2026-10-14T22:43:08.000Z"

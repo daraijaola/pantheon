@@ -1,5 +1,5 @@
 // A ballot is a free EIP-712 signature: "in round N, I vote for these coins". No transaction, no gas.
-// The service checks it, then weighs it by the voter's HYPE Passport tier (1, 2 or 3 votes per coin).
+// The service checks it, then weighs it: 1 vote for staking PNTH, plus 1, 2 or 3 for a HYPE Passport.
 import { getAddress, isAddress, recoverTypedDataAddress, type Address, type Hex } from "viem";
 import { z } from "zod";
 import type { RoundDef } from "./round.ts";
@@ -29,9 +29,22 @@ export const BallotInput = z.object({
 });
 export type BallotInput = z.infer<typeof BallotInput>;
 
+/** What a wallet has on-chain when it votes: PNTH staked (18 decimals) and its Passport tier (0 to 3). */
+export type Standing = { staked: bigint; tier: number };
+
+/** Staking at least this much PNTH gives a wallet 1 vote. Tokens that are unlocking don't count. */
+export const MIN_STAKE = 10n ** 18n;
+
+/** How many votes a wallet puts on each coin it picks: 1 for staking, plus its Passport tier. */
+export const weightOf = (s: Standing): number => (s.staked >= MIN_STAKE ? 1 : 0) + s.tier;
+
 export type Ballot = {
   voter: Address;
   coins: Address[];
+  /** Votes on each coin picked, fixed when the ballot arrives. */
+  weight: number;
+  /** PNTH staked then, as a decimal string of the 18-decimal amount. */
+  staked: string;
   tier: number;
   signedAt: number;
   signature: Hex;

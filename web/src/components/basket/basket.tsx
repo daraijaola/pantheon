@@ -333,7 +333,7 @@ export function Basket({ code, logos = "mono" }: { code: string; logos?: Logos }
           <span>You help pick them.</span>
         </h2>
         <p className={sc.sub}>
-          They earn their place by trading on Ascend, and a coin DELPHI flags can never get in. HYPE Passport holders vote three of them in each round. No coin can be more than 20%.
+          They earn their place by trading on Ascend, and a coin DELPHI flags can never get in. PNTH stakers vote three of them in each round. No coin can be more than 20%.
         </p>
       </header>
 
@@ -360,7 +360,7 @@ export function Basket({ code, logos = "mono" }: { code: string; logos?: Logos }
           ))}
         </ol>
         <p className={b.key}>
-          Example basket. <HypeMark logos={logos} size={12} /> marks the seats HYPE Passport holders vote on.
+          Example basket. <HypeMark logos={logos} size={12} /> marks the seats PNTH stakers vote on.
         </p>
       </div>
 

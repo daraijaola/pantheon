@@ -114,7 +114,12 @@ function Stake({ d }: { d: Deployment }) {
                 v={onChain ? fmt(wallet) : "—"}
                 note={onChain && wallet === 0n ? <Link href="/get">Get test PNTH</Link> : undefined}
               />
-              <Stat k="Staked" v={onChain ? fmt(staked) : "—"} strong />
+              <Stat
+                k="Staked"
+                v={onChain ? fmt(staked) : "—"}
+                strong
+                note={onChain && staked >= 10n ** 18n ? <Link href="/trials/vote">This gives you a vote in the Trials</Link> : undefined}
+              />
               <Stat
                 k="Unlocking"
                 v={onChain ? fmt(cooling) : "—"}
