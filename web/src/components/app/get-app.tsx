@@ -30,8 +30,13 @@ export function GetApp() {
 
 const LAUNCHPAD = parseAbi([
   "function poolManager() view returns (address)",
+  "function vault() view returns (address)",
   "function emaSqrtPrice(bytes32 poolId) view returns (uint160)",
 ]);
+// Testnet only (src/testnet/TestDrip.sol): free PNTH, once per wallet.
+const DRIP = parseAbi(["function claim()", "function claimed(address) view returns (bool)", "function amount() view returns (uint256)"]);
+/** Below this much PNTH left in Ascend's pool, buying is pointless: the site offers the drip instead. */
+const SOLD_OUT = 1_000n * 10n ** 18n;
 const MINTABLE = parseAbi(["function mint(address to, uint256 value)"]);
 // Ascend's pool settings (LaunchpadKey.sol): a dynamic fee, tick spacing 200, hook bitmap 0x0445.
 const DYNAMIC_FEE = 0x800000;
@@ -91,9 +96,28 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
       { address: d.usdc, abi: erc20Abi, functionName: "allowance", args: [me, d.swapper] },
       { address: d.launchpad, abi: LAUNCHPAD, functionName: "poolManager" },
       { address: d.launchpad, abi: LAUNCHPAD, functionName: "emaSqrtPrice", args: [d.pnthPool] },
+      { address: d.launchpad, abi: LAUNCHPAD, functionName: "vault" },
     ],
     query: { refetchInterval: 10_000 },
   });
+  const vault = reads.data?.[5].result as Hex | undefined;
+  const drip = d.drip;
+  const more = useReadContracts({
+    contracts: [
+      { address: d.pnth, abi: erc20Abi, functionName: "balanceOf", args: [vault ?? zeroAddress] },
+      { address: drip ?? zeroAddress, abi: DRIP, functionName: "claimed", args: [me] },
+      { address: drip ?? zeroAddress, abi: DRIP, functionName: "amount" },
+      { address: d.pnth, abi: erc20Abi, functionName: "balanceOf", args: [drip ?? zeroAddress] },
+    ],
+    query: { enabled: !!vault, refetchInterval: 10_000 },
+  });
+  // PNTH left for sale in its Ascend pool (Ascend's vault holds every pool's coins; only PNTH's pool holds PNTH).
+  const inPool = more.data?.[0].result;
+  const soldOut = inPool !== undefined && inPool < SOLD_OUT;
+  const claimed = onChain && more.data?.[1].result === true;
+  const perClaim = more.data?.[2].result ?? 0n;
+  const dripLeft = more.data?.[3].result ?? 0n;
+  const canClaim = !!drip && perClaim > 0n && dripLeft >= perClaim;
   const usdc = onChain ? (reads.data?.[0].result ?? 0n) : 0n;
   const pnth = onChain ? (reads.data?.[1].result ?? 0n) : 0n;
   const allowance = onChain ? (reads.data?.[2].result ?? 0n) : 0n;
@@ -129,7 +153,7 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
     spend = null;
   }
   const blocked = !onChain ? "Connect your wallet first" : !hasGas ? "Get test HYPE for gas first" : !keyOk ? "Reading the pool…" : null;
-  const customLabel = blocked ?? (!spend ? "Enter an amount" : spend > usdc ? "Not enough test USDC" : "Buy PNTH");
+  const customLabel = blocked ?? (soldOut ? "Sold out in the pool" : !spend ? "Enter an amount" : spend > usdc ? "Not enough test USDC" : "Buy PNTH");
 
   return (
     <main className={s.page}>
@@ -163,13 +187,44 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
           </section>
 
           <section className={s.cell}>
-            <button type="button" className={s.primary} disabled={!!blocked || !!tx.busy} onClick={() => buySteps(QUICK, usdc < QUICK)}>
-              {tx.busy ?? blocked ?? "Get test PNTH"}
-            </button>
-            <p className={s.hint}>
-              One click: we make 100 test USDC for you and buy about {fmt(estimate(QUICK, sqrtP, pnthIs0))} PNTH with it. Your wallet asks up to three times: to make the USDC, to let
-              the swap use it, and to buy.
-            </p>
+            {soldOut ? (
+              <>
+                <button
+                  type="button"
+                  className={s.primary}
+                  disabled={!onChain || !hasGas || claimed || !canClaim || !!tx.busy}
+                  onClick={() => drip && tx.run("Claiming free PNTH", [{ address: drip, abi: DRIP, functionName: "claim" }])}
+                >
+                  {tx.busy ??
+                    (!onChain
+                      ? "Connect your wallet first"
+                      : !hasGas
+                        ? "Get test HYPE for gas first"
+                        : claimed
+                          ? "You’ve claimed your free PNTH"
+                          : !canClaim
+                            ? "The free PNTH has all been claimed"
+                            : `Claim ${fmt(perClaim)} free PNTH`)}
+                </button>
+                <p className={s.hint}>
+                  PNTH is sold out in its pool right now: someone bought the whole supply with free test USDC. Claim free test PNTH instead, once per wallet. The drip’s code is{" "}
+                  <a href={explorer("address", drip ?? zeroAddress)} target="_blank" rel="noreferrer">
+                    verified on the explorer
+                  </a>
+                  .
+                </p>
+              </>
+            ) : (
+              <>
+                <button type="button" className={s.primary} disabled={!!blocked || !!tx.busy} onClick={() => buySteps(QUICK, usdc < QUICK)}>
+                  {tx.busy ?? blocked ?? "Get test PNTH"}
+                </button>
+                <p className={s.hint}>
+                  One click: we make 100 test USDC for you and buy about {fmt(estimate(QUICK, sqrtP, pnthIs0))} PNTH with it. Your wallet asks up to three times: to make the
+                  USDC, to let the swap use it, and to buy.
+                </p>
+              </>
+            )}
             <TxNote error={tx.error} lastTx={tx.lastTx} />
             {pnth > 0n && (
               <div className={s.unlock}>

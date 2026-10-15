@@ -13,6 +13,7 @@ import {CovenantRouter} from "../src/covenant/CovenantRouter.sol";
 import {ConstituentRegistry} from "../src/index/ConstituentRegistry.sol";
 import {IndexVault} from "../src/index/IndexVault.sol";
 import {PantheonStaking} from "../src/staking/PantheonStaking.sol";
+import {TestDrip} from "../src/testnet/TestDrip.sol";
 
 interface IMintable {
     function mint(address to, uint256 value) external;
@@ -27,6 +28,7 @@ interface IMintable {
 ///   sell(amount)              sells PNTH; Covenant burns PNTH's share of the fee
 ///   settle(file)              a 1 USDC trade on each basket coin, so its price average is fresh
 ///   launchDemo(name, symbol)  a coin launched on Covenant, like the site's launch screen does
+///   deployDrip(per, fund)     free PNTH, once per wallet, for when the pool is sold out
 ///   keep(k)                   what the keeper bot does: route PNTH's fees, then buy the basket
 contract Testnet is Script {
     IAscendLaunchpad constant LP = IAscendLaunchpad(0xE2f6254508DEB93Da081837F545e0bAF7b00d8E9);
@@ -122,6 +124,21 @@ contract Testnet is Script {
         vm.stopBroadcast();
         console2.log("coin:", token);
         console2.log("its Covenant:", router);
+    }
+
+    /// Testnet only: a drip that gives each wallet `perClaim` PNTH once, filled with `fund` PNTH from the
+    /// deployer, for when PNTH's pool is sold out. Its address is saved with WRITE_TOOLS.
+    function deployDrip(uint256 perClaim, uint256 fund) external {
+        _start();
+        ERC20 pnth = ERC20(_addr(".pnth"));
+        TestDrip drip = new TestDrip(pnth, perClaim);
+        require(pnth.transfer(address(drip), fund), "fund failed");
+        vm.stopBroadcast();
+        console2.log("drip:", address(drip));
+        if (vm.envOr("WRITE_TOOLS", false)) {
+            vm.serializeAddress("tools2", "swapper", vm.parseJsonAddress(vm.readFile(TOOLS), ".swapper"));
+            vm.writeJson(vm.serializeAddress("tools2", "drip", address(drip)), TOOLS);
+        }
     }
 
     function keep(uint256 k) external {

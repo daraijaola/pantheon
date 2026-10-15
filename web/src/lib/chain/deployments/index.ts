@@ -17,6 +17,8 @@ export type Deployment = {
   indexVault: `0x${string}`;
   /** A small verified swap helper (testnet): buys PNTH straight from its Ascend pool. */
   swapper?: `0x${string}`;
+  /** Testnet only: free PNTH once per wallet, for when PNTH's pool is sold out. */
+  drip?: `0x${string}`;
 };
 
 // "elysium-testnet" is the live deployment (Oct 14, verified on the explorer). "local" is the private
