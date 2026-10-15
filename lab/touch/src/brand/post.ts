@@ -215,12 +215,46 @@ function teaser() {
   }
 }
 
+/**
+ * The quest card: a community portrait in the bottom-left corner, "STAKE PNTH." in the code type, and the
+ * quest in plain words. The stakers count comes from the URL (?stakers=90), read from the live site.
+ */
+async function quest() {
+  g.fillStyle = PAPER;
+  g.fillRect(0, 0, W, H);
+  g.fillStyle = RULE;
+  g.fillRect(M, 0, 2, H);
+  g.fillRect(W - M, 0, 2, H);
+
+  // Maddie, drawn in our contract code, standing in the corner and cut by the bottom edge.
+  const img = new Image();
+  img.src = "/out/portraits/maddie-light.png";
+  await img.decode();
+  const size = 1480;
+  g.drawImage(img, 20, H - size + 40, size, size);
+
+  const x = 1660;
+  spaced("TODAY’S DAILY QUEST · ELYSIUM ECOSYSTEM", x, 300, 44, "left");
+  const mod = 27;
+  word("STAKE", x, 390, mod);
+  word("PNTH.", x, 390 + (GLYPH_ROWS + 2.4) * mod, mod);
+  const y = 390 + (2 * GLYPH_ROWS + 2.4) * mod + 130;
+  spaced("Free test PNTH in one click.", x, y, 54, "left", 400);
+  spaced("Stake it. Earn the best of Ascend.", x, y + 84, 54, "left", 400);
+  const stakers = new URLSearchParams(location.search).get("stakers");
+  if (stakers) spaced(`${stakers} PEOPLE STAKING ALREADY`, x, y + 250, 66, "left");
+  g.fillStyle = RULE;
+  g.fillRect(x, H - 250, W - M - 90 - x, 2);
+  spaced("pantheonindex.com/get", x, H - 160, 62, "left");
+}
+
 document.fonts
   .load(`600 20px ${MONO}`)
   .then(() => document.fonts.load(`500 20px ${MONO}`))
   .then(() => document.fonts.load(`400 20px ${MONO}`))
-  .then(() => {
+  .then(async () => {
     if (mode === "teaser") teaser();
+    else if (mode === "quest") await quest();
     else draw();
     document.body.dataset.ready = "1";
   });
