@@ -216,6 +216,7 @@ export const SECURITY: Feature = {
       ["Staking", "Holds staked PNTH and streams the basket to stakers.", at("0x30c88fce1fAD545Df0fC603287f93F0f94076224")],
       ["HYPE Passport", "Records Passports that the Passport service signs.", at("0x0Eb4A8eB47364Be9d18410AF2f850db92b807290")],
       ["Swap helper", "Testnet only: lets the site buy PNTH from its Ascend pool.", at("0x31A67d054D34Ec18cb23A43B0E3ad1F756aA1500")],
+      ["PNTH drip", "Testnet only: 10,000 free PNTH once per wallet, for when the pool is sold out.", at("0x49C7c3896bFc02Fe79EeBC13D8c8488Ec78e8624")],
     ],
     note: "The basket vault only buys within 5% of Ascend’s own average price, keeps each buy small, and skips a coin for a run after a big price move.",
   },
