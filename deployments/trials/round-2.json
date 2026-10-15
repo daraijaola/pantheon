@@ -1,0 +1,206 @@
+{
+  "round": 2,
+  "chainId": 99801,
+  "scannedAt": "2026-10-14T22:43:08.000Z",
+  "scanBlock": "9193433",
+  "rules": "delphi-v0.1",
+  "method": "Ascend coins priced in USDC, at least 72 hours old, never a DELPHI FLAG, ranked by independent trading volume in USDC: volume in the coin's Ascend pool, minus trades by the creator or wallets DELPHI links to the creator, minus DELPHI's wash trading. The top 5 share the basket in proportion to that volume, none above 20%.",
+  "excluded": [
+    {
+      "symbol": "HAZL",
+      "token": "0x9de320e11e247d8251b3501B0E8565B6768EB494",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "ANGL",
+      "token": "0x6c5cb15C5BA872676E7ee1Ca00F8dd256F414235",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "PRMR",
+      "token": "0x7f1088cBC9EB4828298A997470538D0bD2a4EE92",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "YRRW",
+      "token": "0xe93326B246D5327c09E7fdcf83c1c8C6a21c9219",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "SRRL",
+      "token": "0xA8f46B3B008d8Ac206B707c6a7643B27d19D21b9",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "QNCE",
+      "token": "0x28D59E3FB8170224173B5DFe447Fb4F4C37f5dF5",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "THSL",
+      "token": "0xe6cb8845CFCC54a969EdCf1Bd785bb152E7Aa603",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "CLVR",
+      "token": "0xfd479c0D9E744aE0aa732B36f8429cD7d00AF57C",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "KITTIQ",
+      "token": "0x34Cc866cC3a2afD5967334CB36d8E6629a6e5174",
+      "why": "DELPHI FLAG: 69.72% of trading volume is fast round trips: 2 wallet(s) bought and sold the same tokens back within 5 minutes."
+    },
+    {
+      "symbol": "BTC",
+      "token": "0xe9D57Df7e1cbb05DC1C8dAF0fC05aDf3bDCEc6a1",
+      "why": "DELPHI FLAG: 98.3% of trading volume is fast round trips: 1 wallet(s) bought and sold the same tokens back within 5 minutes."
+    },
+    {
+      "symbol": "FGK",
+      "token": "0x862714532eD4Ef288aAf1EB6543F474fC7A7a225",
+      "why": "excluded by the curator: its price is far above its Ascend average (pumped by its creator), so the basket can't buy it"
+    },
+    {
+      "symbol": "MARI",
+      "token": "0x6714333DC7A5B4D8157811B1Bb3Ac85A809D1011",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "JUNI",
+      "token": "0xC33b7BD8b8160781f879b2fe53753124116DCC1E",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "CHRV",
+      "token": "0x18091Ac89aF48aa416f101A050a7B42772fc6987",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "TNSY",
+      "token": "0x654f810148D7938A1E2D9690A7Fd29307302e584",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "PNTH",
+      "token": "0x048aCeb334cb1835dc897a749C5985e169EAb1C5",
+      "why": "PNTH itself"
+    },
+    {
+      "symbol": "JUNI",
+      "token": "0xd18a706AeE03Dd0118bbB36Fb1575DD92d7Df9c7",
+      "why": "younger than 72 hours"
+    },
+    {
+      "symbol": "NVDATEST",
+      "token": "0xB1581a8cEA80989d7DaE554Ec48AE365907f964C",
+      "why": "not priced in USDC"
+    },
+    {
+      "symbol": "SNPT",
+      "token": "0x6E69bE287F69B513D74977bC7b6eE4a663a4dc89",
+      "why": "no independent trading (only the creator's own trades)"
+    },
+    {
+      "symbol": "SNPT",
+      "token": "0x0dd316f7997AF6C188d28F0f9E84eDD9C3d0522E",
+      "why": "no independent trading (only the creator's own trades)"
+    }
+  ],
+  "ranking": [
+    {
+      "symbol": "AK",
+      "token": "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3",
+      "verdict": "NOT_ENOUGH_DATA",
+      "usdcVolume": 1001507174,
+      "washVolume": 0,
+      "creatorVolume": 100000000,
+      "realVolume": 901507174,
+      "priceAverageAgeHours": 43,
+      "priceVsAveragePct": 9.2,
+      "headline": "Agent K (AK) has too little trading for a full check: 5 trades and 3 holders. No launch bundle and no linked wallets were found."
+    },
+    {
+      "symbol": "REE",
+      "token": "0x44FEc778Dc5E4872A24996ae6194c3d3C40B79EA",
+      "verdict": "NOT_ENOUGH_DATA",
+      "usdcVolume": 1278980101,
+      "washVolume": 1980101,
+      "creatorVolume": 777000000,
+      "realVolume": 500000000,
+      "priceAverageAgeHours": 115,
+      "priceVsAveragePct": 27.9
+    },
+    {
+      "symbol": "PACT",
+      "token": "0x4FAA6142168c6A1126df68CF400839126b3664db",
+      "verdict": "NOT_ENOUGH_DATA",
+      "usdcVolume": 2730739156,
+      "washVolume": 0,
+      "creatorVolume": 2269530874,
+      "realVolume": 461208282,
+      "priceAverageAgeHours": 59,
+      "priceVsAveragePct": 10,
+      "headline": "TestPact (PACT): too few holders to finish the checks. The creator alone holds 16.6% of supply, and anyone can see it."
+    },
+    {
+      "symbol": "DAWN",
+      "token": "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+      "verdict": "NOT_ENOUGH_DATA",
+      "usdcVolume": 1338946489,
+      "washVolume": 0,
+      "creatorVolume": 1199000000,
+      "realVolume": 139946489,
+      "priceAverageAgeHours": 88,
+      "priceVsAveragePct": 2.9,
+      "headline": "DAWN: no cheating patterns found, but with only 2 holders DELPHI can't check concentration. The creator holds 94% of wallet-held tokens."
+    },
+    {
+      "symbol": "TROLOLO",
+      "token": "0x7856a274D83d2F367966b033c757aCf453A19E20",
+      "verdict": "NOT_ENOUGH_DATA",
+      "usdcVolume": 310000000,
+      "washVolume": 0,
+      "creatorVolume": 210000000,
+      "realVolume": 100000000,
+      "priceAverageAgeHours": 155,
+      "priceVsAveragePct": 6.7
+    }
+  ],
+  "symbols": [
+    "AK",
+    "REE",
+    "PACT",
+    "DAWN",
+    "TROLOLO"
+  ],
+  "tokens": [
+    "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3",
+    "0x44FEc778Dc5E4872A24996ae6194c3d3C40B79EA",
+    "0x4FAA6142168c6A1126df68CF400839126b3664db",
+    "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+    "0x7856a274D83d2F367966b033c757aCf453A19E20"
+  ],
+  "pools": [
+    "0x26b32a74433f0a1cdeb3130fc2d0fd0309e357131e7b4915c5c7841dbe3f91f4",
+    "0xdf6017f36dcb6940f71dd1a321740a73aca70eefabb6566e95ec462c26faa87d",
+    "0xfbd4909ed6aa674282af58ecd613836f24aa3da65db9fad4fbe45ecc5b644fe9",
+    "0xe12aee0e351751a47de06b5739472047e38cb62a983e97f45ffccd83b582afa8",
+    "0x63f22ce7867b22ff5ab3bd989196b34cc6dbfb1c50f132df208a689cf1db3780"
+  ],
+  "weightsBps": [
+    2000,
+    2000,
+    2000,
+    2000,
+    2000
+  ],
+  "perRunCaps": [
+    100000000,
+    100000000,
+    100000000,
+    100000000,
+    100000000
+  ],
+  "merkleRoot": "0x6d0863177d3a9a65385be452cfa82dfa3e989681868219fe1ee2c054e3ad899a"
+}
