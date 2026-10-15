@@ -118,6 +118,10 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
   const perClaim = more.data?.[2].result ?? 0n;
   const dripLeft = more.data?.[3].result ?? 0n;
   const canClaim = !!drip && perClaim > 0n && dripLeft >= perClaim;
+  // What the main button offers. Free PNTH comes first for anyone who hasn't claimed: one prompt, and it
+  // can't fail on price. Buying only shows once the pool is known to have PNTH left, never before.
+  const known = more.data !== undefined && inPool !== undefined;
+  const mode: "claim" | "buy" | "soldout" | "checking" = !known ? "checking" : canClaim && !claimed ? "claim" : soldOut ? "soldout" : "buy";
   const usdc = onChain ? (reads.data?.[0].result ?? 0n) : 0n;
   const pnth = onChain ? (reads.data?.[1].result ?? 0n) : 0n;
   const allowance = onChain ? (reads.data?.[2].result ?? 0n) : 0n;
@@ -153,7 +157,7 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
     spend = null;
   }
   const blocked = !onChain ? "Connect your wallet first" : !hasGas ? "Get test HYPE for gas first" : !keyOk ? "Reading the pool…" : null;
-  const customLabel = blocked ?? (soldOut ? "Sold out in the pool" : !spend ? "Enter an amount" : spend > usdc ? "Not enough test USDC" : "Buy PNTH");
+  const customLabel = blocked ?? (!known ? "Checking the pool…" : soldOut ? "Sold out in the pool" : !spend ? "Enter an amount" : spend > usdc ? "Not enough test USDC" : "Buy PNTH");
 
   return (
     <main className={s.page}>
@@ -187,43 +191,50 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
           </section>
 
           <section className={s.cell}>
-            {soldOut ? (
+            {mode === "claim" ? (
               <>
                 <button
                   type="button"
                   className={s.primary}
-                  disabled={!onChain || !hasGas || claimed || !canClaim || !!tx.busy}
+                  disabled={!onChain || !hasGas || !!tx.busy}
                   onClick={() => drip && tx.run("Claiming free PNTH", [{ address: drip, abi: DRIP, functionName: "claim" }])}
                 >
-                  {tx.busy ??
-                    (!onChain
-                      ? "Connect your wallet first"
-                      : !hasGas
-                        ? "Get test HYPE for gas first"
-                        : claimed
-                          ? "You’ve claimed your free PNTH"
-                          : !canClaim
-                            ? "The free PNTH has all been claimed"
-                            : `Claim ${fmt(perClaim)} free PNTH`)}
+                  {tx.busy ?? (!onChain ? "Connect your wallet first" : !hasGas ? "Get test HYPE for gas first" : `Claim ${fmt(perClaim)} free PNTH`)}
                 </button>
                 <p className={s.hint}>
-                  PNTH is sold out in its pool right now: someone bought the whole supply with free test USDC. Claim free test PNTH instead, once per wallet. The drip’s code is{" "}
+                  {soldOut && "PNTH is sold out in its pool right now: someone bought the whole supply with free test USDC. "}
+                  Free test PNTH, {fmt(perClaim)} per wallet, once, in one wallet prompt. The drip’s code is{" "}
                   <a href={explorer("address", drip ?? zeroAddress)} target="_blank" rel="noreferrer">
                     verified on the explorer
                   </a>
                   .
                 </p>
               </>
-            ) : (
+            ) : mode === "buy" ? (
               <>
                 <button type="button" className={s.primary} disabled={!!blocked || !!tx.busy} onClick={() => buySteps(QUICK, usdc < QUICK)}>
-                  {tx.busy ?? blocked ?? "Get test PNTH"}
+                  {tx.busy ?? blocked ?? (claimed ? "Buy more PNTH" : "Get test PNTH")}
                 </button>
                 <p className={s.hint}>
+                  {claimed && "You’ve claimed your free PNTH. "}
                   One click: we make 100 test USDC for you and buy about {fmt(estimate(QUICK, sqrtP, pnthIs0))} PNTH with it. Your wallet asks up to three times: to make the
                   USDC, to let the swap use it, and to buy.
                 </p>
               </>
+            ) : mode === "soldout" ? (
+              <>
+                <button type="button" className={s.primary} disabled>
+                  {claimed ? "You’ve claimed your free PNTH" : "Sold out for now"}
+                </button>
+                <p className={s.hint}>
+                  PNTH is sold out in its pool right now: someone bought the whole supply with free test USDC.{" "}
+                  {claimed ? "You already have your free PNTH: stake it." : "The free PNTH has all been claimed too, so there’s none to get right now."}
+                </p>
+              </>
+            ) : (
+              <button type="button" className={s.primary} disabled>
+                Checking the pool…
+              </button>
             )}
             <TxNote error={tx.error} lastTx={tx.lastTx} />
             {pnth > 0n && (

@@ -205,6 +205,8 @@ export function until(sec: number) {
 export function reason(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
   if (/rejected|denied/i.test(msg)) return "You cancelled it in your wallet.";
+  if (/Provider not found|No injected provider/i.test(msg)) return "No wallet found in this browser. Install MetaMask or Rabby, then reload this page.";
+  if (/PriceLimitAlreadyExceeded|PriceLimitOutOfBounds/.test(msg)) return "There’s nothing left to buy in that pool right now.";
   const named = msg.match(/reverted with the following reason:\s*\n?(.+)|error\s+([A-Z][A-Za-z]+)\(/);
   if (named) return `The contract refused: ${(named[1] ?? named[2]).trim()}.`;
   return msg.split("\n")[0].slice(0, 160);

@@ -282,7 +282,7 @@ function LinkFlow({ me }: { me: Hex }) {
           </label>
           <p className={s.hint}>The wallet that holds your HYPE on Hyperliquid. Its main wallet, not an API wallet.</p>
           <button type="button" className={s.primary} disabled={!hl || !!busy} onClick={start}>
-            {busy ?? "Check my HYPE"}
+            {busy ?? (hl ? "Check my HYPE" : "Enter your Hyperliquid wallet first")}
           </button>
         </>
       ) : (
