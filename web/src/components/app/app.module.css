@@ -130,6 +130,7 @@
 }
 .statNote a,
 .hint a,
+.empty a,
 .fine a {
   color: inherit;
   text-decoration: underline;

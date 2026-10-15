@@ -1,0 +1,49 @@
+# PANTHEON Trials vote (signed ballots from HYPE Passport holders). Install:
+#   sudo install -m 0644 deploy/pantheon-trials.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now pantheon-trials
+# Logs: journalctl -u pantheon-trials -f
+#
+# No keys, nothing to sign: it only reads Passport tiers from the chain. Listens on 127.0.0.1:8790; the
+# site forwards /api/trials/* here (a Next.js rewrite). Ballots live in /var/lib/trials.
+
+[Unit]
+Description=PANTHEON Trials vote: signed ballots from HYPE Passport holders (127.0.0.1:8790)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=micheal
+Group=micheal
+WorkingDirectory=/srv/hackathon/pantheon/services/trials
+ExecStart=/usr/bin/node --env-file-if-exists=.env src/server.ts
+Environment=NODE_ENV=production
+Environment=STATE_FILE=/var/lib/trials/ballots.json
+StateDirectory=trials
+StateDirectoryMode=0700
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=20
+UMask=0077
+
+# Lock-down: read-only system and code, writes only to /var/lib/trials, no new privileges.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

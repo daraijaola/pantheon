@@ -1,5 +1,5 @@
 // What each feature page says. Only what is built is stated as fact (the contracts, the Passport
-// service, DELPHI); the Trials vote is named as coming. Plain words only.
+// service, DELPHI, the Trials vote). Plain words only.
 
 import { BallotCard, CovenantCard, KeysCard, PassportCard } from "./cards";
 import type { Feature } from "./feature-page";
@@ -10,10 +10,10 @@ export const PASSPORT: Feature = {
     <>
       Prove you hold HYPE.
       <br />
-      <span>Earn more from staking.</span>
+      <span>Earn more, and get a vote.</span>
     </>
   ),
-  sub: "One signature links your Hyperliquid wallet to Elysium. Your Passport then boosts what you earn from staking PNTH, and any app on Elysium can read it.",
+  sub: "One signature links your Hyperliquid wallet to Elysium. Your Passport then boosts what you earn from staking PNTH and gives you votes in the Trials.",
   actions: [
     { label: "Get your Passport", href: "/passport/get", primary: true },
     { label: "See the tiers", href: "#details" },
@@ -22,12 +22,12 @@ export const PASSPORT: Feature = {
   steps: [
     { title: "Link your wallets", desc: "Sign one message with your Hyperliquid wallet to link it to your Elysium wallet. No funds move." },
     { title: "We count your HYPE", desc: "Staked HYPE counts in full, HYPE you hold but haven’t staked counts half, and older accounts reach higher tiers." },
-    { title: "Use it everywhere", desc: "Your tier boosts PNTH staking, and any app on Elysium can read it. Next, it will set your votes in the Trials." },
+    { title: "Use it everywhere", desc: "Your tier boosts PNTH staking and sets your votes in the Trials. Any app on Elysium can read it too." },
   ],
   details: {
     title: "The tiers",
     sub: "Your tier is checked again every day, so it follows your HYPE up and down.",
-    head: ["Tier", "You need", "Staking boost", "Votes (soon)"],
+    head: ["Tier", "You need", "Staking boost", "Votes"],
     rows: [
       ["Tier 1", "10 HYPE", "1.10×", "1"],
       ["Tier 2", "100 HYPE and an account at least 30 days old", "1.20×", "2"],
@@ -43,7 +43,7 @@ export const PASSPORT: Feature = {
     { q: "Do I have to move my HYPE?", a: "No. Nothing leaves your wallet. You only sign a message to prove the wallet is yours." },
     {
       q: "What if I sell my HYPE?",
-      a: "Your tier is re-checked every day. If your HYPE drops below a tier, your boost drops with it.",
+      a: "Your tier is re-checked every day. If your HYPE drops below a tier, your boost and votes drop with it.",
     },
     { q: "Can other apps use my Passport?", a: "Yes. The Passport is open: any app on Elysium can read a wallet’s tier and build on it." },
   ],
@@ -58,10 +58,10 @@ export const TRIALS: Feature = {
       <span>Earned, not bought.</span>
     </>
   ),
-  sub: "Coins make the basket on their real trading, and a coin DELPHI flags for cheating can never get in. Every change waits a day on-chain and can be vetoed. Next, HYPE Passport holders vote three coins in.",
+  sub: "HYPE Passport holders vote three coins into the basket each round, and the rest earn their place on real trading. A coin DELPHI flags for cheating can never get in, and every change waits a day on-chain.",
   actions: [
-    { label: "Read the rules", href: "#details", primary: true },
-    { label: "See the basket", href: "/#basket" },
+    { label: "Vote now", href: "/trials/vote", primary: true },
+    { label: "Read the rules", href: "#details" },
   ],
   diagram: <BallotCard />,
   steps: [
@@ -72,7 +72,7 @@ export const TRIALS: Feature = {
     { title: "A day to say no", desc: "A new list waits 24 hours on-chain before it starts. In that time a separate guardian key can veto it. It can stop a list, never add one." },
     {
       title: "Three seats, one vote",
-      desc: "Coming next: each week Passport holders vote three more coins in. A vote will be a free signature, and higher tiers will carry more votes.",
+      desc: "Each round, Passport holders vote three coins in. A vote is a free signature, and higher tiers carry more votes.",
     },
   ],
   details: {
@@ -85,7 +85,7 @@ export const TRIALS: Feature = {
       ["Size", "No coin can be more than 20% of the basket, and it holds at most ten."],
       ["Clean", "A coin DELPHI flags for cheating can never get in."],
       ["Changes", "Every change waits 24 hours, and the guardian can veto it."],
-      ["Votes", "Coming next: one Passport, counted by its tier: 1, 2 or 3 votes."],
+      ["Votes", "One Passport, counted by its tier: 1, 2 or 3 votes on each coin it picks."],
     ],
   },
   faq: [
@@ -94,7 +94,10 @@ export const TRIALS: Feature = {
       q: "How is a coin scored?",
       a: "Round 1 ranked coins on their real USDC trading, after DELPHI took out wash trading, and kept flagged coins out. The ranking file is public, and the proposal on-chain carries its fingerprint.",
     },
-    { q: "When does voting start?", a: "After PNTH launches. Until then, the basket is picked on the numbers alone." },
+    {
+      q: "How do I vote?",
+      a: "Get a HYPE Passport, then pick up to three coins on the vote page and sign. It’s free, and you can change your vote until it closes. Every ballot is published with its signature, so anyone can recount.",
+    },
     {
       q: "Who can veto?",
       a: "A guardian key, separate from the one that proposes lists. It can only stop a list, never add one. We’d like Ascend to hold it.",

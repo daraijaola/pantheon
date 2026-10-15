@@ -1,0 +1,147 @@
+/* The Trials vote: the app's calm cells, plus a pick-up-to-three list with live vote bars. Ink only. */
+.picked {
+  font: 12px/16px var(--mono);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px 172px;
+  gap: 16px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12px;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.cols span:nth-child(2) {
+  text-align: right;
+}
+.list {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.row,
+.rowOn {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px 120px 36px;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.rowOn .sym {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  cursor: pointer;
+}
+.pick input {
+  margin: 0;
+  accent-color: var(--ink);
+}
+.coin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.sym {
+  font: 500 14px/20px var(--mono);
+}
+.pill,
+.lead {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font: 11px/16px var(--mono);
+  white-space: nowrap;
+}
+.pill {
+  border: 1px dashed color-mix(in srgb, var(--ink) 30%, transparent);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.lead {
+  background: var(--ink);
+  color: #fff;
+}
+.trade {
+  font: 12px/16px var(--mono);
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  text-align: right;
+}
+.bar {
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  overflow: hidden;
+}
+.bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--ink);
+}
+.votes {
+  font: 500 13px var(--mono);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.headline {
+  grid-column: 1 / -1;
+  padding-left: 25px;
+  font-size: 13px;
+  line-height: 18px;
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+  text-decoration: none;
+}
+.headline:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.leaders {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.leaders li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 14px;
+}
+.leaders li:last-child {
+  border-bottom: 0;
+}
+.rules {
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+  font-size: 13px;
+  line-height: 19px;
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+}
+.rules li + li {
+  margin-top: 6px;
+}
+
+@media (max-width: 900px) {
+  .row,
+  .rowOn {
+    grid-template-columns: minmax(0, 1fr) 80px 32px;
+  }
+  .trade,
+  .cols span:nth-child(2) {
+    display: none;
+  }
+  .cols {
+    grid-template-columns: minmax(0, 1fr) 124px;
+  }
+}

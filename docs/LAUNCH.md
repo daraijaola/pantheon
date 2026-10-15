@@ -9,6 +9,7 @@ The grant needs a token launched through Ascend on Elysium **mainnet**. A testne
 - **Staking**: a 3-day unlock, a time bonus up to 1.5×, and a HYPE Passport boost up to 1.25×. Rewards stream over a day.
 - **The basket**: proposal 0 (FGK, FLOW, FLOWR, PACT and DAWN, 20% each, chosen from DELPHI's data) starts after its 24-hour wait.
 - **HYPE Passport**: the service is live and signs Passports that the on-chain registry checks.
+- **The Trials vote**: round 3 is open at pantheonindex.com/trials/vote. Passport holders pick 3 of 17 coins with free signed ballots, counted by tier, and every ballot is public.
 - **DELPHI**: scans every Ascend coin twice a day. Claude writes plain-English reports, and every claim links to its transaction: pantheonindex.com/delphi
 - **Proof**: 7 of our contracts are verified on the explorer, and the Slither review is in `docs/security/slither.md`. There are 24 contract tests (7 against a copy of live Ascend), 141 Passport service tests and 87 DELPHI tests.
 
@@ -29,7 +30,6 @@ Each step is a script that is already run on testnet (`script/Deploy.s.sol`):
 - An outside review of the five core contracts (Covenant, the basket list, the vault, staking and the Passport registry), paid for from the grant.
 - A multisig for the curator, and one for the team's 15% share. The guardian goes to Ascend if they accept.
 - The keeper running on its own: it routes PNTH's fees, buys the basket and refreshes Passport boosts.
-- The Trials vote: HYPE Passport holders vote three coins into the basket each week.
 
 ## Token plan
 
@@ -39,7 +39,7 @@ Each step is a script that is already run on testnet (`script/Deploy.s.sol`):
 
 ## After launch
 
-- The weekly Trials vote, with Passport tiers giving 1, 2 or 3 votes.
+- A Trials round every week on mainnet, with the guardian held by Ascend if they agree.
 - Covenant for every Ascend creator: burns, team pay and a share to the basket, with no owner.
 - DELPHI as a public good: reports on every Ascend coin, and an open feed other apps can use.
 - The HYPE Passport as Elysium's "real HYPE holder" check, for any app.

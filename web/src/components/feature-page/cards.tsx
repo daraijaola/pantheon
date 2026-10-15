@@ -85,7 +85,7 @@ export function PassportCard() {
         <span className={`${s.num} ${s.strong}`}>1.20×</span>
       </div>
       <div className={s.rRow} style={line(t, 1400)}>
-        <span>Votes in the Trials (soon)</span>
+        <span>Votes in the Trials</span>
         <span className={`${s.num} ${s.strong}`}>2</span>
       </div>
       <div className={c.chips} style={line(t, 1600)}>
@@ -113,7 +113,7 @@ export function BallotCard() {
     <div className={s.card}>
       <div className={s.cardHead}>
         <span className={s.brandRow}>
-          <b>The Trials · preview</b>
+          <b>The Trials · round 3</b>
         </span>
         <span className={`${s.num} ${s.muted} ${c.small}`}>closes in 2d 14h</span>
       </div>
@@ -143,7 +143,7 @@ export function BallotCard() {
         Sign your vote · free
       </button>
       <p className={s.note} style={line(t, 1700)}>
-        Coming after launch. The top three will go in after 24 hours, unless the guardian vetoes one.
+        The top three join the next list, which waits 24 hours on-chain. The guardian can veto it.
       </p>
     </div>
   );
