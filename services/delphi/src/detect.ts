@@ -158,6 +158,26 @@ export function balances(d: CoinData): Map<string, bigint> {
   return bal;
 }
 
+/**
+ * What contracts (not pools) hold, as a share of all tokens outside the pools, when it is big enough
+ * to matter. DELPHI judges wallets, so supply parked in a contract is said out loud, not hidden.
+ */
+export function contractHoldings(d: CoinData): { share: number; top: Array<{ contract: string; pct: number }> } | null {
+  if (!d.contracts?.size) return null;
+  const all = new Map<string, bigint>();
+  for (const t of d.transfers) {
+    all.set(lc(t.from), (all.get(lc(t.from)) ?? 0n) - t.value);
+    all.set(lc(t.to), (all.get(lc(t.to)) ?? 0n) + t.value);
+  }
+  const held = [...d.contracts].map((c) => ({ c, v: all.get(c) ?? 0n })).filter((x) => x.v > 0n).sort((a, b) => (b.v > a.v ? 1 : b.v < a.v ? -1 : 0));
+  const inContracts = held.reduce((s, x) => s + x.v, 0n);
+  const outside = inContracts + [...balances(d).values()].reduce((s, v) => s + v, 0n);
+  if (inContracts === 0n) return null;
+  const share = pct(inContracts, outside);
+  if (share < RULES.contracts.notePct) return null;
+  return { share, top: held.slice(0, 3).map((x) => ({ contract: x.c, pct: pct(x.v, outside) })) };
+}
+
 /** The last transaction that sent tokens to a wallet (where its balance can be checked). */
 function lastIn(d: CoinData, w: string): Hex | null {
   for (let i = d.transfers.length - 1; i >= 0; i--) if (lc(d.transfers[i]!.to) === w) return d.transfers[i]!.tx;

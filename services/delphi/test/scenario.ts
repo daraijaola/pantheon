@@ -75,8 +75,9 @@ export function scenario(opts: { creator?: Address; launcher?: Address } = {}) {
       fundings.push({ wallet, funder, value: 10n ** 17n, tx: b.tx, time: b.time });
       return s;
     },
-    build(txCounts: ReadonlyMap<string, number> = new Map()): CoinData {
-      const system = new Set([ZERO, VAULT, LAUNCHPAD, ROUTER].map((a) => a.toLowerCase()));
+    /** `contracts`: non-pool contracts (staking, lockers…), which ingest puts in `system` too. */
+    build(txCounts: ReadonlyMap<string, number> = new Map(), contracts: Address[] = []): CoinData {
+      const system = new Set([ZERO, VAULT, LAUNCHPAD, ROUTER, ...contracts].map((a) => a.toLowerCase()));
       const links = buildLinks({
         actors: actorsOf(trades, transfers, system),
         creator: coin.creator,
@@ -88,7 +89,7 @@ export function scenario(opts: { creator?: Address; launcher?: Address } = {}) {
         hubs: findHubs(txCounts),
         system,
       });
-      return { coin, trades, transfers, links, system, fundingMissing: 0 };
+      return { coin, trades, transfers, links, system, fundingMissing: 0, contracts: new Set(contracts.map((a) => a.toLowerCase())) };
     },
   };
   return s;

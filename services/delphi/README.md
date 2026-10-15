@@ -30,7 +30,11 @@ Wallets are joined into clusters by links, and each link records the transaction
 
 **Public hubs never link anyone.** The Elysium testnet faucet funded most testers, so linking through it would make everyone one big sybil ring. A funder is treated as a public hub if it is a known faucet or has at least 5,000 transactions. The rule is deliberately *not* "funded many wallets", because a sybil farmer does that too. HYPE paid from inside a contract call is credited to whoever sent that transaction, so funding through a public "disperse" contract still shows the real funder.
 
-**Infrastructure is never a holder or a trader.** That covers the launchpad and everything it names (vault, pool manager, treasuries, ListingDesk), the burn sink, every router seen swapping, and any outside pool (a contract that answers `token0()` and `token1()`).
+**Infrastructure is never a holder or a trader.** That covers the launchpad and everything it names (vault, pool manager, treasuries, ListingDesk), the burn sink, every router seen swapping, and any outside pool (a contract that answers `token0()` and `token1()`). Since rules v0.2 it covers every
+other contract too (staking, lockers, faucets): before that, everyone who staked PANTHEON was "one actor"
+through the staking contract, and the contract itself counted as a holder with 75% of the supply. A report
+notes how much contracts hold once it is 10% or more of the tokens outside the pool, so supply parked in a
+contract is said out loud.
 
 ## Things we learned from the live chain (2026-10-14)
 

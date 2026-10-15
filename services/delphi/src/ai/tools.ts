@@ -278,7 +278,7 @@ export function walletProfile(ws: Workspace, input: { token: string; wallet: str
     .slice(0, 15);
   return {
     wallet: w,
-    kind: isSystem(d, w) ? "infrastructure (pool, router, vault…)" : "wallet",
+    kind: d.contracts?.has(w) ? "contract, not a wallet (staking, locker, faucet or similar)" : isSystem(d, w) ? "infrastructure (pool, router, vault…)" : "wallet",
     isCreator: w === lc(d.coin.creator),
     sentTheLaunch: w === lc(d.coin.launcher),
     holds: { tokens: amount(bal.get(w) ?? 0n), pctOfSupply: pct(bal.get(w) ?? 0n, TOTAL_SUPPLY) },

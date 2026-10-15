@@ -200,8 +200,16 @@ export async function collect(deps: {
   const system = new Set([...STATIC_SYSTEM, cfg.launchpad, ...Object.values(lp), ...swaps.map((s) => s.sender)].map(lc));
   const parties = new Set([...transfers.flatMap((t) => [t.from, t.to]), ...txFrom.values()].map(lc).filter((a) => !system.has(a)));
   const kinds = await addressKinds(client, store, parties);
-  for (const [a, k] of kinds) if (k === "pool") system.add(a);
-  log(`${parties.size} addresses checked: ${[...kinds.values()].filter((k) => k === "pool").length} outside pools`);
+  // Pools and other contracts (staking, lockers, faucets) are not wallets. Tokens deposited into the
+  // same staking contract don't make the depositors one actor, and what a contract holds is nobody's
+  // wallet balance. Reports still say how much the non-pool contracts hold.
+  const contracts = new Set<string>();
+  for (const [a, k] of kinds) {
+    if (k === "wallet") continue;
+    system.add(a);
+    if (k === "contract") contracts.add(a);
+  }
+  log(`${parties.size} addresses checked: ${[...kinds.values()].filter((k) => k === "pool").length} outside pools, ${contracts.size} other contracts`);
 
   const skeletons = assemble({ launches, pools, swaps, transfers, txFrom, blockTime, system, meta });
   const coinActors = skeletons.map((s) => actorsOf(s.trades, s.transfers, system));
@@ -278,7 +286,7 @@ export async function collect(deps: {
       system,
     });
     const fundingMissing = [...actors].filter((a) => kinds.get(lc(a)) === "wallet" && (!fundings.has(lc(a)) || blind.has(lc(a)))).length;
-    return { ...s, links, fundingMissing };
+    return { ...s, links, fundingMissing, contracts };
   });
   if (!explorer) notes.push("explorer skipped: funding links use cached data only");
   return { coins, head, notes };

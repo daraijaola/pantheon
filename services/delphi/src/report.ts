@@ -1,7 +1,7 @@
 // Verdicts and reports. A report says what was checked, what was found, and the transactions
 // behind every claim, so anyone can verify it on the explorer without trusting DELPHI.
 import { RULES } from "./config.ts";
-import { balances, detectBundle, detectConcentration, detectWash, type DetectorResult } from "./detect.ts";
+import { balances, contractHoldings, detectBundle, detectConcentration, detectWash, type DetectorResult } from "./detect.ts";
 import type { CoinData, Finding, Verdict } from "./types.ts";
 
 export type CheckState = "found" | "clear" | "not-enough-data";
@@ -57,6 +57,14 @@ export function analyze(d: CoinData, opts: { explorerWeb: string; now?: Date }):
     notes.push(`Funding history missing for ${d.fundingMissing} wallet(s): links through shared funders may be incomplete.`);
     // Nothing found is not the same as clean when part of the picture is missing.
     if (verdict === "CLEAN") verdict = "NOT_ENOUGH_DATA";
+  }
+  const parked = contractHoldings(d);
+  if (parked) {
+    const top = parked.top.map((x) => `${x.contract.slice(0, 6)}…${x.contract.slice(-4)} ${x.pct}%`).join(", ");
+    notes.push(
+      `Contracts hold ${parked.share}% of the tokens outside the pool (${top}). DELPHI checks wallets, so tokens in a contract ` +
+        "(staking, a locker, a faucet) are nobody's holding and link no one. Check what a contract is before trusting it.",
+    );
   }
   return {
     rules: RULES.version,

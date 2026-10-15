@@ -75,7 +75,7 @@ export const KNOWN_HUBS: readonly Address[] = [
  * Plain thresholds on purpose: v0 must be explainable to a judge in one sentence each.
  */
 export const RULES = {
-  version: "delphi-v0.1",
+  version: "delphi-v0.2",
   /**
    * A funder with this many transactions is public (faucet, bridge, exchange) and links nobody.
    * Not "funded many wallets": a sybil farmer does that too. Sheer activity is what separates them
@@ -104,6 +104,10 @@ export const RULES = {
     watchPct: 20,
     flagPct: 40,
     minHolders: 5,
+  },
+  /** A report notes how much contracts (staking, lockers…) hold once it reaches this share. v0.2. */
+  contracts: {
+    notePct: 10,
   },
 } as const;
 

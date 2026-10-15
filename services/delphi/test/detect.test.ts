@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectBundle, detectConcentration, detectWash, pct } from "../src/detect.ts";
+import { contractHoldings, detectBundle, detectConcentration, detectWash, pct } from "../src/detect.ts";
 import { analyze } from "../src/report.ts";
 import { addr, FAUCET, scenario } from "./scenario.ts";
 
@@ -28,6 +28,40 @@ describe("faucet trap", () => {
     wallets(0x100, 3).forEach((w, i) => s.fund(w, F).buy(w, 60, 1 + i));
     expect(s.build(new Map([[F.toLowerCase(), 6_000]])).links).toEqual([]);
     expect(s.build(new Map([[F.toLowerCase(), 40]])).links.map((l) => l.reason)).toEqual(["shared-funder", "shared-funder"]);
+  });
+});
+
+describe("contracts are not wallets", () => {
+  // Eight independent buyers stake most of their tokens in one staking contract (PANTHEON, Oct 2026).
+  const STAKING = addr(0x5a);
+  const staked = () => {
+    const s = honest(scenario());
+    s.sell(addr(0x100), 1, 4 * 86_400).sell(addr(0x101), 1, 5 * 86_400);
+    wallets(0x100, 8).forEach((w, i) => s.pass(w, STAKING, 3, 6 * 86_400 + i));
+    return s;
+  };
+
+  it("doesn't link wallets that deposit into the same contract, or count the contract as a holder", () => {
+    const d = staked().build(new Map(), [STAKING]);
+    expect(d.links).toEqual([]);
+    expect(detectConcentration(d).finding).toBeNull();
+    const r = analyze(d, { explorerWeb: WEB });
+    expect(r.verdict).toBe("CLEAN");
+    // 24M of the 38M tokens outside the pool sit in the contract, and the report says so.
+    expect(contractHoldings(d)).toEqual({ share: 63.15, top: [{ contract: STAKING.toLowerCase(), pct: 63.15 }] });
+    expect(r.notes.join(" ")).toContain("Contracts hold 63.15% of the tokens outside the pool (0x0000…005a 63.15%)");
+  });
+
+  it("would call them one actor if the contract were taken for a wallet (the v0.1 mistake)", () => {
+    const d = staked().build();
+    expect(new Set(d.links.map((l) => l.reason))).toEqual(new Set(["token-pass"]));
+    expect(detectConcentration(d).finding?.severity).toBe("flag");
+  });
+
+  it("says nothing about contracts that hold little", () => {
+    const s = honest(scenario());
+    s.pass(addr(0x100), addr(0x5a), 1, 86_400);
+    expect(contractHoldings(s.build(new Map(), [addr(0x5a)]))).toBeNull();
   });
 });
 

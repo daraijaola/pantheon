@@ -66,6 +66,11 @@ export type CoinData = {
   system: ReadonlySet<string>;
   /** Wallets whose funding history could not be read: funding links may be incomplete. */
   fundingMissing: number;
+  /**
+   * Contracts that are not pools (staking, lockers, faucets…). They are in `system` too, so they are
+   * never holders and never link wallets; this list lets a report say how much they hold.
+   */
+  contracts?: ReadonlySet<string>;
 };
 
 export type Severity = "info" | "watch" | "flag";
