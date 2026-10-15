@@ -67,7 +67,7 @@ export function Footer({ code, quiet = false }: { code: string; quiet?: boolean 
           </p>
           <p className={f.status}>
             <span className={f.dot} aria-hidden="true" />
-            No owner. Rules locked.
+            Fees with no owner. Rules locked.
           </p>
         </div>
         <a className={`${f.cell} ${f.partner}`} href={LINKS.ascend} {...external(LINKS.ascend)}>

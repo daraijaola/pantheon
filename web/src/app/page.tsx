@@ -53,7 +53,7 @@ export default async function Home() {
 
             <p className="rise mt-4 max-w-[560px] text-[16px] leading-6 text-ink/80 [animation-delay:600ms]">
               $PNTH is the index of Ascend. Buys grow a locked basket of its top coins for stakers; sells burn supply.{" "}
-              <span className="whitespace-nowrap rounded-md bg-ink/5 px-1.5 py-0.5 font-[450] text-ink">No owner. Rules locked.</span>
+              <span className="whitespace-nowrap rounded-md bg-ink/5 px-1.5 py-0.5 font-[450] text-ink">Fees with no owner. Rules locked.</span>
             </p>
 
             <div className="rise mt-6 flex w-full flex-col gap-3 [animation-delay:750ms] sm:w-auto sm:flex-row">
