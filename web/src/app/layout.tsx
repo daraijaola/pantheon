@@ -15,7 +15,8 @@ const sans = Space_Grotesk({
   variable: "--font-space-grotesk",
 });
 
-// Site UI (Firecrawl-style system): Geist + Geist Mono. The fonts above are for the /imagery tile only.
+// Site UI (Firecrawl-style system): Geist + Geist Mono. The fonts above back globals.css's older
+// --font-display, --font-sans and --font-mono tokens.
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
