@@ -272,7 +272,11 @@ export function CoinReport({ data, token }: { data: Delphi; token: string }) {
           {basket && (
             <section className={s.cell}>
               {basket.in ? (
-                <p className={d.basketIn}>Picked for PANTHEON’s basket in round 1.</p>
+                <p className={row.verdict === "FLAG" ? d.basketOut : d.basketIn}>
+                  {row.verdict === "FLAG"
+                    ? "Picked for PANTHEON’s basket in round 1, before it had enough trades for DELPHI to judge. DELPHI flagged it once it did, and the next list leaves it out."
+                    : "Picked for PANTHEON’s basket in round 1."}
+                </p>
               ) : (
                 <p className={d.basketOut}>Kept out of PANTHEON’s basket. {basket.why}.</p>
               )}

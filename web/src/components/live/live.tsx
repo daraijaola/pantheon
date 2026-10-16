@@ -63,7 +63,7 @@ export function LiveNumbers({ live, pnth }: { live: Live; pnth: string | null })
       label: "Ascend coins checked for cheating",
       note: (
         <>
-          {n(live.checked.flagged)} flagged, and they can never enter the basket. <Link href="/delphi">See them</Link>
+          {n(live.checked.flagged)} flagged. A flagged coin can’t be put forward for the basket. <Link href="/delphi">See them</Link>
         </>
       ),
     });
@@ -117,6 +117,7 @@ export function LiveNumbers({ live, pnth }: { live: Live; pnth: string | null })
                 </Link>
                 <span className={s.coinNote}>
                   {c.weightPct}% · {c.bought > 0 ? `${short(c.bought)} bought` : "not bought yet"}
+                  {c.flagged && (c.leaving ? " · flagged after it got in, leaves with the next list" : " · flagged after it got in")}
                 </span>
               </li>
             ))}

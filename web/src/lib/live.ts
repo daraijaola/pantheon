@@ -24,7 +24,8 @@ export type Live = {
   stakers: number | null;
   burned: { pnth: number; url: string | null } | null;
   bought: { usdc: number; buys: number; last: { symbol: string; url: string } | null } | null;
-  basket: { coins: Array<{ token: string; symbol: string; weightPct: number; bought: number }> } | null;
+  /** flagged: DELPHI flags it now; leaving: the next list leaves it out. */
+  basket: { coins: Array<{ token: string; symbol: string; weightPct: number; bought: number; flagged: boolean; leaving: boolean }> } | null;
   next: { symbols: string[]; startsAt: number } | null;
   vote: { round: number; open: boolean; closesAt: number; ballots: number } | null;
   checked: { coins: number; flagged: number } | null;
@@ -54,6 +55,8 @@ export async function readLive(): Promise<Live> {
   const pnth = deployment?.pnth.toLowerCase();
   const row = delphi?.coins.find((c) => c.token.toLowerCase() === pnth);
   const waiting = basket?.proposals.filter((p) => p.status === "waiting").sort((a, b) => a.startsAt - b.startsAt)[0];
+  const flagged = new Set(delphi?.coins.filter((c) => c.verdict === "FLAG").map((c) => c.token.toLowerCase()) ?? []);
+  const staying = new Set(waiting?.coins.map((c) => c.token.toLowerCase()) ?? []);
   return {
     people: row?.people ?? null,
     stakers: stats?.staking.stakers ?? null,
@@ -72,6 +75,8 @@ export async function readLive(): Promise<Live> {
             symbol: c.symbol ?? `${c.token.slice(0, 6)}…`,
             weightPct: c.weightPct,
             bought: Number(c.bought.value),
+            flagged: flagged.has(c.token.toLowerCase()),
+            leaving: !!waiting && !staying.has(c.token.toLowerCase()),
           })),
         }
       : null,
