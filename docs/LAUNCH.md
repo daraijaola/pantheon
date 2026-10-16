@@ -7,11 +7,11 @@ The grant needs a token launched through Ascend on Elysium **mainnet**. A testne
 - **PNTH**, launched through Covenant. Its Covenant holds the creator role: sell fees are burned, and buy fees go to the basket that's paid out to stakers.
 - **Covenant**, for anyone: pantheonindex.com/covenant/launch. Two coins are on it so far: PNTH and Covenant Demo (COVD).
 - **Staking**: a 3-day unlock, a time bonus up to 1.5×, and a HYPE Passport boost up to 1.25×. Rewards stream over a day.
-- **The basket**: proposal 0 (FGK, FLOW, FLOWR, PACT and DAWN, 20% each, chosen from DELPHI's data) starts after its 24-hour wait.
+- **The basket**: live since Oct 15, 20:25 UTC, buying every hour with PNTH's fees and streaming what it buys to stakers. Round 1 (FGK, FLOW, FLOWR, PACT, DAWN) came from DELPHI's data. DELPHI flagged FLOW and FLOWR once they had enough trades to judge, so round 2 (AK, REE, PACT, DAWN, TROLOLO) replaces it on Oct 16 at 12:00 UTC.
 - **HYPE Passport**: the service is live and signs Passports that the on-chain registry checks.
-- **The Trials vote**: round 3 is open at pantheonindex.com/trials/vote. Passport holders pick 3 of 17 coins with free signed ballots, counted by tier, and every ballot is public.
+- **The Trials vote**: round 3 is open at pantheonindex.com/trials/vote until Oct 17, 10:00 UTC. PNTH stakers pick 3 of 17 coins with free signed ballots: 1 vote for the stake, plus 1 to 3 for a HYPE Passport. Every ballot is public.
 - **DELPHI**: scans every Ascend coin twice a day. Claude writes plain-English reports, and every claim links to its transaction: pantheonindex.com/delphi
-- **Proof**: 7 of our contracts are verified on the explorer, and the Slither review is in `docs/security/slither.md`. There are 24 contract tests (7 against a copy of live Ascend), 141 Passport service tests and 87 DELPHI tests.
+- **Proof**: 7 of our contracts are verified on the explorer, and the Slither review is in `docs/security/slither.md`. There are 26 contract tests (7 against a copy of live Ascend) and over 300 service tests (Passport, DELPHI, the vote, the keeper and the indexer).
 
 ## Day one on mainnet
 

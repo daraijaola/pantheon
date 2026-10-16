@@ -8,10 +8,10 @@ Live on Elysium testnet: **[pantheonindex.com](https://pantheonindex.com)** · X
 
 | | |
 |---|---|
-| [Get test PNTH](https://pantheonindex.com/get) | One click: free test USDC, then a buy straight from PNTH's Ascend pool |
+| [Get test PNTH](https://pantheonindex.com/get) | Free test PNTH, 100 per wallet, or a buy straight from PNTH's Ascend pool when it has supply |
 | [Stake](https://pantheonindex.com/stake) | Earn the basket. 3-day unlock, up to 1.5× for holding 30 days |
 | [HYPE Passport](https://pantheonindex.com/passport/get) | Prove you hold HYPE on Hyperliquid, without revealing the wallet. Up to 1.25× more from staking |
-| [The Trials](https://pantheonindex.com/trials/vote) | Vote coins into the basket with your HYPE Passport. A vote is a free signature, and every ballot is public |
+| [The Trials](https://pantheonindex.com/trials/vote) | Vote coins into the basket: staking PNTH gives you a vote, and a HYPE Passport adds more. A vote is a free signature, and every ballot is public |
 | [DELPHI](https://pantheonindex.com/delphi) | An AI that checks every Ascend coin for bundled launches, wash trading and hidden whales. Every claim links to its transaction |
 | [Launch on Covenant](https://pantheonindex.com/covenant/launch) | Launch your own Ascend coin with fee rules nobody can change |
 | [Security](https://pantheonindex.com/security) | Every contract, every key and what it can do |
@@ -19,9 +19,9 @@ Live on Elysium testnet: **[pantheonindex.com](https://pantheonindex.com)** · X
 ## How it works
 
 - **Fees.** Every Ascend trade pays a 1% fee. Half goes to Ascend, and half to the coin's creator, which for PNTH is **Covenant**, a contract with no owner. Of Covenant's half, 85% does PNTH's jobs: buys fill the basket and sells are burned. From mainnet, 15% pays the team; the testnet version runs at 0%. The split is fixed at launch and can't be changed.
-- **The basket.** Up to 10 Ascend coins, each at most 20%, at least 3 days old and trading against USDC. A coin [DELPHI](services/delphi) flags is never picked. A new list waits 24 hours on-chain, and a guardian key can veto it but never add to it. The vault only buys within 5% of Ascend's own average price, keeps each buy small, and pauses a coin after a big move.
+- **The basket.** Up to 10 Ascend coins, each at most 20%, at least 3 days old and trading against USDC. A coin [DELPHI](services/delphi) flags is never put forward, and if one is flagged after it got in, the next list drops it (FLOW and FLOWR, Oct 16). A new list waits 24 hours on-chain, and a guardian key can veto it but never add to it. The vault only buys within 5% of Ascend's own average price, keeps each buy small, and pauses a coin after a big move.
 - **Staking.** Whatever the basket buys is streamed to stakers over a day. The time bonus grows to 1.5× over 30 days, and the Passport boost is capped at 1.25×. Rewards can never exceed what came in: a 1,000-run fuzz test checks it.
-- **The Trials.** HYPE Passport holders vote three coins into each round's basket, and the other seats go to the coins with the most real trading. A vote is a free signed message counted by Passport tier (1, 2 or 3 votes). Every ballot is published with its signature, and the round file the curator proposes carries them all.
+- **The Trials.** PNTH stakers vote three coins into each round's basket, and the other seats go to the coins with the most real trading. A vote is a free signed message: 1 vote for staking PNTH, plus 1, 2 or 3 for a HYPE Passport. Every ballot is published with its signature, and the round file the curator proposes carries them all.
 
 ## What's in this repo
 
@@ -72,4 +72,4 @@ Not audited yet; an outside review comes before mainnet. No key can move anyone'
 
 ## Team
 
-Micheal ([@daraijaola](https://github.com/daraijaola)) leads and builds the contracts and the site. Ayinde ([@Ayindecodes](https://github.com/Ayindecodes)) builds the services.
+Micheal ([@micheal_node](https://x.com/micheal_node) on X, [@daraijaola](https://github.com/daraijaola) on GitHub) leads and builds the contracts and the site. Ayinde ([@ayindefyp](https://x.com/ayindefyp) on X, [@Ayindecodes](https://github.com/Ayindecodes) on GitHub) builds the services.
