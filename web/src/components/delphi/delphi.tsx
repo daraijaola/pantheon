@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import s from "@/components/app/app.module.css";
-import { basketNote, headline, ROUND1, shortHash, VERDICT, when, type Check, type CheckState, type Delphi, type Verdict } from "@/lib/delphi";
+import { basketNote, headline, ROUNDS, shortHash, VERDICT, when, type Check, type CheckState, type Delphi, type Verdict } from "@/lib/delphi";
 import d from "./delphi.module.css";
 
 const CHECK: Record<Check, string> = { bundle: "Launch bundle", wash: "Wash trading", concentration: "Hidden whales" };
@@ -159,9 +159,10 @@ export function DelphiIndex({ data }: { data: Delphi }) {
           </section>
           <section className={s.cell}>
             <p className={s.label}>It decides the basket</p>
-            <p className={d.para}>A flagged coin can never enter PANTHEON’s basket.</p>
+            <p className={d.para}>A flagged coin is never put forward for PANTHEON’s basket.</p>
             <p className={d.para}>
-              Round 1 picked {ROUND1.symbols.join(", ")}, and kept out {ROUND1.excluded.join(" and ")}.
+              The live list, round {ROUNDS.current.round}, holds {ROUNDS.current.symbols.join(", ")}. Round {ROUNDS.previous.round} held{" "}
+              {ROUNDS.previous.symbols.join(", ")}: DELPHI flagged FLOW and FLOWR once they had enough trades, and round {ROUNDS.current.round} left them out.
             </p>
             <Link href="/trials" className={d.more}>
               How the basket is chosen
@@ -274,8 +275,14 @@ export function CoinReport({ data, token }: { data: Delphi; token: string }) {
               {basket.in ? (
                 <p className={row.verdict === "FLAG" ? d.basketOut : d.basketIn}>
                   {row.verdict === "FLAG"
-                    ? "Picked for PANTHEON’s basket in round 1, before it had enough trades for DELPHI to judge. DELPHI flagged it once it did, and the next list leaves it out."
-                    : "Picked for PANTHEON’s basket in round 1."}
+                    ? `In PANTHEON’s live basket (round ${basket.round}), but DELPHI flags it now, so the next list will leave it out.`
+                    : `In PANTHEON’s live basket (round ${basket.round}).`}
+                </p>
+              ) : basket.was ? (
+                <p className={d.basketOut}>
+                  {row.verdict === "FLAG"
+                    ? `Was in round ${basket.was}’s basket, before it had enough trades for DELPHI to judge. DELPHI flagged it once it did, and round ${basket.round} left it out.`
+                    : `Was in round ${basket.was}’s basket. Round ${basket.round} left it out${basket.why ? ` (${basket.why})` : ""}.`}
                 </p>
               ) : (
                 <p className={d.basketOut}>Kept out of PANTHEON’s basket. {basket.why}.</p>

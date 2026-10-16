@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { cacheLife } from "next/cache";
 import round1 from "@/lib/chain/deployments/trials-round-1.json";
+import round2 from "@/lib/chain/deployments/trials-round-2.json";
 
 // DELPHI's published data (services/delphi/out/site.json): every coin's verdict, plus the full
 // report and Claude's explanation for the coins that have one. Re-read every few minutes, so a new
@@ -72,15 +73,25 @@ export async function readDelphi(): Promise<Delphi | null> {
   }
 }
 
-/** Round 1 of the Trials: the coins DELPHI's data put into the basket, and the ones it kept out. */
-export function basketNote(token: string): { in: boolean; why?: string } | null {
+// The basket list that's live now (round 2, since Oct 16 12:00 UTC) and the one before it.
+type RoundFile = { symbols: string[]; tokens: string[]; excluded: Array<{ symbol: string; token: string; why: string }> };
+const CURRENT = { round: 2, file: round2 as RoundFile };
+const PREVIOUS = { round: 1, file: round1 as RoundFile };
+
+/** Where a coin stands with PANTHEON's basket: in the live list, in the list before it, or kept out (and why). */
+export function basketNote(token: string): { in: boolean; round: number; was?: number; why?: string } | null {
   const t = token.toLowerCase();
-  if (round1.tokens.some((x) => x.toLowerCase() === t)) return { in: true };
-  const out = round1.excluded.find((x) => x.token.toLowerCase() === t);
-  return out ? { in: false, why: out.why } : null;
+  const has = (f: RoundFile) => f.tokens.some((x) => x.toLowerCase() === t);
+  if (has(CURRENT.file)) return { in: true, round: CURRENT.round };
+  const why = CURRENT.file.excluded.find((x) => x.token.toLowerCase() === t)?.why;
+  if (has(PREVIOUS.file)) return { in: false, round: CURRENT.round, was: PREVIOUS.round, why };
+  return why ? { in: false, round: CURRENT.round, why } : null;
 }
 
-export const ROUND1 = { symbols: round1.symbols, excluded: round1.excluded.map((x) => x.symbol) };
+export const ROUNDS = {
+  current: { round: CURRENT.round, symbols: CURRENT.file.symbols },
+  previous: { round: PREVIOUS.round, symbols: PREVIOUS.file.symbols },
+};
 
 export const VERDICT: Record<Verdict, string> = { FLAG: "Flagged", WATCH: "Watch", CLEAN: "Clean", NOT_ENOUGH_DATA: "Not enough data" };
 
