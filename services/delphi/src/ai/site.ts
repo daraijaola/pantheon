@@ -11,7 +11,15 @@ export type Saved = Explained & { report?: CoinReport };
 const ORDER: Record<Verdict, number> = { FLAG: 0, WATCH: 1, CLEAN: 2, NOT_ENOUGH_DATA: 3 };
 const clean = (s: string | null) => (s ? [...s.replace(/[\p{Cc}\p{Cf}]/gu, "")].slice(0, 40).join("") || null : null);
 
-export function siteBundle(input: { reports: CoinReport[]; saved: Saved[]; explorerWeb: string; head: string; now?: Date }) {
+export function siteBundle(input: {
+  reports: CoinReport[];
+  saved: Saved[];
+  explorerWeb: string;
+  head: string;
+  /** Per coin (lowercase token): wallets that touched it, and the people behind them (graph.ts peopleOf). */
+  people?: ReadonlyMap<string, { wallets: number; people: number }>;
+  now?: Date;
+}) {
   const current = new Map(input.reports.map((r) => [r.coin.token.toLowerCase(), r]));
   const explained = new Map<string, { report: CoinReport; x: Saved }>();
   for (const x of input.saved) {
@@ -40,6 +48,7 @@ export function siteBundle(input: { reports: CoinReport[]; saved: Saved[]; explo
         trades: r.stats.trades,
         wallets: r.stats.traders,
         holders: r.stats.holders,
+        ...(input.people?.has(r.coin.token.toLowerCase()) ? { people: input.people.get(r.coin.token.toLowerCase())! } : {}),
         launched: r.coin.launchTime,
         ...(e ? { headline: e.x.explanation.headline } : {}),
       };

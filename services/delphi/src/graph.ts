@@ -88,6 +88,17 @@ export function buildLinks(input: {
   return links;
 }
 
+/**
+ * How many different actors are behind a coin: every wallet that traded, held or moved it, with
+ * linked wallets (one private gas funder, tokens passed between them…) counted once. A faucet
+ * that funded everyone links no one, so this is an upper bound on the number of people.
+ */
+export function peopleOf(d: CoinData): { wallets: number; people: number } {
+  const wallets = [...actorsOf(d.trades, d.transfers, d.system)].map(lc);
+  const cl = clusters(d.links, wallets);
+  return { wallets: wallets.length, people: new Set(wallets.map((w) => cl.get(w))).size };
+}
+
 /** Union-find over links: wallet (lowercase) → cluster id (the cluster's smallest address). */
 export function clusters(links: Link[], wallets: Iterable<string> = []): Map<string, string> {
   const parent = new Map<string, string>();

@@ -18,6 +18,7 @@ import { siteBundle, type Saved } from "../src/ai/site.ts";
 import { loadWorkspace } from "../src/ai/workspace.ts";
 import { makeClient, mapLimit } from "../src/chain.ts";
 import { loadConfig } from "../src/config.ts";
+import { peopleOf } from "../src/graph.ts";
 import { collect } from "../src/ingest.ts";
 import { analyze, mdText, type CoinReport } from "../src/report.ts";
 import { Store } from "../src/store.ts";
@@ -102,7 +103,8 @@ try {
   }
 
   // The website's data: every verdict, and each explanation next to the report it explains.
-  const bundle = siteBundle({ reports, saved: rows.map(({ x }) => x), explorerWeb: cfg.explorerWeb, head: head.toString(), now });
+  const people = new Map(coins.map((d) => [d.coin.token.toLowerCase(), peopleOf(d)]));
+  const bundle = siteBundle({ reports, saved: rows.map(({ x }) => x), explorerWeb: cfg.explorerWeb, head: head.toString(), people, now });
   writeFileSync(join(cfg.outDir, "site.json"), `${JSON.stringify(bundle)}\n`);
   log(`site data for ${bundle.coins.length} coins (${Object.keys(bundle.explained).length} explained) in ${cfg.outDir}/site.json`);
 } finally {

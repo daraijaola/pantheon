@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { actorsOf, clusters, findHubs, linksWithin } from "../src/graph.ts";
+import { actorsOf, clusters, findHubs, linksWithin, peopleOf } from "../src/graph.ts";
 import type { Link } from "../src/types.ts";
 import { addr, FAUCET, hash, ROUTER, scenario, VAULT } from "./scenario.ts";
 
 const F = addr(0xf0);
+
+describe("peopleOf", () => {
+  it("counts linked wallets once, and wallets the faucet funded one by one", () => {
+    const s = scenario();
+    // One farmer: a private funder pays gas for four wallets. Three independent faucet users.
+    [0x200, 0x201, 0x202, 0x203].forEach((n, i) => s.fund(addr(n), F).buy(addr(n), 1, 60 + i));
+    [0x300, 0x301, 0x302].forEach((n, i) => s.fund(addr(n), FAUCET).buy(addr(n), 1, 600 + i));
+    expect(peopleOf(s.build())).toEqual({ wallets: 7, people: 4 });
+  });
+});
 
 describe("findHubs", () => {
   it("always includes the known faucet, plus anything very busy", () => {
