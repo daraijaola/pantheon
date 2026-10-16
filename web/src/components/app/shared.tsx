@@ -207,7 +207,11 @@ export function reason(e: unknown): string {
   if (/rejected|denied/i.test(msg)) return "You cancelled it in your wallet.";
   if (/Provider not found|No injected provider/i.test(msg)) return "No wallet found in this browser. Install MetaMask or Rabby, then reload this page.";
   if (/PriceLimitAlreadyExceeded|PriceLimitOutOfBounds/.test(msg)) return "There’s nothing left to buy in that pool right now.";
+  if (/insufficient funds|exceeds the balance of the account|gas required exceeds/i.test(msg))
+    return "This wallet doesn’t have enough test HYPE for gas yet. If you just got some from the faucet, wait a few seconds and try again.";
+  if (/nonce too low|replacement transaction underpriced|already known/i.test(msg))
+    return "Your wallet is still sending an earlier transaction. Wait a few seconds and try again.";
   const named = msg.match(/reverted with the following reason:\s*\n?(.+)|error\s+([A-Z][A-Za-z]+)\(/);
   if (named) return `The contract refused: ${(named[1] ?? named[2]).trim()}.`;
-  return msg.split("\n")[0].slice(0, 160);
+  return `${msg.split("\n")[0].slice(0, 160)} Try again in a few seconds, or refresh the page.`;
 }

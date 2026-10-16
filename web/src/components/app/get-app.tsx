@@ -88,7 +88,12 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
   const watch = useWatchAsset();
   const [amount, setAmount] = useState("100");
 
-  const hype = useBalance({ address: me, chainId: elysium.id, query: { enabled: onChain, refetchInterval: 10_000 } });
+  // Checked every 3 s while the wallet has no gas, so HYPE from the faucet shows up soon after it lands.
+  const hype = useBalance({
+    address: me,
+    chainId: elysium.id,
+    query: { enabled: onChain, refetchInterval: (q) => ((q.state.data?.value ?? 0n) > 0n ? 10_000 : 3_000) },
+  });
   const reads = useReadContracts({
     contracts: [
       { address: d.usdc, abi: erc20Abi, functionName: "balanceOf", args: [me] },
@@ -178,7 +183,13 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
               <Step
                 done={hasGas}
                 title="Test HYPE for gas"
-                note={onChain ? `You have ${fmt(hype.data?.value)} HYPE. A little covers many transactions.` : "Every transaction needs a little. The faucet gives it for free."}
+                note={
+                  !onChain
+                    ? "Every transaction needs a little. The faucet gives it for free."
+                    : hasGas
+                      ? `You have ${fmt(hype.data?.value)} HYPE. A little covers many transactions.`
+                      : "You have none yet. Get some from the faucet: it shows here a few seconds after it arrives."
+                }
                 action={
                   <a className={s.ghost} href={FAUCET} target="_blank" rel="noreferrer">
                     Faucet ↗
