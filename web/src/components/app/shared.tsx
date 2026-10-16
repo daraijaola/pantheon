@@ -3,7 +3,7 @@
 // Parts every app screen shares: the wallet bar, the transaction sender, small number/time helpers.
 
 import Link from "next/link";
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatUnits, parseUnits, type TransactionReceipt } from "viem";
 import { useBlock, useConfig, useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain, useWriteContract } from "wagmi";
@@ -25,12 +25,17 @@ export function useTx() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastTx, setLastTx] = useState<Hex | null>(null);
+  // Set at once on click (state only updates on the next render), so a fast double-click can't send twice.
+  const running = useRef(false);
 
   const run = async (label: string | readonly string[], calls: readonly Parameters<typeof mutateAsync>[0][]): Promise<TransactionReceipt[] | null> => {
+    if (running.current) return null;
+    running.current = true;
     const step = (i: number) => `${typeof label === "string" ? label : (label[i] ?? label[label.length - 1])}…`;
     setBusy(step(0));
     setError(null);
     const receipts: TransactionReceipt[] = [];
+    let pending: Hex | null = null; // sent, not yet confirmed
     try {
       for (const [i, call] of calls.entries()) {
         setBusy(step(i));
@@ -40,15 +45,20 @@ export function useTx() {
         if (!client) throw new Error("No connection to Elysium.");
         const estimate = await client.estimateContractGas({ ...call, account: address } as Parameters<typeof client.estimateContractGas>[0]);
         const hash = await mutateAsync({ ...call, gas: (estimate * 3n) / 2n + 100_000n });
+        pending = hash;
         setLastTx(hash);
-        receipts.push(await waitForTransactionReceipt(config, { hash }));
+        // The testnet RPC sometimes rate-limits: keep asking for a while before giving up.
+        receipts.push(await waitForTransactionReceipt(config, { hash, timeout: 180_000, retryCount: 12, retryDelay: 2_000 }));
+        pending = null;
       }
       await qc.invalidateQueries();
       return receipts;
     } catch (e) {
-      setError(reason(e));
+      // Once a transaction is sent, a failed wait doesn't mean it failed: say so, so nobody sends it twice.
+      setError(pending ? "Your transaction was sent, but we couldn’t confirm it yet. Check it on the explorer before trying again." : reason(e));
       return null;
     } finally {
+      running.current = false;
       setBusy(null);
     }
   };
@@ -56,7 +66,20 @@ export function useTx() {
 }
 
 export function TxNote({ error, lastTx }: { error: string | null; lastTx: Hex | null }) {
-  if (error) return <p className={s.error}>{error}</p>;
+  if (error)
+    return (
+      <p className={s.error}>
+        {error}
+        {lastTx && error.startsWith("Your transaction was sent") && (
+          <>
+            {" "}
+            <a href={explorer("tx", lastTx)} target="_blank" rel="noreferrer">
+              See it ↗
+            </a>
+          </>
+        )}
+      </p>
+    );
   if (lastTx)
     return (
       <p className={s.hint}>
