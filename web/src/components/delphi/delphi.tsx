@@ -264,6 +264,9 @@ export function CoinReport({ data, token }: { data: Delphi; token: string }) {
               <Stat k="Trades" v={String(e?.report.stats.trades ?? row.trades)} />
               <Stat k="Wallets" v={String(e?.report.stats.traders ?? row.wallets)} />
               <Stat k="Holders" v={String(e?.report.stats.holders ?? row.holders)} />
+              {row.people && (
+                <Stat k="People" v={String(row.people.people)} note={`behind ${row.people.wallets} wallets that touched it. Wallets one person funds count once.`} />
+              )}
             </div>
           </section>
           {basket && (

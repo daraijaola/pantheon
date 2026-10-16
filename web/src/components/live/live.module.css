@@ -1,0 +1,187 @@
+/* The live numbers band under the hero. Site tokens, Geist, hairline rules; no hover effects. */
+.section {
+  --ink: var(--color-ink, #171717);
+  --rule: var(--color-rule, #ebebeb);
+  --sans: var(--font-geist-sans, "Geist"), ui-sans-serif, system-ui, sans-serif;
+  --mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, monospace;
+  width: min(1112px, calc(100% - 32px));
+  margin: 0 auto;
+  font-family: var(--sans);
+  color: var(--ink);
+  border-bottom: 1px solid var(--rule);
+}
+
+.top {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* ── left: what this is ── */
+.head {
+  padding: 64px 32px 48px 24px;
+  border-right: 1px solid var(--rule);
+}
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 450;
+  color: color-mix(in srgb, var(--ink) 80%, transparent);
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #1f9d55;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #1f9d55 18%, transparent);
+}
+.h2 {
+  margin: 14px 0 0;
+  font-size: 40px;
+  line-height: 44px;
+  letter-spacing: -0.4px;
+  font-weight: 500;
+}
+.sub {
+  margin: 12px 0 0;
+  max-width: 340px;
+  font-size: 15px;
+  line-height: 22px;
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+/* ── right: the numbers ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+.cell {
+  display: flex;
+  flex-direction: column;
+  padding: 28px 24px 26px;
+  border-bottom: 1px solid var(--rule);
+  border-right: 1px solid var(--rule);
+}
+.cell:nth-child(3n) {
+  border-right: 0;
+}
+.cell:nth-last-child(-n + 3):nth-child(3n + 1),
+.cell:nth-last-child(-n + 3):nth-child(3n + 1) ~ .cell {
+  border-bottom: 0;
+}
+.label {
+  order: 2;
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 450;
+}
+.value {
+  order: 1;
+  margin: 0;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 30px;
+  line-height: 34px;
+  letter-spacing: -0.6px;
+}
+.note {
+  order: 3;
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+.note a,
+.next a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent);
+  text-underline-offset: 2px;
+}
+
+/* ── bottom: today's basket ── */
+.basket {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px 28px;
+  padding: 20px 24px 22px;
+}
+.basketHead {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 450;
+  color: color-mix(in srgb, var(--ink) 80%, transparent);
+}
+.coins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.coins li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.coin {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+}
+.coinNote {
+  font-size: 12.5px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.next {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12.5px;
+  color: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+
+@media (max-width: 900px) {
+  .top {
+    grid-template-columns: 1fr;
+  }
+  .head {
+    padding: 48px 20px 32px;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .h2 {
+    font-size: 32px;
+    line-height: 36px;
+  }
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cell,
+  .cell:nth-child(3n) {
+    border-right: 1px solid var(--rule);
+    padding: 22px 20px;
+  }
+  .cell:nth-child(2n) {
+    border-right: 0;
+  }
+  .cell:nth-last-child(-n + 3):nth-child(3n + 1),
+  .cell:nth-last-child(-n + 3):nth-child(3n + 1) ~ .cell {
+    border-bottom: 1px solid var(--rule);
+  }
+  .cell:nth-last-child(-n + 2):nth-child(2n + 1),
+  .cell:nth-last-child(-n + 2):nth-child(2n + 1) ~ .cell {
+    border-bottom: 0;
+  }
+  .basket {
+    padding: 18px 20px 20px;
+  }
+}

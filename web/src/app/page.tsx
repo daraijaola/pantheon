@@ -4,9 +4,12 @@ import { CodeHeadline } from "@/components/code-type/code-headline";
 import { CodeRain } from "@/components/code-type/code-rain";
 import { CodeTouch } from "@/components/code-type/code-touch";
 import { HowItWorks } from "@/components/how-it-works/how-it-works";
+import { LiveNumbers } from "@/components/live/live";
 import { SiteShell } from "@/components/site-shell";
 import { WhatYouGet } from "@/components/what-you-get/what-you-get";
 import type { HeadlineWord } from "@/components/code-type/layout";
+import { deployment } from "@/lib/chain/config";
+import { readLive } from "@/lib/live";
 import { packCode, readOurCode } from "@/lib/our-code";
 
 const SENTENCE = "The best of Ascend, in one token.";
@@ -26,7 +29,7 @@ const RAIN_MASK =
   "radial-gradient(ellipse 60% 40% at 50% 34%, transparent 0%, transparent 30%, #000 88%), linear-gradient(to bottom, #000 0%, #000 45%, transparent 66%)";
 
 export default async function Home() {
-  const code = await readOurCode();
+  const [code, live] = await Promise.all([readOurCode(), readLive()]);
   const fill = packCode(code);
 
   return (
@@ -61,7 +64,7 @@ export default async function Home() {
                 Get $PNTH
               </Link>
               <a
-                href="#basket"
+                href="#live"
                 className="inline-flex h-10 items-center justify-center rounded-[10px] bg-ink/5 px-4 text-[14px] font-[450] transition-colors hover:bg-ink/10 sm:h-9"
               >
                 See the basket
@@ -73,6 +76,7 @@ export default async function Home() {
           </div>
         </section>
 
+        <LiveNumbers live={live} pnth={deployment?.pnth ?? null} />
         <HowItWorks />
         <WhatYouGet />
         <Basket code={fill} />

@@ -19,6 +19,8 @@ export type CoinRow = {
   trades: number;
   wallets: number;
   holders: number;
+  /** Wallets that traded, held or moved the coin, and the people behind them (linked wallets count once). */
+  people?: { wallets: number; people: number };
   launched: string;
   headline?: string;
 };
