@@ -2,6 +2,9 @@
 //   node scripts/close.ts --round 3 [--coins 10]
 //       counts the ballots, picks the list (the vote's winners, then the most independent trading) and
 //       prints the DELPHI command that builds the proposal for exactly that list
+//   node scripts/close.ts --round 3 --rest PACT,DAWN --rest-why "…"
+//       the same, but the curator names the seats the vote didn't fill (candidates only), and the reason
+//       goes into the round file next to the ballots
 //   node scripts/close.ts --round 3 --merge ../delphi/out/trials/round-3.json
 //       checks DELPHI's file holds exactly that list, adds the vote to it (every signed ballot, the count,
 //       the winners) and writes deployments/trials/round-3.json. Proposing it (script/Testnet.s.sol
@@ -29,7 +32,17 @@ const ballots = ((await res.json()) as { ballotList: Ballot[] }).ballotList.filt
 
 const won = winners(def, ballots);
 const wonSet = new Set(won.map((t) => t.toLowerCase()));
-const rest = def.candidates.filter((c) => !wonSet.has(c.token.toLowerCase())).slice(0, Math.max(0, coins - won.length));
+const restArg = opt("--rest");
+const restWhy = opt("--rest-why");
+if (restArg && !restWhy) throw new Error("--rest needs --rest-why: the reason is published with the round");
+const named = restArg?.split(",").map((x) => {
+  const c = def.candidates.find((k) => k.token.toLowerCase() === x.trim().toLowerCase() || k.symbol === x.trim());
+  if (!c) throw new Error(`${x} is not a candidate in round ${n}`);
+  return c;
+});
+const rest = named
+  ? named.filter((c) => !wonSet.has(c.token.toLowerCase()))
+  : def.candidates.filter((c) => !wonSet.has(c.token.toLowerCase())).slice(0, Math.max(0, coins - won.length));
 const pick = [...won, ...rest.map((c) => c.token)];
 const pickSet = new Set(pick.map((t) => t.toLowerCase()));
 const sym = (t: string) => def.candidates.find((c) => c.token.toLowerCase() === t.toLowerCase())?.symbol ?? t;
@@ -39,12 +52,13 @@ if (!merge) {
   console.log(`round ${n}: ${ballots.length} ballots`);
   for (const c of tally(def, ballots).filter((c) => c.votes > 0)) console.log(`  ${sym(c.token).padEnd(10)} ${c.votes} votes from ${c.voters} voters`);
   console.log(`voted in: ${won.map(sym).join(", ") || "nobody voted: every seat goes by trading"}`);
-  console.log(`by trading: ${rest.map((c) => sym(c.token)).join(", ")}`);
+  console.log(`${named ? "named by the curator" : "by trading"}: ${rest.map((c) => sym(c.token)).join(", ")}`);
+  if (restWhy) console.log(`why: ${restWhy}`);
   const leaveOut = def.candidates.filter((c) => !pickSet.has(c.token.toLowerCase()));
   console.log("\nBuild the proposal in services/delphi (as ayinde), then run this script again with --merge:");
   console.log(
     `  node scripts/trials.ts --round ${n} --coins ${pick.length} ` +
-      leaveOut.map((c) => `--exclude '${c.token}:not picked in round ${n}'s vote or by trading'`).join(" "),
+      leaveOut.map((c) => `--exclude '${c.token}:not picked in the round ${n} vote or ${named ? "by the curator" : "by trading"}'`).join(" "),
   );
   console.log("If DELPHI's file then holds a coin outside this list, add an --exclude for it too: --merge checks.");
 } else {
@@ -68,6 +82,7 @@ if (!merge) {
       closesAt: def.closesAt,
       seats: def.seats,
       winners: won,
+      ...(named ? { rest: rest.map((c) => c.token), restWhy } : {}),
       tally: tally(def, ballots),
       ballots,
       candidatesFile: `round-${n}.vote.json`,
