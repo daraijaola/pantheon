@@ -1,0 +1,186 @@
+{
+  "round": 4,
+  "chainId": 99801,
+  "opensAt": 1792276171,
+  "closesAt": 1792535371,
+  "seats": 3,
+  "method": "Wallets with PNTH staked pick up to 3 coins; each pick counts 1 vote for the stake, plus 1, 2 or 3 more for a HYPE Passport (by tier; a Passport alone also votes). The 3 coins with the most votes take 3 seats in round 4's basket; equal votes go to the coin with more independent trading. The other seats go to the coins with the most independent trading, by DELPHI's count (round 3 data). Removed before any ballot: SNPTEST (a test coin its creator named \"SNIPER TEST - DO NOT BUY\"; DELPHI flagged its sibling coins); FGK (its price is far above its Ascend average (pumped by its creator), so the basket couldn't buy it). Verdicts are DELPHI's published ones.",
+  "source": {
+    "delphiRound": 3,
+    "scannedAt": "2026-10-17T15:23:09.000Z"
+  },
+  "candidates": [
+    {
+      "token": "0x4FAA6142168c6A1126df68CF400839126b3664db",
+      "poolId": "0xfbd4909ed6aa674282af58ecd613836f24aa3da65db9fad4fbe45ecc5b644fe9",
+      "symbol": "PACT",
+      "verdict": "CLEAN",
+      "headline": "CLEAN: no bundle, wash trading or hidden group found, but the creator alone bought 17.47% at launch and still holds 16.62%",
+      "realUsdc": "4034812210",
+      "launchedAt": 1791471027,
+      "rank": 1
+    },
+    {
+      "token": "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+      "poolId": "0xe12aee0e351751a47de06b5739472047e38cb62a983e97f45ffccd83b582afa8",
+      "symbol": "DAWN",
+      "verdict": "CLEAN",
+      "headline": "DAWN is CLEAN: no linked-wallet bundle, washing or hidden group found, but the creator alone holds 70% of tokens held by wallets",
+      "realUsdc": "3455163502",
+      "launchedAt": 1791570014,
+      "rank": 2
+    },
+    {
+      "token": "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3",
+      "poolId": "0x26b32a74433f0a1cdeb3130fc2d0fd0309e357131e7b4915c5c7841dbe3f91f4",
+      "symbol": "AK",
+      "verdict": "CLEAN",
+      "headline": "Agent K (AK) is CLEAN: no launch bundle, no buy-and-sell-back trading, no linked group holding a large share",
+      "realUsdc": "3319641689",
+      "launchedAt": 1791532000,
+      "rank": 3
+    },
+    {
+      "token": "0x44FEc778Dc5E4872A24996ae6194c3d3C40B79EA",
+      "poolId": "0xdf6017f36dcb6940f71dd1a321740a73aca70eefabb6566e95ec462c26faa87d",
+      "symbol": "REE",
+      "verdict": "CLEAN",
+      "headline": "REE passed all three checks, but trading is almost all buys and one wallet, the creator, holds 57% of wallet-held tokens on its own.",
+      "realUsdc": "2897806886",
+      "launchedAt": 1791499041,
+      "rank": 4
+    },
+    {
+      "token": "0x7856a274D83d2F367966b033c757aCf453A19E20",
+      "poolId": "0x63f22ce7867b22ff5ab3bd989196b34cc6dbfb1c50f132df208a689cf1db3780",
+      "symbol": "TROLOLO",
+      "verdict": "CLEAN",
+      "headline": "TROLOLO: no early bundle, no wash trading, no linked group above the line. But 63.5% of tokens outside the pool sit in one contract.",
+      "realUsdc": "2291635820",
+      "launchedAt": 1791455615,
+      "rank": 5
+    },
+    {
+      "token": "0x9de320e11e247d8251b3501B0E8565B6768EB494",
+      "poolId": "0x8dd9735212dfdb87676d56ca4725f7c78c9352496f4945a405a9b6647c110978",
+      "symbol": "HAZL",
+      "verdict": "NOT_ENOUGH_DATA",
+      "headline": "Hazel (HAZL) has only 5 trades and 3 holders, too few for DELPHI to check. One linked group holds 87.5% of the tokens in wallets.",
+      "realUsdc": "715097947",
+      "launchedAt": 1791807808,
+      "rank": 6
+    },
+    {
+      "token": "0x28D59E3FB8170224173B5DFe447Fb4F4C37f5dF5",
+      "poolId": "0xe2d7355b802a55a94e9dd1fc90bbd9c5959e0023e0e2ba63d647be6d2942b2e0",
+      "symbol": "QNCE",
+      "verdict": "NOT_ENOUGH_DATA",
+      "realUsdc": "600000000",
+      "launchedAt": 1791809070,
+      "rank": 7
+    },
+    {
+      "token": "0x6c5cb15C5BA872676E7ee1Ca00F8dd256F414235",
+      "poolId": "0x8ecbab36f61898080b85ceb32791052508da56a4128229209506028ab1541b51",
+      "symbol": "ANGL",
+      "verdict": "NOT_ENOUGH_DATA",
+      "realUsdc": "600000000",
+      "launchedAt": 1791812644,
+      "rank": 8
+    },
+    {
+      "token": "0x7f1088cBC9EB4828298A997470538D0bD2a4EE92",
+      "poolId": "0x41343a98aea70c4fa747190aed43768af5b13320c740921f38ed9c89f0a775a3",
+      "symbol": "PRMR",
+      "verdict": "NOT_ENOUGH_DATA",
+      "realUsdc": "600000000",
+      "launchedAt": 1791812583,
+      "rank": 9
+    },
+    {
+      "token": "0xA8f46B3B008d8Ac206B707c6a7643B27d19D21b9",
+      "poolId": "0x7a8add9b64acc5d4938545a63897ecb73d2a6747b8212db4fff5b199627e008d",
+      "symbol": "SRRL",
+      "verdict": "NOT_ENOUGH_DATA",
+      "realUsdc": "600000000",
+      "launchedAt": 1791809159,
+      "rank": 10
+    },
+    {
+      "token": "0xe6cb8845CFCC54a969EdCf1Bd785bb152E7Aa603",
+      "poolId": "0xa6dbad030309d338f2a17c354d7b0db8749315d7834aaeb1b2f04f243339bb19",
+      "symbol": "THSL",
+      "verdict": "NOT_ENOUGH_DATA",
+      "realUsdc": "600000000",
+      "launchedAt": 1791772541,
+      "rank": 11
+    },
+    {
+      "token": "0xe93326B246D5327c09E7fdcf83c1c8C6a21c9219",
+      "poolId": "0x677a552b7531cb51b7ac9d5436adad9ba4f7028ecbab5f8b24a6266ba4df02d3",
+      "symbol": "YRRW",
+      "verdict": "NOT_ENOUGH_DATA",
+      "realUsdc": "600000000",
+      "launchedAt": 1791809328,
+      "rank": 12
+    },
+    {
+      "token": "0xfd479c0D9E744aE0aa732B36f8429cD7d00AF57C",
+      "poolId": "0xda05ba73312d41676d39da5c82ca015654b8488a4a6e46473808e55f89115707",
+      "symbol": "CLVR",
+      "verdict": "NOT_ENOUGH_DATA",
+      "realUsdc": "600000000",
+      "launchedAt": 1791772320,
+      "rank": 13
+    },
+    {
+      "token": "0x6714333DC7A5B4D8157811B1Bb3Ac85A809D1011",
+      "poolId": "0xa643ef2a6442e11bbfb9341dc7ab76c92a64f8c09cf374e4456f494534724b7a",
+      "symbol": "MARI",
+      "verdict": "NOT_ENOUGH_DATA",
+      "headline": "Marigold (MARI): only 2 wallets hold it, both funded by the same wallet. Too few holders for DELPHI to judge concentration.",
+      "realUsdc": "22000000",
+      "launchedAt": 1791766670,
+      "rank": 14
+    },
+    {
+      "token": "0xC33b7BD8b8160781f879b2fe53753124116DCC1E",
+      "poolId": "0x9df556ef54701ecd28cc09c2b0b81ad2cff47de8365309529b47a3de9d13ccb8",
+      "symbol": "JUNI",
+      "verdict": "NOT_ENOUGH_DATA",
+      "realUsdc": "10000000",
+      "launchedAt": 1791766770,
+      "rank": 15
+    },
+    {
+      "token": "0x18091Ac89aF48aa416f101A050a7B42772fc6987",
+      "poolId": "0x9feb47570eeb97f67171af31978636d9477b925a9e9861d421c82e851642d884",
+      "symbol": "CHRV",
+      "verdict": "NOT_ENOUGH_DATA",
+      "realUsdc": "8750001",
+      "launchedAt": 1792004387,
+      "rank": 16
+    },
+    {
+      "token": "0x654f810148D7938A1E2D9690A7Fd29307302e584",
+      "poolId": "0x7f7bae08b746231694343f4d3007e81d5ddad4d8c017e9c87a1d14781954d732",
+      "symbol": "TNSY",
+      "verdict": "NOT_ENOUGH_DATA",
+      "realUsdc": "5000000",
+      "launchedAt": 1791812546,
+      "rank": 17
+    }
+  ],
+  "removed": [
+    {
+      "token": "0x7828DC37e61560a79eEb3bd516c652d049DDc0F0",
+      "symbol": "SNPTEST",
+      "why": "a test coin its creator named \"SNIPER TEST - DO NOT BUY\"; DELPHI flagged its sibling coins"
+    },
+    {
+      "token": "0x862714532eD4Ef288aAf1EB6543F474fC7A7a225",
+      "symbol": "FGK",
+      "why": "its price is far above its Ascend average (pumped by its creator), so the basket couldn't buy it"
+    }
+  ]
+}
