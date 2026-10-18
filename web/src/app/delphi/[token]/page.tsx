@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { CoinReport, NotPublished } from "@/components/delphi/delphi";
 import { SiteShell } from "@/components/site-shell";
-import { readDelphi } from "@/lib/delphi";
+import { liveRound, readDelphi } from "@/lib/delphi";
+import { readLive } from "@/lib/live";
 
 export const metadata: Metadata = {
   title: "Coin report · DELPHI · PANTHEON",
@@ -10,8 +11,9 @@ export const metadata: Metadata = {
 };
 
 async function Report({ token }: { token: string }) {
-  const data = await readDelphi();
-  return data ? <CoinReport data={data} token={token} /> : <NotPublished />;
+  const [data, live] = await Promise.all([readDelphi(), readLive()]);
+  const current = liveRound(live.basket?.coins.map((c) => c.token) ?? null);
+  return data ? <CoinReport data={data} token={token} current={current} /> : <NotPublished />;
 }
 
 export default function Page({ params }: PageProps<"/delphi/[token]">) {

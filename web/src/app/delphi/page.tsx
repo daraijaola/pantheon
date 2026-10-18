@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { DelphiIndex, NotPublished } from "@/components/delphi/delphi";
 import { SiteShell } from "@/components/site-shell";
-import { readDelphi } from "@/lib/delphi";
+import { liveRound, readDelphi } from "@/lib/delphi";
+import { readLive } from "@/lib/live";
 
 export const metadata: Metadata = {
   title: "DELPHI · PANTHEON",
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default async function Page() {
-  const data = await readDelphi();
-  return <SiteShell quiet>{data ? <DelphiIndex data={data} /> : <NotPublished />}</SiteShell>;
+  const [data, live] = await Promise.all([readDelphi(), readLive()]);
+  const current = liveRound(live.basket?.coins.map((c) => c.token) ?? null);
+  return <SiteShell quiet>{data ? <DelphiIndex data={data} current={current} /> : <NotPublished />}</SiteShell>;
 }

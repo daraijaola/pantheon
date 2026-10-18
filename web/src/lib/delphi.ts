@@ -3,6 +3,7 @@ import path from "node:path";
 import { cacheLife } from "next/cache";
 import round1 from "@/lib/chain/deployments/trials-round-1.json";
 import round2 from "@/lib/chain/deployments/trials-round-2.json";
+import round3 from "@/lib/chain/deployments/trials-round-3.json";
 
 // DELPHI's published data (services/delphi/out/site.json): every coin's verdict, plus the full
 // report and Claude's explanation for the coins that have one. Re-read every few minutes, so a new
@@ -73,25 +74,41 @@ export async function readDelphi(): Promise<Delphi | null> {
   }
 }
 
-// The basket list that's live now (round 2, since Oct 16 12:00 UTC) and the one before it.
+// Every basket list proposed so far. Which one is live is read from the chain (the indexer's active
+// list), so the pages switch by themselves when a new list starts.
 type RoundFile = { symbols: string[]; tokens: string[]; excluded: Array<{ symbol: string; token: string; why: string }> };
-const CURRENT = { round: 2, file: round2 as RoundFile };
-const PREVIOUS = { round: 1, file: round1 as RoundFile };
+const ROUND_FILES: Array<{ round: number; file: RoundFile }> = [
+  { round: 1, file: round1 as RoundFile },
+  { round: 2, file: round2 as RoundFile },
+  { round: 3, file: round3 as RoundFile },
+];
+const same = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.some((y) => y.toLowerCase() === x.toLowerCase()));
 
-/** Where a coin stands with PANTHEON's basket: in the live list, in the list before it, or kept out (and why). */
-export function basketNote(token: string): { in: boolean; round: number; was?: number; why?: string } | null {
-  const t = token.toLowerCase();
-  const has = (f: RoundFile) => f.tokens.some((x) => x.toLowerCase() === t);
-  if (has(CURRENT.file)) return { in: true, round: CURRENT.round };
-  const why = CURRENT.file.excluded.find((x) => x.token.toLowerCase() === t)?.why;
-  if (has(PREVIOUS.file)) return { in: false, round: CURRENT.round, was: PREVIOUS.round, why };
-  return why ? { in: false, round: CURRENT.round, why } : null;
+/** The round whose list is live on-chain, from the live basket's tokens; null if unknown. */
+export function liveRound(liveTokens: string[] | null): number | null {
+  if (!liveTokens?.length) return null;
+  return ROUND_FILES.find((r) => same(r.file.tokens, liveTokens))?.round ?? null;
 }
 
-export const ROUNDS = {
-  current: { round: CURRENT.round, symbols: CURRENT.file.symbols },
-  previous: { round: PREVIOUS.round, symbols: PREVIOUS.file.symbols },
-};
+/** Where a coin stands with PANTHEON's basket: in the live list, in an earlier one, or kept out (and why). */
+export function basketNote(token: string, current: number | null): { in: boolean; round: number; was?: number; why?: string } | null {
+  const cur = ROUND_FILES.find((r) => r.round === current);
+  if (!cur) return null;
+  const t = token.toLowerCase();
+  const has = (f: RoundFile) => f.tokens.some((x) => x.toLowerCase() === t);
+  if (has(cur.file)) return { in: true, round: cur.round };
+  const why = cur.file.excluded.find((x) => x.token.toLowerCase() === t)?.why;
+  const was = ROUND_FILES.filter((r) => r.round < cur.round && has(r.file)).at(-1)?.round;
+  if (was) return { in: false, round: cur.round, was, why };
+  return why ? { in: false, round: cur.round, why } : null;
+}
+
+/** The live list and the one before it, for the side text. */
+export function rounds(current: number | null) {
+  const cur = ROUND_FILES.find((r) => r.round === current);
+  const prev = ROUND_FILES.find((r) => r.round === (current ?? 0) - 1);
+  return cur ? { current: { round: cur.round, symbols: cur.file.symbols }, previous: prev ? { round: prev.round, symbols: prev.file.symbols } : null } : null;
+}
 
 export const VERDICT: Record<Verdict, string> = { FLAG: "Flagged", WATCH: "Watch", CLEAN: "Clean", NOT_ENOUGH_DATA: "Not enough data" };
 

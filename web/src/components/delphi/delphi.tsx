@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import s from "@/components/app/app.module.css";
-import { basketNote, headline, ROUNDS, shortHash, VERDICT, when, type Check, type CheckState, type Delphi, type Verdict } from "@/lib/delphi";
+import { basketNote, headline, rounds, shortHash, VERDICT, when, type Check, type CheckState, type Delphi, type Verdict } from "@/lib/delphi";
 import d from "./delphi.module.css";
 
 const CHECK: Record<Check, string> = { bundle: "Launch bundle", wash: "Wash trading", concentration: "Hidden whales" };
@@ -53,7 +53,8 @@ export function NotPublished() {
 
 // ------------------------------------------------------------------ every coin
 
-export function DelphiIndex({ data }: { data: Delphi }) {
+export function DelphiIndex({ data, current }: { data: Delphi; current: number | null }) {
+  const lists = rounds(current);
   const { counts, rules } = data;
   const explained = data.coins.filter((c) => c.headline);
   return (
@@ -160,10 +161,13 @@ export function DelphiIndex({ data }: { data: Delphi }) {
           <section className={s.cell}>
             <p className={s.label}>It decides the basket</p>
             <p className={d.para}>A flagged coin is never put forward for PANTHEON’s basket.</p>
-            <p className={d.para}>
-              The live list, round {ROUNDS.current.round}, holds {ROUNDS.current.symbols.join(", ")}. Round {ROUNDS.previous.round} held{" "}
-              {ROUNDS.previous.symbols.join(", ")}: DELPHI flagged FLOW and FLOWR once they had enough trades, and round {ROUNDS.current.round} left them out.
-            </p>
+            {lists && (
+              <p className={d.para}>
+                The live list, round {lists.current.round}, holds {lists.current.symbols.join(", ")}.
+                {lists.previous && ` Before it, round ${lists.previous.round} held ${lists.previous.symbols.join(", ")}.`} Round 1 had FLOW and FLOWR: DELPHI flagged them
+                once they had enough trades, and round 2 left them out.
+              </p>
+            )}
             <Link href="/trials" className={d.more}>
               How the basket is chosen
             </Link>
@@ -179,11 +183,11 @@ export function DelphiIndex({ data }: { data: Delphi }) {
 
 // ------------------------------------------------------------------ one coin
 
-export function CoinReport({ data, token }: { data: Delphi; token: string }) {
+export function CoinReport({ data, token, current }: { data: Delphi; token: string; current: number | null }) {
   const row = data.coins.find((c) => c.token.toLowerCase() === token.toLowerCase());
   if (!row) notFound();
   const e = data.explained[row.token.toLowerCase()];
-  const basket = basketNote(row.token);
+  const basket = basketNote(row.token, current);
   const tx = (h: string) => `${data.explorer}/tx/${h}`;
   return (
     <main className={s.page}>
@@ -281,8 +285,8 @@ export function CoinReport({ data, token }: { data: Delphi; token: string }) {
               ) : basket.was ? (
                 <p className={d.basketOut}>
                   {row.verdict === "FLAG"
-                    ? `Was in round ${basket.was}’s basket, before it had enough trades for DELPHI to judge. DELPHI flagged it once it did, and round ${basket.round} left it out.`
-                    : `Was in round ${basket.was}’s basket. Round ${basket.round} left it out${basket.why ? ` (${basket.why})` : ""}.`}
+                    ? `Was in round ${basket.was}’s basket, before it had enough trades for DELPHI to judge. DELPHI flagged it once it did, and round ${basket.was + 1} left it out.`
+                    : `Was in round ${basket.was}’s basket. Round ${basket.was + 1} left it out${basket.why ? ` (${basket.why})` : ""}.`}
                 </p>
               ) : (
                 <p className={d.basketOut}>Kept out of PANTHEON’s basket. {basket.why}.</p>
