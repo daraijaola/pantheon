@@ -48,8 +48,16 @@ export type TokenTransfer = {
   value: bigint;
 };
 
-/** Native HYPE received by a wallet from another address (its gas came from somewhere). */
-export type Funding = { wallet: Address; funder: Address; value: bigint; tx: Hex; time: number };
+/**
+ * Native HYPE received by a wallet from another address (its gas came from somewhere). `kind` (v0.3):
+ * - "transfer" (the default): sent straight from the funder's wallet;
+ * - "multisend": paid by a contract whose job is sending HYPE to many addresses (like Disperse), in a
+ *   call the funder made, so it is the funder's own money and counts like a transfer;
+ * - "payout": any other contract paid it inside a call the funder made: a sale, a game win, a refund.
+ *   It links no one, unless the funder is the coin's own creator or launcher.
+ */
+export type FundingKind = "transfer" | "multisend" | "payout";
+export type Funding = { wallet: Address; funder: Address; value: bigint; tx: Hex; time: number; kind?: FundingKind };
 
 export type LinkReason = "shared-funder" | "funded-by" | "token-pass" | "bought-for" | "sold-for" | "is-creator";
 

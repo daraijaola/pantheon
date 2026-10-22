@@ -1,5 +1,5 @@
 // DELPHI: settings and the detection rules' thresholds. Read-only service: no wallet keys, no transactions.
-import { getAddress, isAddress, type Address } from "viem";
+import { getAddress, isAddress, toFunctionSelector, type Address } from "viem";
 import { z } from "zod";
 
 const address = z
@@ -18,7 +18,15 @@ const EnvSchema = z.object({
   FROM_BLOCK: wholeNumber.default(3_574_000),
   DB_PATH: z.string().min(1).default("data/delphi.db"),
   OUT_DIR: z.string().min(1).default("out"),
+  /** Which rule profile to use. Unset: read from the chain settings (a testnet RPC or explorer means testnet). */
+  NETWORK: z.enum(["testnet", "mainnet"]).optional(),
 });
+
+/**
+ * Testnet or mainnet. Test money changes behaviour: on a testnet people fund many wallets from one, run
+ * distribution bots and farm, so some rules are looser there (see RULES.hub). Mainnet is the strict default.
+ */
+export type Network = "testnet" | "mainnet";
 
 export type Config = Readonly<{
   elysiumRpc: string;
@@ -28,6 +36,7 @@ export type Config = Readonly<{
   fromBlock: bigint;
   dbPath: string;
   outDir: string;
+  network: Network;
 }>;
 
 export class ConfigError extends Error {
@@ -49,7 +58,13 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     fromBlock: BigInt(e.FROM_BLOCK),
     dbPath: e.DB_PATH,
     outDir: e.OUT_DIR,
+    network: e.NETWORK ?? networkOf(e.ELYSIUM_RPC, e.EXPLORER_WEB),
   });
+}
+
+/** The network named by the chain settings: any testnet RPC or explorer address means testnet. */
+export function networkOf(...urls: string[]): Network {
+  return urls.some((u) => /testnet/i.test(u)) ? "testnet" : "mainnet";
 }
 
 /**
@@ -71,17 +86,53 @@ export const KNOWN_HUBS: readonly Address[] = [
 ];
 
 /**
+ * Contract calls whose job is sending HYPE to many addresses at once. HYPE such a call pays out is the
+ * caller's own money, so it funds each recipient like a plain transfer. Disperse.app's functions plus
+ * common multi-send variants; checked against every contract payout seen on Elysium testnet (Oct 22).
+ * Any other contract payout (a marketplace paying sellers, a game paying winners, a router, a bridge,
+ * a refund) links no one.
+ */
+export const MULTISEND_CALLS: readonly string[] = [
+  "disperseEther(address[],uint256[])",
+  "disperseToken(address,address[],uint256[])",
+  "disperseTokenSimple(address,address[],uint256[])",
+  "multisendEther(address[],uint256[])",
+  "multisendToken(address,address[],uint256[])",
+  "multiSendEth(address[],uint256[])",
+  "multisend(address[],uint256[])",
+  "multiSend(address[],uint256[])",
+  "multiTransfer(address[],uint256[])",
+  "batchTransfer(address[],uint256[])",
+  "batchSend(address[],uint256[])",
+  "bulkTransfer(address[],uint256[])",
+  "bulkSend(address[],uint256[])",
+  "sendEth(address[],uint256[])",
+  "sendEther(address[],uint256[])",
+  "airdropETH(address[],uint256[])",
+];
+/** The 4-byte selectors of MULTISEND_CALLS. */
+export const MULTISEND_SELECTORS: ReadonlySet<string> = new Set(MULTISEND_CALLS.map((c) => toFunctionSelector(c)));
+
+/**
  * The rules, in one place, versioned with every report so a verdict can always be re-derived.
  * Plain thresholds on purpose: v0 must be explainable to a judge in one sentence each.
  */
 export const RULES = {
-  version: "delphi-v0.2",
-  /**
-   * A funder with this many transactions is public (faucet, bridge, exchange) and links nobody.
-   * Not "funded many wallets": a sybil farmer does that too. Sheer activity is what separates them
-   * (the testnet faucet has 164,840 txs; a farmer's funder has dozens).
-   */
-  hub: { minTxCount: 5_000 },
+  version: "delphi-v0.3",
+  hub: {
+    /**
+     * A funder with this many transactions is public (faucet, bridge, exchange) and links nobody, on any
+     * network (the testnet faucet has 164,840 txs; a farmer's funder has dozens).
+     */
+    minTxCount: 5_000,
+    /**
+     * Testnet only (v0.3): a wallet that paid HYPE to at least `wallets` tracked wallets which between them
+     * traded `coins` or more different coins (not counting coins it launched) is a distribution bot or a
+     * farm spreading wallets over everything, not one coin's insider: it links no one. A ring seeds its
+     * wallets for the coin it pumps, however many there are. Seen live: 3 funders match.
+     */
+    testnetFanout: { wallets: 5, coins: 5 },
+  },
   bundle: {
     /** Buys this soon after the launch transaction count as "at launch". */
     windowSec: 30,

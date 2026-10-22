@@ -2,7 +2,7 @@
 // Thresholds live in RULES (config.ts) and are written into every report.
 import type { Hex } from "viem";
 import { RULES, TOTAL_SUPPLY } from "./config.ts";
-import { clusters, isSystem, linksWithin } from "./graph.ts";
+import { clusters, groupEvidence, groupsOf, isSystem, linksWithin, type Group } from "./graph.ts";
 import type { CoinData, Finding, Link, Severity, Trade } from "./types.ts";
 
 export type DetectorResult = { enough: boolean; finding: Finding | null };
@@ -27,7 +27,8 @@ function groupBy<T>(items: T[], key: (t: T) => string): Map<string, T[]> {
 
 /**
  * Launch bundle: linked wallets buying in the first seconds after launch. The creator's own
- * disclosed dev-buy alone is not a bundle; the creator plus linked early buyers is.
+ * disclosed dev-buy alone is not a bundle; the creator plus linked early buyers is. Linked means one
+ * group (v0.3): one funder's star, or wallets that passed tokens or trades between them.
  */
 export function detectBundle(d: CoinData): DetectorResult {
   const end = d.coin.launchTime + RULES.bundle.windowSec;
@@ -36,13 +37,13 @@ export function detectBundle(d: CoinData): DetectorResult {
   // We always see the launch itself, so this check always has its data.
   if (buyers.size < 2) return { enough: true, finding: null };
 
-  const cl = clusters(d.links, buyers);
-  let worst: { members: Set<string>; tokens: bigint; trades: Trade[] } | null = null;
-  for (const [, trades] of groupBy(early, (t) => cl.get(lc(t.holder))!)) {
+  let worst: { members: Set<string>; tokens: bigint; trades: Trade[]; group: Group } | null = null;
+  for (const group of groupsOf(d.links)) {
+    const trades = early.filter((t) => group.members.has(lc(t.holder)));
     const members = new Set(trades.map((t) => lc(t.holder)));
     if (members.size < RULES.bundle.minLinkedWallets) continue;
     const tokens = trades.reduce((s, t) => s + t.tokens, 0n);
-    if (!worst || tokens > worst.tokens) worst = { members, tokens, trades };
+    if (!worst || tokens > worst.tokens) worst = { members, tokens, trades, group };
   }
   if (!worst) return { enough: true, finding: null };
 
@@ -59,7 +60,7 @@ export function detectBundle(d: CoinData): DetectorResult {
       metrics: { linkedWallets: worst.members.size, supplyPct: share, earlyBuyers: buyers.size },
       evidence: [
         ...worst.trades.slice(0, 8).map((t) => ({ what: `${short(t.holder)} bought at launch`, tx: t.tx })),
-        ...linksWithin(d.links, worst.members).map(linkEvidence),
+        ...groupEvidence(worst.group, worst.members).map(linkEvidence),
       ],
     },
   };
@@ -184,32 +185,37 @@ function lastIn(d: CoinData, w: string): Hex | null {
   return null;
 }
 
-/** Hidden concentration: linked wallets that together hold much of what is in circulation. */
+/**
+ * Hidden concentration: linked wallets that together hold much of what is in circulation. The share is
+ * measured per group (v0.3): one funder's star, or wallets that passed tokens or trades between them,
+ * never a chain of different funders.
+ */
 export function detectConcentration(d: CoinData): DetectorResult {
   const bal = balances(d);
   if (bal.size < RULES.concentration.minHolders) return { enough: false, finding: null };
   const circulating = [...bal.values()].reduce((s, v) => s + v, 0n);
-  const cl = clusters(d.links, bal.keys());
-  let worst: { members: string[]; held: bigint } | null = null;
-  for (const [, members] of groupBy([...bal.keys()], (w) => cl.get(w)!)) {
+  let pick: { members: string[]; held: bigint; group: Group } | null = null;
+  for (const group of groupsOf(d.links)) {
+    const members = [...group.members].filter((w) => bal.has(w)).sort((a, b) => (bal.get(b)! > bal.get(a)! ? 1 : bal.get(b)! < bal.get(a)! ? -1 : 0));
     if (members.length < 2) continue;
     const held = members.reduce((s, w) => s + bal.get(w)!, 0n);
-    if (!worst || held > worst.held) worst = { members, held };
+    if (!pick || held > pick.held) pick = { members, held, group };
   }
-  if (!worst) return { enough: true, finding: null };
-  const share = pct(worst.held, circulating);
+  if (!pick) return { enough: true, finding: null };
+  const share = pct(pick.held, circulating);
   const severity = grade(share, RULES.concentration);
   if (!severity) return { enough: true, finding: null };
+  const n = pick.members.length;
   return {
     enough: true,
     finding: {
       detector: "concentration",
       severity,
-      summary: `${worst.members.length} linked wallets hold ${share}% of the tokens held by all ${bal.size} holders.`,
-      metrics: { linkedWallets: worst.members.length, circulatingPct: share, holders: bal.size },
+      summary: `${n} linked wallets hold ${share}% of the tokens held by all ${bal.size} holders.`,
+      metrics: { linkedWallets: n, circulatingPct: share, holders: bal.size },
       evidence: [
-        ...worst.members.slice(0, 8).map((w) => ({ what: `${short(w)} holds ${pct(bal.get(w)!, circulating)}%`, tx: lastIn(d, w) })),
-        ...linksWithin(d.links, new Set(worst.members)).map(linkEvidence),
+        ...pick.members.slice(0, 8).map((w) => ({ what: `${short(w)} holds ${pct(bal.get(w)!, circulating)}%`, tx: lastIn(d, w) })),
+        ...groupEvidence(pick.group, new Set(pick.members)).map(linkEvidence),
       ].filter((e): e is { what: string; tx: Hex } => e.tx !== null),
     },
   };

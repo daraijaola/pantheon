@@ -1,13 +1,13 @@
 // What the AI explainer can look at: one scan's coins and reports, plus what DELPHI's cache knows
 // about pools and wallet funding. Loaded once per run; the tools then read it without the network.
 import { getAddress, parseAbi, type Address, type Hex, type PublicClient } from "viem";
-import { isRevert, launchpadAddresses } from "../chain.ts";
+import { isRevert, launchpadAddresses, type TxCall } from "../chain.ts";
 import { KNOWN_HUBS, RULES, type Config } from "../config.ts";
-import { actorsOf } from "../graph.ts";
+import { actorsOf, fundingKind } from "../graph.ts";
 import { decodeLaunch, decodePool } from "../ingest.ts";
 import type { CoinReport } from "../report.ts";
 import type { Store } from "../store.ts";
-import type { CoinData } from "../types.ts";
+import type { CoinData, FundingKind } from "../types.ts";
 
 const lc = (a: string) => a.toLowerCase();
 
@@ -15,7 +15,8 @@ const lc = (a: string) => a.toLowerCase();
 export type Currency = { address: Address; symbol: string; decimals: number };
 
 /** Native HYPE paid into a wallet. `funder` is the real payer (the sender, for payments made inside a contract call). */
-export type FundingView = { funder: Address; value: bigint; tx: Hex; time: number; publicHub: boolean };
+/** `kind`: a plain transfer, a multi-send, or a contract's payout (a sale, a game win, a refund). */
+export type FundingView = { funder: Address; value: bigint; tx: Hex; time: number; publicHub: boolean; kind?: FundingKind };
 
 export type Workspace = {
   explorerWeb: string;
@@ -83,6 +84,8 @@ export async function loadWorkspace(deps: {
   cfg: Config;
   coins: CoinData[];
   reports: CoinReport[];
+  /** The funders this scan treated as public (from `collect`); without it, only the listed and very busy ones. */
+  hubs?: ReadonlySet<string>;
 }): Promise<Workspace> {
   const { client, store, cfg } = deps;
   const lp = await launchpadAddresses(client, cfg.launchpad);
@@ -111,7 +114,9 @@ export async function loadWorkspace(deps: {
         got.map((f) => {
           const funder = getAddress((f.via === "internal" ? store.recall<Address>("txfrom", f.tx) : undefined) ?? f.from);
           const txs = store.recall<number>("txcount", funder);
-          return { funder, value: BigInt(f.value), tx: f.tx, time: f.time, publicHub: hubs.has(lc(funder)) || (txs ?? 0) >= RULES.hub.minTxCount };
+          const publicHub = hubs.has(lc(funder)) || (txs ?? 0) >= RULES.hub.minTxCount || (deps.hubs?.has(lc(funder)) ?? false);
+          const kind = fundingKind(f.via, f.from, store.recall<TxCall>("txcall", f.tx));
+          return { funder, value: BigInt(f.value), tx: f.tx, time: f.time, publicHub, kind };
         }),
       );
     }

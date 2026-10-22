@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { actorsOf, clusters, findHubs, linksWithin, peopleOf } from "../src/graph.ts";
+import { toFunctionSelector } from "viem";
+import { actorsOf, clusters, findHubs, fundingKind, groupsOf, linksWithin, payeesOf, peopleOf } from "../src/graph.ts";
 import type { Link } from "../src/types.ts";
 import { addr, FAUCET, hash, ROUTER, scenario, VAULT } from "./scenario.ts";
 
@@ -22,7 +23,98 @@ describe("findHubs", () => {
   });
 });
 
+describe("findHubs on testnet (v0.3)", () => {
+  const payees = new Map([
+    [addr(1), { wallets: 20, coins: 1 }], // many wallets for one coin: could be a ring, stays a link
+    [addr(2), { wallets: 19, coins: 4 }],
+    [addr(3), { wallets: 5, coins: 5 }], // wallets spread over many coins: a distribution bot or a farm
+    [addr(4), { wallets: 4, coins: 9 }],
+  ]);
+
+  it("adds wallets whose payees trade many different coins", () => {
+    expect(findHubs(new Map(), { network: "testnet", payees })).toEqual(new Set([FAUCET.toLowerCase(), addr(3)]));
+  });
+
+  it("does nothing of the kind on mainnet", () => {
+    expect(findHubs(new Map(), { network: "mainnet", payees })).toEqual(new Set([FAUCET.toLowerCase()]));
+  });
+});
+
+describe("payeesOf", () => {
+  it("counts each funder's wallets and the coins they traded, leaving out self-payments and its own launches", () => {
+    const fund = (wallet: number, funder: number) => ({ wallet: addr(wallet), funder: addr(funder), value: 1n, tx: hash(wallet), time: 0 });
+    const traded = new Map([
+      [addr(0x200), new Set(["c1", "c2"])],
+      [addr(0x201), new Set(["c2", "c3"])],
+    ]);
+    const launched = new Map([[addr(0xf0), new Set(["c3"])]]);
+    const p = payeesOf([fund(0x200, 0xf0), fund(0x201, 0xf0), fund(0x201, 0xf0), fund(0xf0, 0xf0)], traded, launched);
+    expect(p.get(addr(0xf0))).toEqual({ wallets: 2, coins: 2 });
+  });
+});
+
+describe("groupsOf and clusters (v0.3)", () => {
+  const link = (a: number, b: number, extra: Partial<Link> = {}): Link => ({ a: addr(a), b: addr(b), reason: "shared-funder", evidence: [hash(a)], ...extra });
+
+  it("keeps two funders' stars apart even when one wallet got HYPE from both", () => {
+    const links = [link(0x200, 0x201, { via: addr(0xf1) }), link(0x200, 0x300, { via: addr(0xf1) }), link(0x210, 0x211, { via: addr(0xf2) }), link(0x210, 0x300, { via: addr(0xf2) })];
+    const groups = groupsOf(links).map((g) => [g.anchor, [...g.members].sort()]);
+    expect(groups).toEqual([
+      [addr(0xf1), [addr(0x200), addr(0x201), addr(0x300)]],
+      [addr(0xf2), [addr(0x210), addr(0x211), addr(0x300)]],
+    ]);
+    // Every wallet still has exactly one cluster: the shared wallet goes to one star, the stars stay apart.
+    const cl = clusters(links);
+    expect(cl.get(addr(0x300))).toBe(addr(0x200));
+    expect(cl.get(addr(0x210))).toBe(addr(0x210));
+  });
+
+  it("widens a star with the wallets its members passed tokens to", () => {
+    const links = [link(0x200, 0x201, { via: addr(0xf1) }), link(0x201, 0x400, { reason: "token-pass" }), link(0x400, 0x401, { reason: "token-pass" })];
+    const star = groupsOf(links).find((g) => g.anchor === addr(0xf1))!;
+    expect([...star.members].sort()).toEqual([addr(0x200), addr(0x201), addr(0x400), addr(0x401)]);
+  });
+
+});
+
+describe("fundingKind", () => {
+  const DISPERSE = addr(0xd1);
+  const disperse = { to: DISPERSE, selector: toFunctionSelector("disperseEther(address[],uint256[])"), value: "300000000000000000" };
+
+  it("counts a multi-send that the sender paid into as the sender's own payment", () => {
+    expect(fundingKind("internal", DISPERSE, disperse)).toBe("multisend");
+    expect(fundingKind("tx", DISPERSE, undefined)).toBe("transfer");
+  });
+
+  it("calls every other contract payout a payout: a marketplace, a game, a multi-send paying from its own pot", () => {
+    const marketplace = { to: addr(0xe1), selector: "0xa07076b2", value: "64210000000000000000" };
+    expect(fundingKind("internal", addr(0xe1), marketplace)).toBe("payout");
+    expect(fundingKind("internal", addr(0xe2), disperse)).toBe("payout"); // paid by a different contract
+    expect(fundingKind("internal", DISPERSE, { ...disperse, value: "0" })).toBe("payout"); // no HYPE from the sender
+    expect(fundingKind("internal", DISPERSE, undefined)).toBe("payout");
+  });
+});
+
 describe("buildLinks", () => {
+  it("links nobody through contract payouts, one at a time or several in one call", () => {
+    const S = addr(0x5e);
+    const [a, b, c] = [addr(0x200), addr(0x201), addr(0x202)];
+    const s = scenario().fund(a, S, -3_600, "payout").payout([b, c], S, -1_800).buy(a, 1, 99).buy(b, 1, 99).buy(c, 1, 99).buy(S, 1, 99);
+    expect(s.build().links).toEqual([]);
+  });
+
+  it("treats a multi-send as the sender's own payment", () => {
+    const [a, b] = [addr(0x200), addr(0x201)];
+    const s = scenario().payout([a, b], addr(0x5e), -3_600, "multisend").buy(a, 1, 99).buy(b, 1, 99);
+    expect(s.build().links).toEqual([{ a, b, reason: "shared-funder", via: addr(0x5e), evidence: [s.fundings[0]!.tx, s.fundings[1]!.tx] }]);
+  });
+
+  it("keeps one link per funder and wallet, however often it paid", () => {
+    const [a, b] = [addr(0x200), addr(0x201)];
+    const s = scenario().fund(b, a).fund(b, a).fund(b, a, -60, "payout").buy(a, 1, 99).buy(b, 1, 99);
+    expect(s.build().links).toEqual([{ a, b, reason: "funded-by", evidence: [s.fundings[0]!.tx] }]);
+  });
+
   it("links wallets with the same private funder, citing both funding transactions", () => {
     const s = scenario();
     const [a, b, c] = [addr(0x200), addr(0x201), addr(0x202)];

@@ -40,10 +40,10 @@ export class ChainView {
   refresh(): Promise<Snapshot> {
     return this.serial(async () => {
       const { client, store, cfg } = this.deps;
-      const { coins, head, notes } = await collect({ client, store, cfg, explorer: null });
+      const { coins, head, notes, hubs } = await collect({ client, store, cfg, explorer: null });
       const readAt = new Date();
       const reports = coins.map((d) => analyze(d, { explorerWeb: cfg.explorerWeb, now: readAt }));
-      const ws = await loadWorkspace({ client, store, cfg, coins, reports });
+      const ws = await loadWorkspace({ client, store, cfg, coins, reports, hubs });
       this.current = { ws, head, readAt, notes: notes.filter((n) => !n.startsWith("explorer skipped")) };
       return this.current;
     });

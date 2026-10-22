@@ -18,17 +18,23 @@ PANTHEON's index buys a basket of top Ascend coins. A coin that is "top" only be
 
 ## How it decides who is "one actor"
 
-Wallets are joined into clusters by links, and each link records the transaction(s) that prove it:
+Wallets are joined into groups by links, and each link records the transaction(s) that prove it:
 
 | Link | Meaning |
 |---|---|
-| shared funder | Two wallets got their first HYPE from the same private wallet |
+| shared funder | Two wallets got HYPE from the same private wallet |
 | funded by | One wallet on the coin sent HYPE to another |
 | token pass | Tokens moved directly between two wallets (not through a pool or router) |
 | bought for / sold for | One wallet sent a trade that moved another wallet's tokens |
 | is creator | The wallet that sent the launch differs from the creator role it named |
 
-**Public hubs never link anyone.** The Elysium testnet faucet funded most testers, so linking through it would make everyone one big sybil ring. A funder is treated as a public hub if it is a known faucet or has at least 5,000 transactions. The rule is deliberately *not* "funded many wallets", because a sybil farmer does that too. HYPE paid from inside a contract call is credited to whoever sent that transaction, so funding through a public "disperse" contract still shows the real funder.
+**Groups never chain (rules v0.3).** A group is one funder's own star of wallets (plus the funder, if it is on the coin), widened by token passes and trades made between wallets. Two funders' stars are never joined through a wallet both of them paid. Up to v0.2, DELPHI joined every link transitively, and on the farmed testnet that made one "group" out of dozens of unrelated wallets: every coin in PANTHEON's basket was flagged as "35 linked wallets hold 50–93%", chained through 25 different funders, while the two big holders had no direct tie at all.
+
+**A contract's payout is not funding.** HYPE a contract pays out inside a call someone made is most often a sale, a game win or a refund, and a buyer paying sellers says nothing about who controls the sellers. Seen live: an NFT marketplace paying sellers 88% of a round price (one call paid 13 sellers), and the CoinFlip and Splash games paying winners from calls their operators' bots send. Up to v0.2, DELPHI credited all of it to the sender, so a buyer "funded" everyone it bought from. Now a contract's payout counts only when the call was a multi-send (a function whose job is sending HYPE to many addresses, like Disperse's, listed by name in the settings), the sender put HYPE into it, and that contract paid. Then it counts like a plain transfer. A payout in a call made by the coin's own creator or launcher also counts. Anything else links no one, whether it pays one wallet or many.
+
+**Public hubs never link anyone.** The Elysium testnet faucet funded most testers, so linking through it would make everyone one big sybil ring. A funder is a public hub if it is a known faucet or has at least 5,000 transactions, on any network. A coin's own creator or launcher is never a hub on its own coin.
+
+**Testnet and mainnet.** The `NETWORK` setting (`testnet` or `mainnet`; by default it follows the RPC and explorer addresses) picks the profile. On testnet, people fund many wallets from one, run distribution bots and farm, all with free test money, so a wallet that paid HYPE to 5 or more tracked wallets which between them traded 5 or more different coins (not counting coins it launched itself) is treated as public too: it spreads wallets over everything rather than seeding them for one coin. A ring seeds its wallets for the coin it pumps, however many there are, so it still links. On mainnet only the faucet list and the 5,000-transaction rule apply.
 
 **Infrastructure is never a holder or a trader.** That covers the launchpad and everything it names (vault, pool manager, treasuries, ListingDesk), the burn sink, every router seen swapping, and any outside pool (a contract that answers `token0()` and `token1()`). Since rules v0.2 it covers every
 other contract too (staking, lockers, faucets): before that, everyone who staked PANTHEON was "one actor"

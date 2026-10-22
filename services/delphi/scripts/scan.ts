@@ -45,12 +45,13 @@ try {
   }
   if (!only) {
     writeFileSync(join(cfg.outDir, "index.md"), toIndexMarkdown(reports, file));
-    const scan = { rules: RULES, generatedAt: now.toISOString(), head: head.toString(), launchpad: cfg.launchpad, notes, reports };
+    const scan = { rules: RULES, network: cfg.network, generatedAt: now.toISOString(), head: head.toString(), launchpad: cfg.launchpad, notes, reports };
     writeFileSync(join(cfg.outDir, "scan.json"), `${JSON.stringify(scan, null, 2)}\n`);
   }
 
   const count = (v: CoinReport["verdict"]) => reports.filter((r) => r.verdict === v).length;
   log(`done in ${Math.round((Date.now() - started) / 1000)} s, up to block ${head}`);
+  log(`rules ${RULES.version}, ${cfg.network} profile`);
   log(`${reports.length} coins: ${count("FLAG")} FLAG, ${count("WATCH")} WATCH, ${count("CLEAN")} CLEAN, ${count("NOT_ENOUGH_DATA")} NOT ENOUGH DATA`);
   for (const n of notes) log(`note: ${n}`);
   log(`reports in ${cfg.outDir}/`);
