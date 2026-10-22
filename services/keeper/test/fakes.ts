@@ -35,6 +35,15 @@ export const cfg = (over: Partial<Config> = {}): Config => ({
 export const addr = (n: number): Address => `0x${n.toString(16).padStart(40, "0")}`;
 export const none = (): Effects => ({ legs: [], deferred: [], buys: [], skips: [], streamed: [], poked: [] });
 
+/**
+ * Elysium's node, as probed on Oct 22: each simulated call gets at most 32M gas, and one simulation
+ * request gets 50M in total. A call that needs more than it is given runs out of gas (and uses all of
+ * it); a call that starts with less than the base 21k makes the node reject the whole request, which
+ * viem reports with the message below (the keeper's error from Oct 17 to Oct 22).
+ */
+export const NODE = { perCall: 32_000_000n, perRequest: 50_000_000n, base: 21_000n };
+export const GAS_TOO_LOW = "The amount of gas provided for the transaction is too low.";
+
 /** A fake chain: `effects` says what each kind of call does in simulation; everything is recorded. */
 export function fakeChain(o: {
   head?: bigint;
@@ -42,9 +51,13 @@ export function fakeChain(o: {
   stakers?: Staker[];
   effects?: Partial<Record<PlannedCall["kind"], Effects>>;
   failing?: PlannedCall["kind"][];
+  /** The node rejects any request holding a call of these kinds. */
+  rejecting?: PlannedCall["kind"][];
+  /** Gas each call needs (default 100k). */
+  gasOf?: (c: PlannedCall) => bigint;
   balance?: bigint;
 }) {
-  const log = { simulated: [] as PlannedCall[], sent: [] as PlannedCall[], stakedFrom: [] as bigint[], read: [] as Address[][] };
+  const log = { simulated: [] as PlannedCall[], requests: [] as PlannedCall[][], sent: [] as PlannedCall[], stakedFrom: [] as bigint[], read: [] as Address[][] };
   const chain: KeeperChain = {
     head: async () => o.head ?? 1_000n,
     stakedSince: async (from) => (log.stakedFrom.push(from), o.staked ?? []),
@@ -52,11 +65,22 @@ export function fakeChain(o: {
     basketSymbols: async () => new Map(),
     simulate: async (calls) => {
       log.simulated.push(...calls);
+      log.requests.push([...calls]);
+      if (calls.some((c) => o.rejecting?.includes(c.kind))) throw new Error("RPC Request failed.\n\nDetails: upstream timeout");
+      let pool = NODE.perRequest;
       return calls.map((c): Simulated => {
+        const given = pool < NODE.perCall ? pool : NODE.perCall;
+        if (given < NODE.base) throw new Error(`${GAS_TOO_LOW}\n\nDetails: err: intrinsic gas too low: have ${given}, want ${NODE.base}`);
+        const need = o.gasOf?.(c) ?? 100_000n;
+        if (need > given) {
+          pool -= given;
+          return { kind: c.kind, ok: false, gasUsed: given, effects: none(), error: "out of gas" };
+        }
+        pool -= need;
         if (o.failing?.includes(c.kind)) return { kind: c.kind, ok: false, gasUsed: 30_000n, effects: none(), error: "reverted" };
         const e = o.effects?.[c.kind] ?? none();
         const poked = c.kind === "poke" ? (c.args[0] as Address[]).map((account) => ({ account, working: 1n })) : e.poked;
-        return { kind: c.kind, ok: true, gasUsed: 100_000n, effects: { ...e, poked } };
+        return { kind: c.kind, ok: true, gasUsed: need, effects: { ...e, poked } };
       });
     },
     gasPrice: async () => 100_000_000n, // 0.1 gwei, Elysium's base fee

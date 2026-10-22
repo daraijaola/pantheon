@@ -1,7 +1,8 @@
+import type { Address } from "viem";
 import { describe, expect, it } from "vitest";
-import { MIN_GAS_BALANCE, passportFeed, SWEEP, tick } from "../src/keeper.ts";
+import { MAX_CALL_GAS, MIN_GAS_BALANCE, passportFeed, SWEEP, tick, TX_GAS_LIMIT, withMargin, type PlannedCall } from "../src/keeper.ts";
 import type { State } from "../src/state.ts";
-import { addr, cfg, DEP, fakeChain, none } from "./fakes.ts";
+import { addr, cfg, DEP, fakeChain, GAS_TOO_LOW, NODE, none } from "./fakes.ts";
 
 const fresh = (): State => ({ stakedCursor: "100", stakers: [], sweep: 0, pokesSince: 0 });
 const noFeed = async (since: number) => ({ accounts: [], until: since + 300 });
@@ -85,6 +86,55 @@ describe("stakers and boosts", () => {
     expect(log.read[0]).toHaveLength(SWEEP);
     expect(log.read[1]![0]).toBe(many[SWEEP]); // the second round starts where the first stopped
     expect(new Set([...log.read[0]!, ...log.read[1]!]).size).toBe(many.length);
+  });
+});
+
+describe("Elysium's gas limits", () => {
+  // Oct 17 to 22: after a few quiet days, 187 of the 200 stakers checked were due a boost refresh, at
+  // ~450k gas each (measured on testnet). The whole round went to the node as one simulation, which
+  // ran out after the third batch of 50, so every round failed with "gas … too low".
+  const due = Array.from({ length: 187 }, (_, i) => ({ account: addr(i + 1), staked: 100n, working: 100n, next: 110n }));
+  const gasOf = (c: PlannedCall) => (c.kind === "poke" ? 450_000n * BigInt((c.args[0] as Address[]).length) : c.kind === "run" ? 566_000n : 933_000n);
+  const heavy = () => ({ ...fresh(), stakers: due.map((s) => s.account) });
+  const pokeCall = (list: Address[]): PlannedCall => ({ kind: "poke", address: DEP.staking, abi: [], functionName: "poke", args: [list] });
+
+  it("the fake node rejects that round sent as one simulation, like the real one did", async () => {
+    const { chain } = fakeChain({ gasOf });
+    const lists = [due.slice(0, 50), due.slice(50, 100), due.slice(100, 150), due.slice(150)].map((l) => pokeCall(l.map((s) => s.account)));
+    const run: PlannedCall = { kind: "run", address: DEP.pnthRouter, abi: [], functionName: "run", args: [] };
+    const rebalance: PlannedCall = { kind: "rebalance", address: DEP.indexVault, abi: [], functionName: "rebalance", args: [5n] };
+    await expect(chain.simulate([run, rebalance, ...lists], addr(0xee))).rejects.toThrow(GAS_TOO_LOW);
+  });
+
+  it("now plans that round: each request fits the node, each refresh fits a transaction", async () => {
+    const state = heavy();
+    const { chain, log } = fakeChain({ stakers: due, gasOf });
+    const r = await tick({ cfg: cfg({ pokeBatch: 50 }), chain, pokes: noFeed, state });
+    expect(log.requests[0]!.map((c) => c.kind)).toEqual(["run", "rebalance"]); // the buy still sees the run's fees
+    for (const req of log.requests) expect(req.reduce((s, c) => s + gasOf(c), 0n)).toBeLessThanOrEqual(NODE.perRequest);
+    const pokes = r.calls.filter((c) => c.kind === "poke");
+    expect(pokes.every((c) => c.worthSending && BigInt(c.gas) <= MAX_CALL_GAS)).toBe(true);
+    expect(pokes.reduce((n, c) => n + c.lines.length, 0)).toBe(187);
+    expect(r.notes).toEqual([]);
+  });
+
+  it("sends every refresh once, in batches whose gas plus margin stays under 32M", async () => {
+    const { chain, log } = fakeChain({ stakers: due, gasOf });
+    await tick({ cfg: cfg({ mode: "live", pokeBatch: 50 }), chain, pokes: noFeed, state: heavy(), sender: addr(0xee) });
+    const sent = log.sent.filter((c) => c.kind === "poke");
+    expect(sent.flatMap((c) => c.args[0] as Address[])).toEqual(due.map((s) => s.account));
+    for (const c of sent) expect(withMargin(gasOf(c))).toBeLessThan(TX_GAS_LIMIT);
+  });
+
+  it("a request the node rejects only fails its own calls; the rest of the round goes on", async () => {
+    const state = { ...fresh(), stakers: [addr(1)] };
+    const stakers = [{ account: addr(1), staked: 100n, working: 125n, next: 100n }];
+    const { chain, log } = fakeChain({ stakers, rejecting: ["run"], effects: { rebalance: stream } });
+    const r = await tick({ cfg: cfg({ mode: "live" }), chain, pokes: noFeed, state, sender: addr(0xee) });
+    expect(r.calls.map((c) => [c.kind, c.worthSending])).toEqual([["run", false], ["rebalance", false], ["poke", true]]);
+    expect(r.calls[0]!.lines[0]).toMatch(/would fail \(RPC Request failed\.\), not sent/);
+    expect(r.notes.join(" ")).toMatch(/would not simulate run \+ rebalance/);
+    expect(log.sent.map((c) => c.kind)).toEqual(["poke"]);
   });
 });
 

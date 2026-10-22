@@ -17,6 +17,7 @@ export interface KeeperChain {
   stakedSince(from: bigint, to: bigint): Promise<Address[]>;
   readStakers(accounts: readonly Address[]): Promise<Staker[]>;
   basketSymbols(): Promise<Map<string, string>>;
+  /** One eth_simulateV1 request: the calls run in order and share the node's gas allowance (50M on Elysium). */
   simulate(calls: readonly PlannedCall[], sender: Address): Promise<Simulated[]>;
   gasPrice(): Promise<bigint>;
   balance(a: Address): Promise<bigint>;
@@ -32,6 +33,21 @@ export const DRY_SENDER: Address = "0x000000000000000000000000000000000000bEEF";
 export const SWEEP = 200;
 /** Live mode stops sending below this balance (about 2,000 keeper rounds at Elysium's prices). */
 export const MIN_GAS_BALANCE = 10n ** 15n;
+/**
+ * Elysium's gas limits (Arbitrum Nitro; read from ArbGasInfo and probed on Oct 22): one transaction may
+ * use at most 32M gas, and one eth_simulateV1 request gets 50M in total, shared by its calls in order.
+ * Once earlier calls have used that up, the node rejects the WHOLE request ("intrinsic gas too low").
+ * That is what stopped every round from Oct 17: the round simulated run, rebalance and all its boost
+ * refreshes in one request, and 187 refreshes at ~450k gas each needed ~66M.
+ */
+export const TX_GAS_LIMIT = 32_000_000n;
+/**
+ * The most gas the keeper plans for one call (as simulated). With the 50% send margin it stays well
+ * inside the 32M limit. A batch of boost refreshes that needs more is split in two and tried again.
+ * A refresh costs ~450k gas per staker on Oct 22 (it updates each of the 10 live reward streams), up
+ * to ~1M once all 24 streams are live, so 10M is about 20 stakers today and 10 at worst.
+ */
+export const MAX_CALL_GAS = 10_000_000n;
 
 export type Report = {
   at: string;
@@ -85,15 +101,23 @@ export async function tick(d: {
   const stakers = candidates.length ? await chain.readStakers(candidates) : [];
   const toPoke = choosePokes(stakers, cfg.pokeRiseBps);
 
-  const calls: PlannedCall[] = [
-    { kind: "run", address: dep.pnthRouter, abi: routerAbi, functionName: "run", args: [] },
-    { kind: "rebalance", address: dep.indexVault, abi: vaultAbi, functionName: "rebalance", args: [BigInt(cfg.basketK)] },
-    ...batches(toPoke, cfg.pokeBatch).map((list): PlannedCall => ({ kind: "poke", address: dep.staking, abi: stakingAbi, functionName: "poke", args: [list] })),
-  ];
+  // Simulate on the live chain in order, in requests small enough for the node (see TX_GAS_LIMIT):
+  // the fee run and the basket buy together (the buy spends what the run delivers), then each batch
+  // of boost refreshes on its own.
   const sender = d.sender ?? DRY_SENDER;
-  const [sims, symbols, gasPrice] = await Promise.all([chain.simulate(calls, sender), chain.basketSymbols(), chain.gasPrice()]);
+  const planned = await simulateGroup(
+    chain,
+    [
+      { kind: "run", address: dep.pnthRouter, abi: routerAbi, functionName: "run", args: [] },
+      { kind: "rebalance", address: dep.indexVault, abi: vaultAbi, functionName: "rebalance", args: [BigInt(cfg.basketK)] },
+    ],
+    sender,
+    notes,
+  );
+  for (const list of batches(toPoke, cfg.pokeBatch)) planned.push(...(await planPokes(chain, dep.staking, list, sender, notes)));
+  const [symbols, gasPrice] = await Promise.all([chain.basketSymbols(), chain.gasPrice()]);
   const names: Names = { usdc: dep.usdc, pnth: dep.pnth, symbols };
-  const chosen = calls.map((c, i) => ({ call: c, sim: sims[i]! })).filter(({ sim }) => useful(sim));
+  const chosen = planned.filter(({ sim }) => useful(sim));
   const gas = chosen.reduce((s, { sim }) => s + sim.gasUsed, 0n);
 
   const report: Report = {
@@ -102,7 +126,7 @@ export async function tick(d: {
     head: head.toString(),
     stakers: state.stakers.length,
     checked: stakers.length,
-    calls: sims.map((s) => ({ kind: s.kind, worthSending: useful(s), gas: s.gasUsed.toString(), lines: describe(s, names) })),
+    calls: planned.map(({ sim: s }) => ({ kind: s.kind, worthSending: useful(s), gas: s.gasUsed.toString(), lines: describe(s, names) })),
     sent: [],
     cost: `${formatHype(gas * gasPrice)} HYPE`,
     notes,
@@ -124,6 +148,39 @@ export async function tick(d: {
     }
   }
   return report;
+}
+
+type Planned = { call: PlannedCall; sim: Simulated };
+const firstLine = (e: unknown) => (e as Error).message.split("\n")[0] ?? "unknown error";
+const noEffects = (): Effects => ({ legs: [], deferred: [], buys: [], skips: [], streamed: [], poked: [] });
+
+/**
+ * One simulation request. If the node rejects it, its calls count as failed (so they are never sent)
+ * and the round carries on: one bad request must not stop the whole round, as it did from Oct 17.
+ */
+async function simulateGroup(chain: KeeperChain, calls: PlannedCall[], sender: Address, notes: string[]): Promise<Planned[]> {
+  try {
+    const sims = await chain.simulate(calls, sender);
+    return calls.map((call, i) => ({ call, sim: sims[i]! }));
+  } catch (e) {
+    const error = firstLine(e);
+    notes.push(`the node would not simulate ${calls.map((c) => c.kind).join(" + ")} (${error}): not sent this round`);
+    return calls.map((call) => ({ call, sim: { kind: call.kind, ok: false, gasUsed: 0n, effects: noEffects(), error } }));
+  }
+}
+
+/**
+ * Boost refreshes for `list`, each call simulated on its own and kept under MAX_CALL_GAS: a batch
+ * that needs more (or runs out of gas) is split in half and tried again, down to one staker.
+ */
+async function planPokes(chain: KeeperChain, staking: Address, list: Address[], sender: Address, notes: string[]): Promise<Planned[]> {
+  const call: PlannedCall = { kind: "poke", address: staking, abi: stakingAbi, functionName: "poke", args: [list] };
+  const [one] = await simulateGroup(chain, [call], sender, notes);
+  if (list.length > 1 && one!.sim.gasUsed > MAX_CALL_GAS) {
+    const half = Math.ceil(list.length / 2);
+    return [...(await planPokes(chain, staking, list.slice(0, half), sender, notes)), ...(await planPokes(chain, staking, list.slice(half), sender, notes))];
+  }
+  return [one!];
 }
 
 const unique = (l: readonly Address[]) => [...new Map(l.map((a) => [a.toLowerCase(), a])).values()];
@@ -150,8 +207,12 @@ export function passportFeed(api: string, fetchFn: typeof fetch = fetch): PokesF
  * Gas for a send: the estimate plus 50% (MetaMask's default buffer too). Staking and fee routing cost more when time has passed since
  * their last update (more to write), and the estimate runs on an earlier block than the transaction:
  * seen on a fork, an unstake estimated at 104,476 gas needed 136,040. Only gas used is paid for.
+ * Never above Elysium's 32M per transaction: the node refuses a transaction that asks for more.
  */
-export const withMargin = (estimate: bigint) => (estimate * 3n) / 2n;
+export const withMargin = (estimate: bigint) => {
+  const gas = (estimate * 3n) / 2n;
+  return gas > TX_GAS_LIMIT ? TX_GAS_LIMIT : gas;
+};
 
 /** The real chain access, over viem. `wallet` is only given in live mode. */
 export function createChain(client: PublicClient, cfg: Config, wallet?: WalletClient): KeeperChain {

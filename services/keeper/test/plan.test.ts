@@ -1,5 +1,5 @@
 import { describe as group, expect, it } from "vitest";
-import { withMargin } from "../src/keeper.ts";
+import { MAX_CALL_GAS, TX_GAS_LIMIT, withMargin } from "../src/keeper.ts";
 import { batches, describe, useful, type Simulated } from "../src/plan.ts";
 import { addr, DEP, none } from "./fakes.ts";
 
@@ -47,5 +47,10 @@ group("withMargin", () => {
   it("adds 50%: enough for the unstake that ran out of gas on the fork (estimated 104,476, re-estimated 136,040)", () => {
     expect(withMargin(104_476n)).toBe(156_714n);
     expect(withMargin(104_476n)).toBeGreaterThan(136_040n);
+  });
+
+  it("never asks for more than Elysium's 32M gas per transaction (the node would refuse it)", () => {
+    expect(withMargin(MAX_CALL_GAS)).toBe(15_000_000n);
+    expect(withMargin(22_120_137n)).toBe(TX_GAS_LIMIT); // a batch of 50 refreshes on Oct 22: 33.2M with the margin
   });
 });

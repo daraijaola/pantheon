@@ -19,9 +19,11 @@ Owner: Ayinde. Status and notes: `TASKS.md` (A3).
    unlink, expiry), plus a rotating slice of up to 200 of all stakers, so everyone is checked over time.
    If the Passport service is down, the rotation alone still catches every change.
 3. **Which boosts to refresh:** any that would **fall**, at once (fairness); any that would **rise** by at
-   least 2%, since the time bonus grows every second and crumbs aren't worth gas. Up to 50 per poke.
-4. **Simulate the whole bundle on the live chain, in order:** run, then rebalance, then pokes. This uses
-   Elysium's `eth_simulateV1`, so the preview shows the events the real calls would emit.
+   least 2%, since the time bonus grows every second and crumbs aren't worth gas. Up to 20 per poke.
+4. **Simulate on the live chain, in order:** run and rebalance together (the buy spends what the run
+   delivers), then each poke on its own. This uses Elysium's `eth_simulateV1`, so the preview shows the
+   events the real calls would emit. A poke that needs more than 10M gas is split in two and simulated
+   again. If the node refuses a simulation, only those calls are skipped and the round carries on.
 5. **Send only what would do something:** fees delivered, a coin bought or streamed, a boost changed. A
    call that would fail, or would only skip, is never paid for.
 
@@ -78,7 +80,7 @@ All have working defaults; set them in `services/keeper/.env` (not committed).
 | `INTERVAL_SEC` | `300` | Minimum 60 |
 | `BASKET_K` | `5` | Coins per rebalance (Micheal's script uses 5) |
 | `POKE_RISE_BPS` | `200` | Refresh a rising boost from +2% |
-| `POKE_BATCH` | `50` | Accounts per poke |
+| `POKE_BATCH` | `20` | Accounts per poke (a poke over 10M gas is split anyway) |
 | `DEPLOYMENT_FILE` | `../../deployments/elysium-testnet.json` | The same addresses the site uses |
 | `PASSPORT_API` | `http://127.0.0.1:8787` | The Passport service |
 | `ELYSIUM_RPC` | public testnet RPC | |
@@ -103,13 +105,33 @@ All have working defaults; set them in `services/keeper/.env` (not committed).
 - **Service:** keeps its state across a restart; an unreachable RPC logs "round failed" and it carries on;
   live mode refuses a key file others can read; practice mode runs with no key file at all.
 
+## Checked live (Oct 22): why every round failed from Oct 17
+
+- **The error:** "The amount of gas provided for the transaction is too low" (the node said `intrinsic gas
+  too low: have 0`). Gas price (0.1 gwei) and block limits had not changed.
+- **The cause:** each round sent run, rebalance and every poke to the node as ONE simulation. Elysium's
+  node (Arbitrum Nitro) gives one simulation 50M gas in total and one call at most 32M. With no keeper
+  sending for days, 187 of the 200 stakers checked were due a refresh. Each refresh costs ~450k gas
+  (it updates all 10 live reward streams), so the batches of 50 needed 22M + 22M + 14M + 8M. The third
+  batch used up the 50M, the fourth started with 0 gas, and the node refused the whole round. A failed
+  round saves nothing, so the next round retried the same stakers and failed the same way.
+- **Live mode would have failed too:** 22M plus the 50% margin is 33M, over the 32M a transaction may use.
+- **Now:** run + rebalance in one simulation, then each poke alone, split until it is under 10M gas
+  (15M with the margin), and the margin is capped at 32M. The same round now plans 10 pokes of 1.5M to
+  9.3M gas; the catch-up costs about 0.007 HYPE.
+- **Ascend's pause:** the launchpad is paused, and the pool manager's protocol-fee lookup reverts with
+  `HookNotAllowed`. The lookup is only used when a new pool is created, so trading in existing pools
+  still works: buys and sells of PNTH and the basket coins, the fee run (burn and basket share), the
+  basket buys and Micheal's 1 USDC `settle` trades all succeed in simulation.
+
 ## Watch out
 
 - **Stale prices block the basket.** The vault skips any coin whose Ascend price average is older than
   48 hours (fixed in the deployed vault). On thin testnet trading most coins go stale, so the basket buys
   nothing until someone trades them. Micheal's `settle` does that with a 1 USDC trade per coin. The
   keeper reports these skips, but doesn't trade.
-- **Micheal currently runs `keep` by hand.** Both running is harmless: the second finds nothing to do.
+- **Micheal's hourly script also runs `settle` and `keep`** (with the deployer key) until the keeper is
+  live. Both running is harmless: the second finds nothing to do.
 
 ## Commands
 

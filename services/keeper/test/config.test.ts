@@ -11,7 +11,7 @@ const deploymentFile = (body: unknown) => () => JSON.stringify(body);
 describe("loadConfig", () => {
   it("defaults to practice mode every 5 minutes, with the live deployment's addresses", () => {
     const c = loadConfig({}, deploymentFile({ ...DEP, pnthPool: "0x01", extra: true }));
-    expect(c).toMatchObject({ mode: "dry", intervalSec: 300, basketK: 5, pokeRiseBps: 200, passportApi: "http://127.0.0.1:8787" });
+    expect(c).toMatchObject({ mode: "dry", intervalSec: 300, basketK: 5, pokeRiseBps: 200, pokeBatch: 20, passportApi: "http://127.0.0.1:8787" });
     expect(c.deployment.pnthRouter).toBe(DEP.pnthRouter);
     expect(Object.isFrozen(c)).toBe(true);
   });

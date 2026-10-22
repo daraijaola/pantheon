@@ -23,8 +23,8 @@ const EnvSchema = z.object({
   BASKET_K: wholeNumber.pipe(z.number().min(1).max(10)).default(5),
   /** Refresh a boost that would rise by at least this much (a boost that would fall is always refreshed). */
   POKE_RISE_BPS: wholeNumber.pipe(z.number().min(1).max(10_000)).default(200),
-  /** Most accounts in one poke transaction. */
-  POKE_BATCH: wholeNumber.pipe(z.number().min(1).max(200)).default(50),
+  /** Most accounts in one poke transaction (~450k gas each on Oct 22; a heavier batch is split anyway). */
+  POKE_BATCH: wholeNumber.pipe(z.number().min(1).max(200)).default(20),
   /** First block to look for stakers in (just before the Oct 14 deployment). */
   FROM_BLOCK: wholeNumber.default(9_127_000),
   STATE_FILE: z.string().min(1).default("data/state.json"),
