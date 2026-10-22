@@ -48,13 +48,21 @@ export type TokenTransfer = {
   value: bigint;
 };
 
-/** Native HYPE received by a wallet from another address (its gas came from somewhere). */
-export type Funding = { wallet: Address; funder: Address; value: bigint; tx: Hex; time: number };
+/**
+ * Native HYPE received by a wallet from another address (its gas came from somewhere). `internal`: a
+ * contract paid it inside a transaction the funder sent (a sale, a game payout, a batch payment), so
+ * the money may not be the funder's own. Since v0.3 that is second-hand evidence.
+ */
+export type Funding = { wallet: Address; funder: Address; value: bigint; tx: Hex; time: number; internal?: boolean };
 
 export type LinkReason = "shared-funder" | "funded-by" | "token-pass" | "bought-for" | "sold-for" | "is-creator";
 
-/** Why two wallets are treated as one actor; `evidence` is the transaction(s) that show it. */
-export type Link = { a: Address; b: Address; reason: LinkReason; via?: Address; evidence: Hex[] };
+/**
+ * Why two wallets are treated as one actor; `evidence` is the transaction(s) that show it.
+ * `secondHand`: the link rests on HYPE a contract paid out inside someone else's transaction (a sale,
+ * a game payout, a batch payment). That is not proof of one owner, so it supports a WATCH at most.
+ */
+export type Link = { a: Address; b: Address; reason: LinkReason; via?: Address; evidence: Hex[]; secondHand?: true };
 
 /** Everything the detectors need about one coin. */
 export type CoinData = {

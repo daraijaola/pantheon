@@ -21,6 +21,15 @@ describe("loadConfig", () => {
     expect(c.explorerWeb).toBe("https://x.test/explorer");
   });
 
+  it("picks the rule profile from the chain settings, unless told", () => {
+    expect(loadConfig({}).network).toBe("testnet");
+    const main = { ELYSIUM_RPC: "https://rpc.elysium.test", EXPLORER_WEB: "https://elysium.test/explorer" };
+    expect(loadConfig(main).network).toBe("mainnet");
+    expect(loadConfig({ NETWORK: "mainnet" }).network).toBe("mainnet");
+    expect(loadConfig({ ...main, NETWORK: "testnet" }).network).toBe("testnet");
+    expect(() => loadConfig({ NETWORK: "devnet" })).toThrow(/NETWORK/);
+  });
+
   it("stops at start on a bad value", () => {
     expect(() => loadConfig({ LAUNCHPAD: "0x1234" })).toThrow(ConfigError);
     expect(() => loadConfig({ FROM_BLOCK: "-5" })).toThrow(/FROM_BLOCK/);

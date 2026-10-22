@@ -16,7 +16,7 @@ import {
 } from "./chain.ts";
 import { KNOWN_HUBS, STATIC_SYSTEM, type Config } from "./config.ts";
 import { ExplorerBudgetError, type Explorer, type RawFunding } from "./explorer.ts";
-import { actorsOf, buildLinks, findHubs } from "./graph.ts";
+import { actorsOf, buildLinks, findHubs, payeesOf } from "./graph.ts";
 import type { RawLog, Store } from "./store.ts";
 import type { Coin, CoinData, Funding, TokenTransfer, Trade } from "./types.ts";
 
@@ -148,7 +148,8 @@ type StoredFunding = { from: Address; via: RawFunding["via"]; value: string; tx:
 const FUNDING_MAX_AGE = 12 * 3_600;
 const TXCOUNT_MAX_AGE = 7 * 86_400;
 
-export type Collected = { coins: CoinData[]; head: bigint; notes: string[] };
+/** `hubs`: the funders treated as public this run (they link no one). */
+export type Collected = { coins: CoinData[]; head: bigint; notes: string[]; hubs: ReadonlySet<string> };
 
 /**
  * Everything, end to end. With `explorer: null` it uses only what the cache already holds
@@ -244,6 +245,7 @@ export async function collect(deps: {
       value: BigInt(f.value),
       tx: f.tx,
       time: f.time,
+      internal: f.via === "internal",
     })),
   );
 
@@ -267,7 +269,25 @@ export async function collect(deps: {
     }
   });
   if (stopped && !notes.includes(stopped)) notes.push(stopped);
-  const hubs = findHubs(txCounts);
+  // On testnet, wallets that paid many tracked wallets, or wallets trading many different coins, are
+  // distribution bots or farms (v0.3). Counted over every coin, so one coin's ring still stands out.
+  const traded = new Map<string, Set<string>>();
+  for (const s of skeletons) {
+    for (const t of s.trades) {
+      for (const w of [lc(t.trader), lc(t.holder)]) {
+        if (!traded.has(w)) traded.set(w, new Set());
+        traded.get(w)!.add(lc(s.coin.token));
+      }
+    }
+  }
+  const launched = new Map<string, Set<string>>();
+  for (const s of skeletons) {
+    for (const who of new Set([lc(s.coin.creator), lc(s.coin.launcher)])) {
+      if (!launched.has(who)) launched.set(who, new Set());
+      launched.get(who)!.add(lc(s.coin.token));
+    }
+  }
+  const hubs = findHubs(txCounts, { network: cfg.network, payees: payeesOf(flat, traded, launched) });
   // A funder we could not size might be a public hub: leave it out rather than risk a false link.
   const usable = flat.filter((f) => !unknownFunders.has(lc(f.funder)));
   const blind = new Set(flat.filter((f) => unknownFunders.has(lc(f.funder))).map((f) => lc(f.wallet)));
@@ -289,5 +309,5 @@ export async function collect(deps: {
     return { ...s, links, fundingMissing, contracts };
   });
   if (!explorer) notes.push("explorer skipped: funding links use cached data only");
-  return { coins, head, notes };
+  return { coins, head, notes, hubs };
 }

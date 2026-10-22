@@ -1,8 +1,8 @@
 // Builds synthetic coins for the detector tests: a launch, then buys, sells, transfers and fundings
 // at chosen seconds after it. Prices are flat (1 USDC per million tokens) so volumes are easy to read.
 import type { Address, Hex } from "viem";
-import { TOTAL_SUPPLY } from "../src/config.ts";
-import { actorsOf, buildLinks, findHubs } from "../src/graph.ts";
+import { TOTAL_SUPPLY, type Network } from "../src/config.ts";
+import { actorsOf, buildLinks, findHubs, payeesOf, type Payees } from "../src/graph.ts";
 import type { Coin, CoinData, Funding, TokenTransfer, Trade } from "../src/types.ts";
 
 export const addr = (n: number): Address => `0x${n.toString(16).padStart(40, "0")}`;
@@ -70,14 +70,31 @@ export function scenario(opts: { creator?: Address; launcher?: Address } = {}) {
       transfers.push({ ...at(sec), from, to, value: M(millions) });
       return s;
     },
-    fund(wallet: Address, funder: Address, sec = -3_600) {
+    /** `contract`: a contract paid it inside a transaction `funder` sent (a sale, a game win), not a plain transfer. */
+    fund(wallet: Address, funder: Address, sec = -3_600, how: "transfer" | "contract" = "transfer") {
       const b = at(sec);
-      fundings.push({ wallet, funder, value: 10n ** 17n, tx: b.tx, time: b.time });
+      fundings.push({ wallet, funder, value: 10n ** 17n, tx: b.tx, time: b.time, ...(how === "contract" ? { internal: true } : {}) });
       return s;
     },
-    /** `contracts`: non-pool contracts (staking, lockers…), which ingest puts in `system` too. */
-    build(txCounts: ReadonlyMap<string, number> = new Map(), contracts: Address[] = []): CoinData {
+    /** One transaction from `sender` in which a contract pays HYPE to every wallet (a batch payment). */
+    payout(wallets: Address[], sender: Address, sec = -3_600) {
+      const b = at(sec);
+      for (const wallet of wallets) fundings.push({ wallet, funder: sender, value: 10n ** 17n, tx: b.tx, time: b.time, internal: true });
+      return s;
+    },
+    /**
+     * `contracts`: non-pool contracts (staking, lockers…), which ingest puts in `system` too. `network`
+     * picks the rule profile (default: mainnet, the strict one); `payees` stands in for what funders did on
+     * other coins (default: this coin only).
+     */
+    build(
+      txCounts: ReadonlyMap<string, number> = new Map(),
+      contracts: Address[] = [],
+      opts: { network?: Network; payees?: ReadonlyMap<string, Payees> } = {},
+    ): CoinData {
       const system = new Set([ZERO, VAULT, LAUNCHPAD, ROUTER, ...contracts].map((a) => a.toLowerCase()));
+      const traded = new Map<string, Set<string>>();
+      for (const t of trades) for (const w of [t.trader, t.holder]) traded.set(w.toLowerCase(), new Set([TOKEN.toLowerCase()]));
       const links = buildLinks({
         actors: actorsOf(trades, transfers, system),
         creator: coin.creator,
@@ -86,7 +103,7 @@ export function scenario(opts: { creator?: Address; launcher?: Address } = {}) {
         trades,
         transfers,
         fundings,
-        hubs: findHubs(txCounts),
+        hubs: findHubs(txCounts, { network: opts.network, payees: opts.payees ?? payeesOf(fundings, traded) }),
         system,
       });
       return { coin, trades, transfers, links, system, fundingMissing: 0, contracts: new Set(contracts.map((a) => a.toLowerCase())) };
