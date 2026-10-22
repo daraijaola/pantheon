@@ -1,0 +1,151 @@
+// One mention, start to finish: is it really talking to her, is she within her limits, which coin it
+// is about, what she answers, and whether that answer is posted (live) or only saved as a draft
+// (shadow). Every outcome is recorded, so no post is ever answered twice.
+import type { Answer, Context } from "./agent.ts";
+import { fullText, type Post, type User } from "./api.ts";
+import { findCoin, type Found } from "./find.ts";
+import type { XState } from "./state.ts";
+import type { Snapshot } from "./xtools.ts";
+
+export type BotConfig = Readonly<{
+  selfId: string;
+  handle: string;
+  mode: "shadow" | "live";
+  dailyCap: number;
+  perUserHourly: number;
+  /** Lowercase usernames she may answer while testing; null = everyone. */
+  allow: ReadonlySet<string> | null;
+}>;
+
+export type BotDeps = {
+  api: {
+    post(id: string): Promise<{ post: Post; byId: Map<string, Post>; users: Map<string, User> } | null>;
+    reply(inReplyTo: string, text: string): Promise<string>;
+  };
+  state: XState;
+  snapshot: () => Snapshot;
+  /** Fresher data for one coin when there is any (falls back to the current snapshot). */
+  refreshCoin?: (token: string) => Promise<Snapshot>;
+  answer: (c: Context, snap: Snapshot) => Promise<{ answer: Answer; cost: number }>;
+  onDraft?: (d: { mention: string; author: string; question: string; reply: string; token: string | null }) => void;
+  now?: () => number;
+  log?: (msg: string) => void;
+};
+
+export type Outcome = { id: string; status: "replied" | "drafted" | "silent" | "skipped" | "failed" | "ignored"; reason?: string; text?: string };
+
+const leadingTags = /^(?:\s*@\w{1,15})+\s*/;
+
+/**
+ * Is the post talking to her? Yes if it replies to her own post, or if her handle is in what the
+ * person wrote. A reply's leading @tags are added by X for everyone in the thread, so a handle there
+ * only counts when she wasn't already in the thread (the post above neither is hers nor tags her).
+ */
+export function addressed(p: Post, cfg: Pick<BotConfig, "selfId" | "handle">, parent: Post | null = null): boolean {
+  if (p.in_reply_to_user_id === cfg.selfId) return true;
+  const me = new RegExp(`@${cfg.handle}\\b`, "i");
+  const text = fullText(p);
+  if (p.display_text_range && !p.note_tweet) {
+    // X marks where the person's own words start; code points, not UTF-16 units.
+    const own = [...text].slice(p.display_text_range[0]).join("");
+    if (me.test(own)) return true;
+  }
+  const prefix = text.match(leadingTags)?.[0] ?? "";
+  if (me.test(text.slice(prefix.length))) return true;
+  if (!me.test(prefix)) return false;
+  const isReply = p.referenced_tweets?.some((r) => r.type === "replied_to") ?? false;
+  if (!isReply) return true;
+  const alreadyThere = parent ? parent.author_id === cfg.selfId || me.test(fullText(parent)) : true;
+  return !alreadyThere && !p.display_text_range;
+}
+
+const refOf = (p: Post, type: "replied_to" | "quoted") => p.referenced_tweets?.find((r) => r.type === type)?.id ?? null;
+
+export async function handleMention(
+  m: Post,
+  page: { byId: Map<string, Post>; users: Map<string, User> },
+  cfg: BotConfig,
+  deps: BotDeps,
+): Promise<Outcome> {
+  const now = deps.now?.() ?? Date.now();
+  const log = deps.log ?? (() => {});
+  const users = new Map(page.users);
+  const name = (p: Post | null | undefined) => (p?.author_id ? (users.get(p.author_id)?.username ?? p.author_id) : "unknown");
+  const author = name(m);
+
+  if (m.author_id === cfg.selfId) return { id: m.id, status: "ignored", reason: "her own post" };
+  if (m.referenced_tweets?.some((r) => r.type === "retweeted")) return { id: m.id, status: "ignored", reason: "a repost" };
+  if (!deps.state.claim(m.id, author, fullText(m), now)) return { id: m.id, status: "ignored", reason: "already handled" };
+
+  const skip = (reason: string): Outcome => {
+    deps.state.finish(m.id, "skipped", { reason });
+    return { id: m.id, status: "skipped", reason };
+  };
+  if (cfg.allow && !cfg.allow.has(author.toLowerCase())) return skip("not on the test list");
+  if (deps.state.answeredSince(now - 86_400_000) >= cfg.dailyCap) return skip("daily cap reached");
+  if (deps.state.answeredForSince(author, now - 3_600_000) >= cfg.perUserHourly) return skip("this person's hourly cap reached");
+
+  try {
+    // The posts around the question: what it replies to, what it quotes, and one level further up.
+    const byId = new Map(page.byId);
+    const load = async (id: string | null): Promise<Post | null> => {
+      if (!id) return null;
+      if (byId.has(id)) return byId.get(id)!;
+      const got = await deps.api.post(id);
+      if (!got) return null;
+      for (const [k, v] of got.byId) byId.set(k, v);
+      for (const [k, v] of got.users) users.set(k, v);
+      byId.set(id, got.post);
+      return got.post;
+    };
+    const parent = await load(refOf(m, "replied_to"));
+    if (!addressed(m, cfg, parent)) return skip("not talking to her (only carried along in the thread's tags)");
+    const quoted = await load(refOf(m, "quoted"));
+    const earlierRow = parent?.author_id === cfg.selfId ? deps.state.reply(parent.id) : undefined;
+    const earlier = parent?.author_id === cfg.selfId ? { text: earlierRow?.reply_text ?? fullText(parent), token: earlierRow?.token ?? null } : null;
+
+    let snap = deps.snapshot();
+    const posts = [
+      { post: m, where: "the question" },
+      ...(parent && parent.author_id !== cfg.selfId ? [{ post: parent, where: "the post it replies to" }] : []),
+      ...(quoted ? [{ post: quoted, where: "the quoted post" }] : []),
+    ];
+    let found: Found = findCoin(snap.ws, posts);
+    let grandparent: Post | null = null;
+    if (found.kind === "none" && earlier?.token) found = { kind: "coin", token: earlier.token, how: "address", where: "her earlier reply" };
+    if (found.kind === "none" && parent && parent.author_id !== cfg.selfId) {
+      grandparent = await load(refOf(parent, "replied_to"));
+      if (grandparent) found = findCoin(snap.ws, [{ post: grandparent, where: "the post above that" }]);
+    }
+    if (found.kind === "coin" && deps.refreshCoin) {
+      snap = await deps.refreshCoin(found.token).catch((err: unknown) => {
+        log(`fresh data for ${found.kind === "coin" ? found.token : ""} failed, using the last read: ${(err as Error).message}`);
+        return snap;
+      });
+    }
+
+    const view = (p: Post | null) => (p ? { author: name(p), text: fullText(p) } : null);
+    const { answer, cost } = await deps.answer(
+      { question: { author, text: fullText(m) }, parent: view(parent), quoted: view(quoted), grandparent: view(grandparent), found, earlier },
+      snap,
+    );
+
+    if (answer.kind === "silent") {
+      deps.state.finish(m.id, "silent", { reason: answer.reason, cost });
+      return { id: m.id, status: "silent", reason: answer.reason };
+    }
+    if (cfg.mode === "shadow") {
+      deps.state.finish(m.id, "drafted", { replyText: answer.text, token: answer.token, cost });
+      deps.onDraft?.({ mention: m.id, author, question: fullText(m), reply: answer.text, token: answer.token });
+      return { id: m.id, status: "drafted", text: answer.text };
+    }
+    const replyId = await deps.api.reply(m.id, answer.text);
+    deps.state.finish(m.id, "replied", { replyId, replyText: answer.text, token: answer.token, cost });
+    return { id: m.id, status: "replied", text: answer.text };
+  } catch (err) {
+    const reason = (err instanceof Error ? err.message : String(err)).slice(0, 300);
+    deps.state.finish(m.id, "failed", { reason });
+    log(`mention ${m.id} failed: ${reason}`);
+    return { id: m.id, status: "failed", reason };
+  }
+}
