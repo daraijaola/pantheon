@@ -1,0 +1,794 @@
+{
+  "round": 4,
+  "chainId": 99801,
+  "scannedAt": "2026-10-22T22:42:24.000Z",
+  "scanBlock": "13837316",
+  "rules": "delphi-v0.3",
+  "method": "Ascend coins priced in USDC, at least 72 hours old, never a DELPHI FLAG, ranked by independent trading volume in USDC: volume in the coin's Ascend pool, minus trades by the creator or wallets DELPHI links to the creator, minus DELPHI's wash trading. The top 10 share the basket in proportion to that volume, none above 20%.",
+  "excluded": [
+    {
+      "symbol": "PNTH",
+      "token": "0x048aCeb334cb1835dc897a749C5985e169EAb1C5",
+      "why": "PNTH itself"
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0x0Cb1068D0948a3f2D824194dd8B97D95195B6043",
+      "why": "DELPHI FLAG: 6 linked wallets bought 23.78% of the supply within 30 s of launch."
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0x67afB5fc16219a232d5Fda1c4f0457C9118d8e9D",
+      "why": "DELPHI FLAG: 6 linked wallets bought 23.78% of the supply within 30 s of launch."
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0x141332e2702d48B04321Fd026Bf5961Ff1F3cDEb",
+      "why": "DELPHI FLAG: 6 linked wallets bought 23.2% of the supply within 30 s of launch."
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0x9716D4E4ebd1a4A50Cf54Fd077d531A0918299Ef",
+      "why": "DELPHI FLAG: 6 linked wallets bought 22.8% of the supply within 30 s of launch."
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0x37e58da9a6FBeeFed7B554514F59796B91ac179a",
+      "why": "DELPHI FLAG: 6 linked wallets bought 22.4% of the supply within 30 s of launch."
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0x137Cd93eb7fecbB440828a475829966d7482C6d2",
+      "why": "DELPHI FLAG: 4 linked wallets bought 22.57% of the supply within 30 s of launch."
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0xfb0d3596D92d980a7bfd1bB965873f4597a57B8E",
+      "why": "DELPHI FLAG: 3 linked wallets bought 20.15% of the supply within 30 s of launch."
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0xa4D2f1BCC3723357eE5a2965615D31d0837c203e",
+      "why": "DELPHI FLAG: 3 linked wallets bought 19.19% of the supply within 30 s of launch."
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0x20D75D866429928B7eb00dd8ea113056608D3774",
+      "why": "DELPHI FLAG: 5 linked wallets bought 19.91% of the supply within 30 s of launch."
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0xC9AF15B4Be67F9A6cC8FE5D9f3Fc5E410df1765e",
+      "why": "DELPHI FLAG: 4 linked wallets bought 19.68% of the supply within 30 s of launch."
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0xE4B9A90b634E3Bd410b5D895C817F673969D993E",
+      "why": "DELPHI FLAG: 4 linked wallets bought 19.68% of the supply within 30 s of launch."
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0x8444bf31e9648C97e3736560171dEC3180D77645",
+      "why": "DELPHI FLAG: 3 linked wallets bought 16.8% of the supply within 30 s of launch."
+    },
+    {
+      "symbol": "YRRW",
+      "token": "0xe93326B246D5327c09E7fdcf83c1c8C6a21c9219",
+      "why": "excluded by the curator: not picked in the round 4 vote or by trading"
+    },
+    {
+      "symbol": "THSL",
+      "token": "0xe6cb8845CFCC54a969EdCf1Bd785bb152E7Aa603",
+      "why": "excluded by the curator: not picked in the round 4 vote or by trading"
+    },
+    {
+      "symbol": "CLVR",
+      "token": "0xfd479c0D9E744aE0aa732B36f8429cD7d00AF57C",
+      "why": "excluded by the curator: not picked in the round 4 vote or by trading"
+    },
+    {
+      "symbol": "KITTIQ",
+      "token": "0x34Cc866cC3a2afD5967334CB36d8E6629a6e5174",
+      "why": "DELPHI FLAG: 69.72% of trading volume is fast round trips: 2 wallet(s) bought and sold the same tokens back within 5 minutes."
+    },
+    {
+      "symbol": "FLOW",
+      "token": "0x04815a77f1cC8A64386D3035a0052867dC70650f",
+      "why": "DELPHI FLAG: 71.5% of trading volume is fast round trips: 1 wallet(s) bought and sold the same tokens back within 5 minutes."
+    },
+    {
+      "symbol": "FLOWR",
+      "token": "0xA3c9CF4D947B199B3a2eaa30702F73fa0052513B",
+      "why": "DELPHI FLAG: 71.74% of trading volume is fast round trips: 1 wallet(s) bought and sold the same tokens back within 5 minutes."
+    },
+    {
+      "symbol": "BTC",
+      "token": "0xe9D57Df7e1cbb05DC1C8dAF0fC05aDf3bDCEc6a1",
+      "why": "DELPHI FLAG: 98.3% of trading volume is fast round trips: 1 wallet(s) bought and sold the same tokens back within 5 minutes."
+    }
+  ],
+  "ranking": [
+    {
+      "symbol": "PACT",
+      "token": "0x4FAA6142168c6A1126df68CF400839126b3664db",
+      "verdict": "CLEAN",
+      "usdcVolume": 16972802772,
+      "washVolume": 0,
+      "creatorVolume": 2269530874,
+      "realVolume": 14703271898,
+      "priceAverageAgeHours": 0,
+      "priceVsAveragePct": 0.7,
+      "headline": "CLEAN: no linked-wallet bundle, wash trading or hidden group, but the creator alone holds about 42% of wallet-held PACT"
+    },
+    {
+      "symbol": "DAWN",
+      "token": "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+      "verdict": "CLEAN",
+      "usdcVolume": 15080163502,
+      "washVolume": 0,
+      "creatorVolume": 1199000000,
+      "realVolume": 13881163502,
+      "priceAverageAgeHours": 0,
+      "priceVsAveragePct": 1,
+      "headline": "DAWN came back CLEAN: no linked group, no buying and selling back. But 3 unlinked wallets hold 88% of the tokens that wallets hold."
+    },
+    {
+      "symbol": "AK",
+      "token": "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3",
+      "verdict": "CLEAN",
+      "usdcVolume": 13845641689,
+      "washVolume": 0,
+      "creatorVolume": 100000000,
+      "realVolume": 13745641689,
+      "priceAverageAgeHours": 0,
+      "priceVsAveragePct": 1.1,
+      "headline": "Agent K (AK) is CLEAN: no launch bundle, no wash trading, no hidden group of wallets. But almost all trades are buys and a contract holds 13.78%."
+    },
+    {
+      "symbol": "REE",
+      "token": "0x44FEc778Dc5E4872A24996ae6194c3d3C40B79EA",
+      "verdict": "CLEAN",
+      "usdcVolume": 14102786987,
+      "washVolume": 1980101,
+      "creatorVolume": 777000000,
+      "realVolume": 13323806886,
+      "priceAverageAgeHours": 0,
+      "priceVsAveragePct": 1.1,
+      "headline": "REE: CLEAN. No early bundle, almost no buying-and-selling back, and no linked group of wallets holding a big share."
+    },
+    {
+      "symbol": "TROLOLO",
+      "token": "0x7856a274D83d2F367966b033c757aCf453A19E20",
+      "verdict": "CLEAN",
+      "usdcVolume": 12812001164,
+      "washVolume": 0,
+      "creatorVolume": 210000000,
+      "realVolume": 12602001164,
+      "priceAverageAgeHours": 1,
+      "priceVsAveragePct": 0.9,
+      "headline": "TROLOLO passed all three DELPHI checks, but two unlinked wallets that never traded hold 76% of wallet-held tokens."
+    },
+    {
+      "symbol": "QNCE",
+      "token": "0x28D59E3FB8170224173B5DFe447Fb4F4C37f5dF5",
+      "verdict": "CLEAN",
+      "usdcVolume": 8462491722,
+      "washVolume": 0,
+      "creatorVolume": 0,
+      "realVolume": 8462491722,
+      "priceAverageAgeHours": 0,
+      "priceVsAveragePct": 2.1,
+      "headline": "Quince (QNCE) is CLEAN, but trading is thin: 4 wallets, 2 sells, and two unlinked holders own 87.5% of wallet-held tokens"
+    },
+    {
+      "symbol": "HAZL",
+      "token": "0x9de320e11e247d8251b3501B0E8565B6768EB494",
+      "verdict": "CLEAN",
+      "usdcVolume": 8264503902,
+      "washVolume": 0,
+      "creatorVolume": 0,
+      "realVolume": 8264503902,
+      "priceAverageAgeHours": 1,
+      "priceVsAveragePct": 1.9,
+      "headline": "Hazel (HAZL) is CLEAN: no linked early buying, almost no selling, and no linked group holding a big share. But three separate wallets hold most of the tokens."
+    },
+    {
+      "symbol": "ANGL",
+      "token": "0x6c5cb15C5BA872676E7ee1Ca00F8dd256F414235",
+      "verdict": "NOT_ENOUGH_DATA",
+      "usdcVolume": 609900549,
+      "washVolume": 9900549,
+      "creatorVolume": 0,
+      "realVolume": 600000000,
+      "priceAverageAgeHours": 200,
+      "priceVsAveragePct": 9.6
+    },
+    {
+      "symbol": "PRMR",
+      "token": "0x7f1088cBC9EB4828298A997470538D0bD2a4EE92",
+      "verdict": "NOT_ENOUGH_DATA",
+      "usdcVolume": 600000000,
+      "washVolume": 0,
+      "creatorVolume": 0,
+      "realVolume": 600000000,
+      "priceAverageAgeHours": 248,
+      "priceVsAveragePct": 20.1
+    },
+    {
+      "symbol": "SRRL",
+      "token": "0xA8f46B3B008d8Ac206B707c6a7643B27d19D21b9",
+      "verdict": "NOT_ENOUGH_DATA",
+      "usdcVolume": 600000000,
+      "washVolume": 0,
+      "creatorVolume": 0,
+      "realVolume": 600000000,
+      "priceAverageAgeHours": 249,
+      "priceVsAveragePct": 30.8
+    },
+    {
+      "symbol": "SNPTEST",
+      "token": "0x7828DC37e61560a79eEb3bd516c652d049DDc0F0",
+      "verdict": "NOT_ENOUGH_DATA",
+      "usdcVolume": 500000000,
+      "washVolume": 0,
+      "creatorVolume": 0,
+      "realVolume": 500000000,
+      "priceAverageAgeHours": 190,
+      "priceVsAveragePct": 21.3
+    },
+    {
+      "symbol": "FGK",
+      "token": "0x862714532eD4Ef288aAf1EB6543F474fC7A7a225",
+      "verdict": "CLEAN",
+      "usdcVolume": 17000178000000,
+      "washVolume": 0,
+      "creatorVolume": 17000000000000,
+      "realVolume": 178000000,
+      "priceAverageAgeHours": 163,
+      "priceVsAveragePct": 16.2,
+      "headline": "CLEAN: no linked-wallet groups found, but the creator's single wallet openly holds 98.9% of all Fugaku (FGK) tokens"
+    },
+    {
+      "symbol": "PA",
+      "token": "0x77039bC2c90B9E31227B447E78B809f5E3f53a6F",
+      "verdict": "NOT_ENOUGH_DATA",
+      "usdcVolume": 15000000,
+      "washVolume": 0,
+      "creatorVolume": 0,
+      "realVolume": 15000000,
+      "priceAverageAgeHours": 11,
+      "priceVsAveragePct": 2.7
+    },
+    {
+      "symbol": "MUR",
+      "token": "0x5d8Ea996c85136Cc5a5662afCb31c577dA66e1e5",
+      "verdict": "NOT_ENOUGH_DATA",
+      "usdcVolume": 2654513,
+      "washVolume": 1322118,
+      "creatorVolume": 0,
+      "realVolume": 1332395,
+      "priceAverageAgeHours": 56,
+      "priceVsAveragePct": 2
+    },
+    {
+      "symbol": "JUNI",
+      "token": "0xd18a706AeE03Dd0118bbB36Fb1575DD92d7Df9c7",
+      "verdict": "NOT_ENOUGH_DATA",
+      "usdcVolume": 6055591,
+      "washVolume": 1807959,
+      "creatorVolume": 5899850,
+      "realVolume": 155741,
+      "priceAverageAgeHours": 171,
+      "priceVsAveragePct": 1
+    }
+  ],
+  "symbols": [
+    "PACT",
+    "DAWN",
+    "AK",
+    "REE",
+    "TROLOLO",
+    "QNCE",
+    "HAZL",
+    "ANGL",
+    "PRMR",
+    "SRRL"
+  ],
+  "tokens": [
+    "0x4FAA6142168c6A1126df68CF400839126b3664db",
+    "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+    "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3",
+    "0x44FEc778Dc5E4872A24996ae6194c3d3C40B79EA",
+    "0x7856a274D83d2F367966b033c757aCf453A19E20",
+    "0x28D59E3FB8170224173B5DFe447Fb4F4C37f5dF5",
+    "0x9de320e11e247d8251b3501B0E8565B6768EB494",
+    "0x6c5cb15C5BA872676E7ee1Ca00F8dd256F414235",
+    "0x7f1088cBC9EB4828298A997470538D0bD2a4EE92",
+    "0xA8f46B3B008d8Ac206B707c6a7643B27d19D21b9"
+  ],
+  "pools": [
+    "0xfbd4909ed6aa674282af58ecd613836f24aa3da65db9fad4fbe45ecc5b644fe9",
+    "0xe12aee0e351751a47de06b5739472047e38cb62a983e97f45ffccd83b582afa8",
+    "0x26b32a74433f0a1cdeb3130fc2d0fd0309e357131e7b4915c5c7841dbe3f91f4",
+    "0xdf6017f36dcb6940f71dd1a321740a73aca70eefabb6566e95ec462c26faa87d",
+    "0x63f22ce7867b22ff5ab3bd989196b34cc6dbfb1c50f132df208a689cf1db3780",
+    "0xe2d7355b802a55a94e9dd1fc90bbd9c5959e0023e0e2ba63d647be6d2942b2e0",
+    "0x8dd9735212dfdb87676d56ca4725f7c78c9352496f4945a405a9b6647c110978",
+    "0x8ecbab36f61898080b85ceb32791052508da56a4128229209506028ab1541b51",
+    "0x41343a98aea70c4fa747190aed43768af5b13320c740921f38ed9c89f0a775a3",
+    "0x7a8add9b64acc5d4938545a63897ecb73d2a6747b8212db4fff5b199627e008d"
+  ],
+  "weightsBps": [
+    1694,
+    1600,
+    1584,
+    1535,
+    1452,
+    975,
+    953,
+    69,
+    69,
+    69
+  ],
+  "perRunCaps": [
+    100000000,
+    100000000,
+    100000000,
+    100000000,
+    100000000,
+    100000000,
+    100000000,
+    100000000,
+    100000000,
+    100000000
+  ],
+  "merkleRoot": "0xa21c5d6e17779b3f63977298fc490f2f12aca545c40d13bb81749b610e6fbdb8",
+  "vote": {
+    "round": 4,
+    "method": "Wallets with PNTH staked pick up to 3 coins; each pick counts 1 vote for the stake, plus 1, 2 or 3 more for a HYPE Passport (by tier; a Passport alone also votes). The 3 coins with the most votes take 3 seats in round 4's basket; equal votes go to the coin with more independent trading. The other seats go to the coins with the most independent trading, by DELPHI's count (round 3 data). Removed before any ballot: SNPTEST (a test coin its creator named \"SNIPER TEST - DO NOT BUY\"; DELPHI flagged its sibling coins); FGK (its price is far above its Ascend average (pumped by its creator), so the basket couldn't buy it). Verdicts are DELPHI's published ones.",
+    "opensAt": 1792276171,
+    "closesAt": 1792535371,
+    "seats": 3,
+    "winners": [
+      "0x4FAA6142168c6A1126df68CF400839126b3664db",
+      "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+      "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+    ],
+    "tally": [
+      {
+        "token": "0x4FAA6142168c6A1126df68CF400839126b3664db",
+        "votes": 23,
+        "voters": 23,
+        "rank": 1
+      },
+      {
+        "token": "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+        "votes": 20,
+        "voters": 20,
+        "rank": 2
+      },
+      {
+        "token": "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3",
+        "votes": 19,
+        "voters": 19,
+        "rank": 3
+      },
+      {
+        "token": "0x6c5cb15C5BA872676E7ee1Ca00F8dd256F414235",
+        "votes": 1,
+        "voters": 1,
+        "rank": 8
+      },
+      {
+        "token": "0x7f1088cBC9EB4828298A997470538D0bD2a4EE92",
+        "votes": 1,
+        "voters": 1,
+        "rank": 9
+      },
+      {
+        "token": "0xA8f46B3B008d8Ac206B707c6a7643B27d19D21b9",
+        "votes": 1,
+        "voters": 1,
+        "rank": 10
+      },
+      {
+        "token": "0x44FEc778Dc5E4872A24996ae6194c3d3C40B79EA",
+        "votes": 0,
+        "voters": 0,
+        "rank": 4
+      },
+      {
+        "token": "0x7856a274D83d2F367966b033c757aCf453A19E20",
+        "votes": 0,
+        "voters": 0,
+        "rank": 5
+      },
+      {
+        "token": "0x9de320e11e247d8251b3501B0E8565B6768EB494",
+        "votes": 0,
+        "voters": 0,
+        "rank": 6
+      },
+      {
+        "token": "0x28D59E3FB8170224173B5DFe447Fb4F4C37f5dF5",
+        "votes": 0,
+        "voters": 0,
+        "rank": 7
+      },
+      {
+        "token": "0xe6cb8845CFCC54a969EdCf1Bd785bb152E7Aa603",
+        "votes": 0,
+        "voters": 0,
+        "rank": 11
+      },
+      {
+        "token": "0xe93326B246D5327c09E7fdcf83c1c8C6a21c9219",
+        "votes": 0,
+        "voters": 0,
+        "rank": 12
+      },
+      {
+        "token": "0xfd479c0D9E744aE0aa732B36f8429cD7d00AF57C",
+        "votes": 0,
+        "voters": 0,
+        "rank": 13
+      },
+      {
+        "token": "0x6714333DC7A5B4D8157811B1Bb3Ac85A809D1011",
+        "votes": 0,
+        "voters": 0,
+        "rank": 14
+      },
+      {
+        "token": "0xC33b7BD8b8160781f879b2fe53753124116DCC1E",
+        "votes": 0,
+        "voters": 0,
+        "rank": 15
+      },
+      {
+        "token": "0x18091Ac89aF48aa416f101A050a7B42772fc6987",
+        "votes": 0,
+        "voters": 0,
+        "rank": 16
+      },
+      {
+        "token": "0x654f810148D7938A1E2D9690A7Fd29307302e584",
+        "votes": 0,
+        "voters": 0,
+        "rank": 17
+      }
+    ],
+    "ballots": [
+      {
+        "voter": "0x0059a173CCb37F4AEDB3a316F305833C2a56C083",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "7002000000000000000000",
+        "tier": 0,
+        "signedAt": 1792276357,
+        "signature": "0x669f36a0288f1fbdb0f1816a3f4bc0706c9ff507efdc441acb0c3e59906753e115ceafc66c677747ddd097b247738a668b367b7d406d2c0b77db445f30de06c81b",
+        "receivedAt": 1792276359
+      },
+      {
+        "voter": "0x40091b98925E42dA7f01CDEb941d9baE033Ce43B",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792276675,
+        "signature": "0xe932116081e71fcecd0e770b6d9f4a567bbd42ef8878a62a48b1aebfcad3acec549eef9fdf89a8cc271592f0f981cda3624252075976cd50152d16697b1841841c",
+        "receivedAt": 1792276676
+      },
+      {
+        "voter": "0x4F84d26eA2af0E29458250Ce4ba993392dE43D41",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792284981,
+        "signature": "0x355ae524ee4d1ce16a0fb0e5047c7aa31fe7bee304479e062a0b49067690ebcf1b774541a9e60bbf4356cfbecba5fb7cd9ba91ee0479c2037d85379f06e28a491c",
+        "receivedAt": 1792284982
+      },
+      {
+        "voter": "0x7b1aFE8655835Aed82a1692d812cF4866F69810D",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "74443376603742381928118770",
+        "tier": 0,
+        "signedAt": 1792316467,
+        "signature": "0xd6aaf4b18995276247ce58550508445e79553e5b29ddf6862f6a355c3d4b07496cfa0b9b8bf5524f2896e60c215bce04c38e1205f2fb6c36ab2078a3aebd04531b",
+        "receivedAt": 1792316442
+      },
+      {
+        "voter": "0xBe5bf4da2886CD8c60de03708Bd410D10684E774",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "10000120000000000000000000",
+        "tier": 0,
+        "signedAt": 1792334449,
+        "signature": "0x91eac0e507e30ec354db74e57b2b46f1283282fafe87daaa29d1ee9aaaa572fd62239d77ff84fceca71fb7818560c43df904832a30a06da551429eaf7b1815c21b",
+        "receivedAt": 1792334453
+      },
+      {
+        "voter": "0x32526ca71DEac4c3Cd9074258ccEDF11C96a72c5",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "10100037615896701012422",
+        "tier": 0,
+        "signedAt": 1792346448,
+        "signature": "0x0f8c3bd8c012742fbdfd624bb12738071acd5e51d1b24e9030037ca52a98e09b3cbd0b7af236e54abbd94da09996a843d90e588a0f5684d3fc2cdbb65ba6d54f1c",
+        "receivedAt": 1792346451
+      },
+      {
+        "voter": "0x05ac50dD0bA191Ffe66cD3d4B64F25e1d43e820b",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792377819,
+        "signature": "0x9b0277b85dd79b1ca7af016776bd19d6ce7895f593e4edf30c6b7831a43cf1a441d53890e70808a54f25e181970ffaa9c2d74c98793c273c2acd0bcd004c97191b",
+        "receivedAt": 1792377825
+      },
+      {
+        "voter": "0xAFCc978067852C0C7C12A92a78cf5B74167B6Ffb",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792418814,
+        "signature": "0x45816eeca1d4d27a2f73ea21ad711835ea8127a1ce8f89c93b0e48ece057bce534788a23b57bba99c625cdb6933c7aa37eb4ae10f9cb6e7ea855ff1189ab8a4e1c",
+        "receivedAt": 1792418819
+      },
+      {
+        "voter": "0x1AD7Cf198cfE86B876a5FD9107be936027cb51d9",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792419400,
+        "signature": "0x4d01022f30d0a6d2eb970c86b08b103999127395622c0a9c8d43ba6960ba57ea19c75d9832d17cadf230fb5abe55ab68f58fcbcfba3a06613dee7ee0bd6d99571c",
+        "receivedAt": 1792419401
+      },
+      {
+        "voter": "0x614b7817fAFBF6Bd4D46F7F07Fa46A137c1C564B",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792420507,
+        "signature": "0x274f62d1a5dd98904cc7a835afb1dfcc1443f4dd846b2d4dc5d1b963dfd9b670259b6a0e82a45775569552b05014e56de2d4c06f9d88fa34c3d7717d9a80057b1b",
+        "receivedAt": 1792420513
+      },
+      {
+        "voter": "0x5298ee5412B222e9142f5e539075747d6e2CBC2f",
+        "coins": [
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x4FAA6142168c6A1126df68CF400839126b3664db"
+        ],
+        "weight": 1,
+        "staked": "4300000000000000000000",
+        "tier": 0,
+        "signedAt": 1792421935,
+        "signature": "0x54894891b4c49c7598d24ede76116cf8fcb7e1964082f5f96d336ac9e591dd200d6e775afdad4cafc144764fed5f449a77cc96cbaf087c0896b62272e94a82471c",
+        "receivedAt": 1792421937
+      },
+      {
+        "voter": "0x767235CCEEf614F2B5653B41A9D120Af3a8bFF1e",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db"
+        ],
+        "weight": 1,
+        "staked": "70000000000000000000",
+        "tier": 0,
+        "signedAt": 1792422778,
+        "signature": "0x4f8e385b67cf44fec812ec0932fee4475b62c264c7a76e7cf8bbd52da87721e23728bbabfce3aef995d49feef204dbe6024fc25ed25da7c607dbf27ca806379b1b",
+        "receivedAt": 1792422782
+      },
+      {
+        "voter": "0x3D2781bbb226d578570672cE9Df50109181eD405",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792423070,
+        "signature": "0xec9de9f2e59930c1c9a660189b703b85213b7fbdcb1151665b2dcf7b7de64be2027b6cda1707c0478ce96516b4a95d1a335ef220d2afce5674a73bdb37e826271b",
+        "receivedAt": 1792423077
+      },
+      {
+        "voter": "0x3cd6164c76d45e544A7B2E2cf7775456E8CD3c35",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792424827,
+        "signature": "0xadbfce6b61603a2158dbf09f7515caef3a72089cc96435b2b5218251b1b5f45d0b5267a62594df3ecec3d922a7397a931b653bdc4a5c9cbbd1dd35d3b42ca3f61c",
+        "receivedAt": 1792424834
+      },
+      {
+        "voter": "0xeFbacA68f1738103A77c480E271ce77E7997ebCf",
+        "coins": [
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x4FAA6142168c6A1126df68CF400839126b3664db"
+        ],
+        "weight": 1,
+        "staked": "24902845375906867680362976",
+        "tier": 0,
+        "signedAt": 1792426290,
+        "signature": "0x7c2ab2041ae433b16542289b784dbc901a5c2e45c852893bd759c3c8d6bcd81d0a4f975d311917d184ab0ea375ef7605306c3173cdbfc4925387abb91362dd8c1c",
+        "receivedAt": 1792426291
+      },
+      {
+        "voter": "0x158A2EB43e4354dEA214CAA503266f01ff61dA01",
+        "coins": [
+          "0xA8f46B3B008d8Ac206B707c6a7643B27d19D21b9",
+          "0x7f1088cBC9EB4828298A997470538D0bD2a4EE92",
+          "0x6c5cb15C5BA872676E7ee1Ca00F8dd256F414235"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792443642,
+        "signature": "0x60712b1287126160d32b05846f4570299a7b8d22d6e486149c687760ef8689d53f9261d31bf6a6cfb1b6799e6867561ebdde5d49b50f2b31811d7200a497d01a1c",
+        "receivedAt": 1792443646
+      },
+      {
+        "voter": "0x6c3C002d8d56A886995d0817C582db34C43B6838",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792455111,
+        "signature": "0xe45e72d44d59e3a15feabd8fc4a1e6aaa0bed56bab90cfe15cf1a2102bd0ab2403e41c5e0ee46c167e6dd2a447f3e493008fd2295420b2361a58752d7bccf5c31b",
+        "receivedAt": 1792455117
+      },
+      {
+        "voter": "0xE574e95DB5511d0A8f3898e4cB34545497616058",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792455502,
+        "signature": "0x9989d993c01fee09c9c0c3b93cf5f3d4fc918ecc0463203aa281392c6160e5f70f8e41dfdce840e01ff8fd6abc0054bf05e24f337822ddc5bc7e49b0d5fc16521c",
+        "receivedAt": 1792455507
+      },
+      {
+        "voter": "0xb66f3Bf259c809F8901c0c60edBb01A284A9D7BC",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792455925,
+        "signature": "0x44b322f39a2e24308d4a0a4c347517ae8268b047300ec588bf0eca8714a99b567eabfba5b7ea1758f091a52956dca70caacc77e7912610a4328519019ab2142d1b",
+        "receivedAt": 1792455937
+      },
+      {
+        "voter": "0x6c5A037C052361Ed1e8fF1dE8D11044476F7eef5",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792479167,
+        "signature": "0xc5d1b4522107e96c9986f54daf938131e3246f8e2f669d00e94468ea75cd17b83795bd31fa3f6a39814114f59f38e66779297cb3978a5539deb86f90a9b4f4971b",
+        "receivedAt": 1792479170
+      },
+      {
+        "voter": "0xC0eDBA8dBe5a19b96505aFD9CD73a93b699d2946",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "51100000000000000000",
+        "tier": 0,
+        "signedAt": 1792498262,
+        "signature": "0x43801130b4cde6c42d3d57ec682acaf94c3b39a9190c571ef1fd8cb2376143667907bc44f057c8e7d0b846ff9805b74978ee8ef32695a0b3dbdf2fca2f30eb0b1c",
+        "receivedAt": 1792498263
+      },
+      {
+        "voter": "0xcd49dAF54a178aE5E89629C172a1010A30432B7B",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db"
+        ],
+        "weight": 1,
+        "staked": "10100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792504959,
+        "signature": "0x051b158965b9fe13b1b45c9e61e16acee369e05e9806eee733580d497ebe9ac9434dd4053cdb6b41c7e170e2e0c80d640c56aea21b57c1003155dc720d260e4a1b",
+        "receivedAt": 1792504963
+      },
+      {
+        "voter": "0x60cE5D87f951884Ec03A5f93B0da3A7F36A18a3C",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792517033,
+        "signature": "0xcd8f2f5d82ac767d6462e57239e48dc7d5fb9d7e9a587d170691af3798fcde673b8e04c44fe65ae9597d57ff8cbb2ef4816f369a24dc9809d312060d4a606a561c",
+        "receivedAt": 1792517038
+      },
+      {
+        "voter": "0xBfC548E9099E64048d674BF9362ca8713975c5F0",
+        "coins": [
+          "0x4FAA6142168c6A1126df68CF400839126b3664db",
+          "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+          "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3"
+        ],
+        "weight": 1,
+        "staked": "100000000000000000000",
+        "tier": 0,
+        "signedAt": 1792517726,
+        "signature": "0x626d619323057ce34ac80ca423ea4eed90c06136fcbc79e956970587beb1124746e0869773f64ceeebd3edfe970cc3529a6a37555defd2ea71edb50919d738fb1c",
+        "receivedAt": 1792517637
+      }
+    ],
+    "candidatesFile": "round-4.vote.json"
+  }
+}
