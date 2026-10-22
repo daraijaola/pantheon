@@ -25,25 +25,30 @@ const FULL_ADDRESS = /0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/g;
 const SHORT_ADDRESS = /0x([0-9a-fA-F]{3,8})(?:…|\.\.\.)([0-9a-fA-F]{3,8})/g;
 const HASH = /0x[0-9a-fA-F]{64}/g;
 
+/** A number a reply states, and how much rounding its precision allows ("27%" ± 0.5, "15.4M" ± 50k). */
+export type Stated = { value: number; tol: number; text: string; decimals: number };
+
 /** The numbers a text states, as values ("15.4M" → 15,400,000; "72%" → 72; "1,177" → 1177). */
-export function numbersIn(s: string): number[] {
+export function statedNumbers(s: string): Stated[] {
   const clean = s.replace(HASH, " ").replace(FULL_ADDRESS, " ").replace(SHORT_ADDRESS, " ").replace(/[$@][A-Za-z0-9_]+/g, " ");
-  const out: number[] = [];
+  const out: Stated[] = [];
   for (const m of clean.matchAll(/(?<![\w.])(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s?(%|[kKmMbB](?![a-zA-Z]))?/g)) {
-    let v = Number(m[1]!.replaceAll(",", "") + (m[2] ?? ""));
+    const decimals = m[2] ? m[2].length - 1 : 0;
     const unit = m[3]?.toLowerCase();
-    if (unit === "k") v *= 1e3;
-    else if (unit === "m") v *= 1e6;
-    else if (unit === "b") v *= 1e9;
-    out.push(v);
+    const scale = unit === "k" ? 1e3 : unit === "m" ? 1e6 : unit === "b" ? 1e9 : 1;
+    const value = Number(m[1]!.replaceAll(",", "") + (m[2] ?? "")) * scale;
+    out.push({ value, tol: 0.5 * 10 ** -decimals * scale, text: m[0].trim(), decimals });
   }
   return out;
 }
 
-/** True if `n` is one of `known`, allowing the rounding a reply does ("72.04" → "72", "15,440,000" → "15.4M"). */
-export function grounded(n: number, known: readonly number[]): boolean {
-  if (Number.isInteger(n) && n >= 0 && n <= 10) return true;
-  return known.some((k) => Math.abs(n - k) <= Math.max(Math.abs(k) * 0.006, 0.051));
+export const numbersIn = (s: string) => statedNumbers(s).map((n) => n.value);
+
+/** True if a stated number is one of `known`, rounded to the precision it was written with. */
+export function grounded(n: number | Stated, known: readonly number[]): boolean {
+  const { value, tol } = typeof n === "number" ? { value: n, tol: Math.max(Math.abs(n) * 0.006, 0.051) } : n;
+  if (Number.isInteger(value) && value >= 0 && value <= 10) return true;
+  return known.some((k) => Math.abs(value - k) <= tol + 1e-9);
 }
 
 export type Check = {
@@ -64,6 +69,7 @@ export function replyProblems(text: string, c: Check): string[] {
   if (LINK.test(t)) errors.push("no links or website names in a reply (links cost 13x more to post and look like spam)");
   if (/@\w/.test(t)) errors.push("no @tags in a reply: X already shows who she is answering");
   if (/#\w/.test(t)) errors.push("no hashtags");
+  if (t.includes(";")) errors.push("no semicolons: use a new line or a full stop");
   const accuse = t.match(ACCUSE);
   if (accuse) errors.push(`"${accuse[0]}" accuses someone; say what the wallets did instead`);
   const advise = t.match(ADVISE);
@@ -75,8 +81,11 @@ export function replyProblems(text: string, c: Check): string[] {
     const hit = [...c.addresses].some((a) => a.slice(2).startsWith(head!.toLowerCase()) && a.endsWith(tail!.toLowerCase()));
     if (!hit) errors.push(`${m[0]} does not match any address the tools returned`);
   }
-  const loose = numbersIn(t).filter((n) => !grounded(n, c.known));
-  if (loose.length) errors.push(`these numbers are not in any tool result: ${[...new Set(loose)].join(", ")}. Use the tools' numbers (rounding is fine) or leave them out.`);
+  const stated = statedNumbers(t);
+  const loose = stated.filter((n) => !grounded(n, c.known)).map((n) => n.text);
+  if (loose.length) errors.push(`these numbers are not in any tool result: ${[...new Set(loose)].join(", ")}. Use the tools' numbers (rounded) or leave them out.`);
+  const fussy = stated.filter((n) => n.decimals >= 2 || (n.decimals === 1 && n.value >= 10 && n.text.endsWith("%"))).map((n) => n.text);
+  if (fussy.length) errors.push(`round these the way people write them: ${[...new Set(fussy)].join(", ")} (51%, not 50.78%; 15.4M, not 15,440,000)`);
   return [...new Set(errors)];
 }
 

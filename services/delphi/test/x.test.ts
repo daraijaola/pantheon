@@ -95,8 +95,16 @@ describe("reply checks", () => {
     expect(knownNumbers(['{"pct":72.04,"tokens":"15,440,000","time":"2026-10-20T12:17:46Z"}'])).toEqual(expect.arrayContaining([72.04, 15_440_000, 12, 17]));
   });
 
-  it("passes a plain factual reply", () => {
-    expect(replyProblems("Flagged. 96 linked wallets hold 72% of the tokens in wallets. The biggest holds 15.4M.", ok)).toEqual([]);
+  it("passes a plain factual reply in X's format", () => {
+    expect(replyProblems("Flagged: one group holds most of it.\n\n• 96 linked wallets hold 72% of the tokens in wallets\n• the biggest holds 15.4M", ok)).toEqual([]);
+  });
+
+  it("allows the rounding people do, and asks for it", () => {
+    const k = { ...ok, known: [26.58, 50.78] };
+    expect(replyProblems("the biggest holds 27%, together 51%", k)).toEqual([]);
+    expect(replyProblems("the biggest holds 28%", k).join()).toMatch(/not in any tool result: 28%/);
+    expect(replyProblems("together 50.78%", k).join()).toMatch(/round these/);
+    expect(replyProblems("flagged; one group", k).join()).toMatch(/semicolons/);
   });
 
   it("stops links, tags, hashtags, accusations, advice and invented numbers", () => {
