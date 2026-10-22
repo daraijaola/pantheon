@@ -120,6 +120,13 @@ try {
             log,
           });
           log(`${out.id}: ${out.status}${out.reason ? ` (${out.reason})` : ""}${out.text ? `: ${out.text}` : ""}`);
+          if (out.retryAt) {
+            // Not marked as read: once X opens again this mention (and the ones after it) come back.
+            const wait = Math.max(15, out.retryAt - Math.floor(Date.now() / 1000));
+            log(`X rate limit: waiting ${wait} s, then back to ${m.id}`);
+            for (let s = 0; s < wait && !stopping; s++) await sleep(1000);
+            break;
+          }
           since = m.id;
           state.setValue("since_id", since);
         }

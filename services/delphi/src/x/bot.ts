@@ -35,7 +35,17 @@ export type BotDeps = {
   log?: (msg: string) => void;
 };
 
-export type Outcome = { id: string; status: "replied" | "drafted" | "silent" | "skipped" | "failed" | "ignored"; reason?: string; text?: string };
+export type Outcome = {
+  id: string;
+  status: "replied" | "drafted" | "silent" | "skipped" | "failed" | "unsure" | "ignored";
+  reason?: string;
+  text?: string;
+  /** X rate-limited her before anything went out: stop, and come back to this mention at this time (unix s). */
+  retryAt?: number;
+};
+
+/** When X says "too many requests", the time it opens again (or in 5 minutes). */
+const rateLimited = (err: unknown, now: number) => (err instanceof XError && err.status === 429 ? (err.resetAt ?? Math.floor(now / 1000) + 300) : null);
 
 const leadingTags = /^(?:\s*@\w{1,15})+\s*/;
 
@@ -153,22 +163,49 @@ export async function handleMention(
       deps.onDraft?.({ mention: m.id, author, question: fullText(m), reply: answer.text, token: answer.token });
       return { id: m.id, status: "drafted", text: answer.text };
     }
-    // X refuses a post identical to one she already made (two people asking about the same coin):
-    // the same facts, stamped with the read time, are a different post.
+    // From here a reply may go out, so a crash leaves "posting" and the mention is never retried.
+    deps.state.posting(m.id);
     let text = answer.text;
     let replyId: string;
     try {
-      replyId = await deps.api.reply(m.id, text);
+      try {
+        replyId = await deps.api.reply(m.id, text);
+      } catch (err) {
+        // X refuses a post identical to one she already made (two people asking about the same coin):
+        // the same facts, stamped with the read time, are a different post.
+        if (!(err instanceof XError && err.status === 403 && /duplicate/i.test(err.message))) throw err;
+        const t = new Date(snap.readAt).toISOString().slice(11, 16);
+        text = `${answer.text}\n\nas of ${t} UTC`;
+        replyId = await deps.api.reply(m.id, text);
+      }
     } catch (err) {
-      if (!(err instanceof XError && err.status === 403 && /duplicate/i.test(err.message))) throw err;
-      const t = new Date(snap.readAt).toISOString().slice(11, 16);
-      text = `${answer.text}\n\nas of ${t} UTC`;
-      replyId = await deps.api.reply(m.id, text);
+      // A 4xx is X saying no: nothing was posted. "Too many requests" is worth another go once X opens
+      // again; any other no (a deleted post, a rule) would fail the same way. A timeout, a dropped
+      // connection or an X server error may still have posted it: never again.
+      const retryAt = rateLimited(err, now);
+      if (retryAt) {
+        const reason = `X rate limit while posting: ${(err as Error).message}`.slice(0, 300);
+        deps.state.retryLater(m.id, { reason, cost });
+        log(`mention ${m.id}: ${reason}`);
+        return { id: m.id, status: "failed", reason, retryAt };
+      }
+      const refused = err instanceof XError && err.status >= 400 && err.status < 500;
+      const reason = `${refused ? "" : "may have been posted, not retried: "}${(err as Error).message}`.slice(0, 300);
+      deps.state.finish(m.id, refused ? "failed" : "unsure", { reason, replyText: text, token: answer.token, cost });
+      log(`mention ${m.id}: ${reason}`);
+      return { id: m.id, status: refused ? "failed" : "unsure", reason };
     }
     deps.state.finish(m.id, "replied", { replyId, replyText: text, token: answer.token, cost });
     return { id: m.id, status: "replied", text };
   } catch (err) {
     const reason = (err instanceof Error ? err.message : String(err)).slice(0, 300);
+    // rate-limited while reading the posts around it: nothing was posted, come back when X opens again
+    const retryAt = rateLimited(err, now);
+    if (retryAt) {
+      deps.state.retryLater(m.id, { reason });
+      log(`mention ${m.id}: X rate limit, back at ${new Date(retryAt * 1000).toISOString().slice(11, 19)}`);
+      return { id: m.id, status: "failed", reason, retryAt };
+    }
     deps.state.finish(m.id, "failed", { reason });
     log(`mention ${m.id} failed: ${reason}`);
     return { id: m.id, status: "failed", reason };

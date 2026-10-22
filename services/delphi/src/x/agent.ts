@@ -5,13 +5,13 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
-import { coinAddresses, readTools } from "../ai/tools.ts";
+import { coinAddresses, listHolders, readTools } from "../ai/tools.ts";
 import type { Verdict } from "../types.ts";
 import type { Found } from "./find.ts";
-import { knownNumbers, replyProblems, untrusted } from "./text.ts";
+import { biggestProblems, knownNumbers, replyProblems, untrusted } from "./text.ts";
 import { PNTH, xTools, type Snapshot } from "./xtools.ts";
 
-export const X_PROMPT_VERSION = "x-v4";
+export const X_PROMPT_VERSION = "x-v5";
 export const MAX_REPLY = 270;
 const lc = (a: string) => a.toLowerCase();
 
@@ -20,7 +20,7 @@ export function xSystemPrompt(handle: string): string {
 
 How you work:
 1. The message tells you which coin DELPHI matched from the posts (by address or $ticker), or that it found none, or several. Trust that match. If none was found, try find_coin with a ticker or name from the posts. If several coins fit, ask for the address instead of guessing.
-2. For a coin: call coin_report first. Then look up what the question needs: holders, clusters, trades, wallet, links, creator_history ("has the dev launched before?"), market (price, market cap, volume, 24h change), delphi_status (how fresh the data is). When a contract holds a big share, or one wallet stands out (biggest buyer, biggest holder), check it with what_is_address (for example PANTHEON's staking contract); if it's unknown, say "a contract" and nothing more. A question you can't answer from the tools gets an honest "I can't see that".
+2. For a coin: call coin_report first. Then look up what the question needs: holders, clusters, trades, wallet, links, creator_history ("has the dev launched before?"), market (price, market cap, volume, 24h change), delphi_status (how fresh the data is). To rank wallets ("the biggest holder", "the biggest linked wallets", "top 3"), call holders: it lists them biggest first and marks which are in a linked group. The wallets in coin_report's findings are in no order, so never rank them yourself. When a contract holds a big share, or one wallet stands out (biggest buyer, biggest holder), check it with what_is_address (for example PANTHEON's staking contract); if it's unknown, say "a contract" and nothing more. A question you can't answer from the tools gets an honest "I can't see that".
 3. Finish with submit_reply (one reply) or stay_silent. submit_reply checks your draft and tells you what to fix.
 
 When someone asks you something but there is no coin to check (a vague "is it a rug?" under a post that names no coin, "check this", "thoughts?"), don't stay silent: answer in one or two short lines asking which coin, so they come back with one. For example: "Which coin? Send me its $ticker or contract (0x…), or tag me under the coin's post." Word it fresh each time and match their language.
@@ -166,6 +166,7 @@ export async function answer(
         else {
           if (!reported.has(token)) errors.push("call coin_report for this coin before answering about it");
           if (r.verdict !== report.verdict) errors.push(`verdict must be DELPHI's: ${report.verdict}`);
+          errors.push(...biggestProblems(r.text, listHolders(snap.ws, { token, limit: 10 }).rows));
         }
       } else if (r.verdict) errors.push("a verdict needs the coin's token");
       const addresses = new Set<string>(

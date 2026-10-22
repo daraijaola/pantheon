@@ -10,9 +10,11 @@ import { Store } from "../src/store.ts";
 import { answer, costOf, type Answer } from "../src/x/agent.ts";
 import type { Post } from "../src/x/api.ts";
 import { loadXConfig, readSecret } from "../src/x/config.ts";
+import { listHolders } from "../src/ai/tools.ts";
 import { ChainView } from "../src/x/data.ts";
 import { fallbackReply } from "../src/x/fallback.ts";
 import { findCoin } from "../src/x/find.ts";
+import { biggestProblems } from "../src/x/text.ts";
 
 const PACT = "0x4FAA6142168c6A1126df68CF400839126b3664db";
 type Case = { q: string; under?: string; earlier?: { text: string; token: string }; expect: "reply" | "silent" | "either"; must?: RegExp; mustNot?: RegExp };
@@ -36,6 +38,11 @@ const CASES: Case[] = [
   { q: "@heyDelph did whales sell?", under: D, expect: "reply", mustNot: NOT_US },
   { q: "@heyDelph who's the biggest buyer?", under: D, expect: "reply", mustNot: NOT_US },
   { q: "@heyDelph is the creator still holding?", under: D, expect: "reply", mustNot: NOT_US },
+  // the biggest holder: seen wrong in review (a linked wallet named as the biggest); checked below for every reply
+  { q: "@heyDelph who's the biggest holder?", under: P, expect: "reply", must: /%/, mustNot: NOT_US },
+  { q: "@heyDelph top 3 holders?", under: "$AK is live on Ascend", expect: "reply", must: /%/, mustNot: NOT_US },
+  { q: "@heyDelph anything weird with it?", under: "$TROLOLO live on Ascend testnet", expect: "reply", mustNot: NOT_US },
+  { q: "@heyDelph ¿quién tiene más tokens?", under: D, expect: "reply", must: /%/, mustNot: NOT_US },
   { q: "@heyDelph is $VALEN clean?", expect: "reply", mustNot: NOT_US },
   { q: "@heyDelph check 0x862714532eD4Ef288aAf1EB6543F474fC7A7a225", expect: "reply", mustNot: NOT_US },
   { q: "@heyDelph is $MARI safe?", expect: "reply", mustNot: NOT_US },
@@ -118,6 +125,8 @@ try {
     else if (c.expect !== "either" && kind !== c.expect) problems.push(`expected ${c.expect}, got ${kind}`);
     if (text && c.must && !c.must.test(text)) problems.push(`missing ${c.must}`);
     if (text && c.mustNot && c.mustNot.test(text)) problems.push(`contains ${c.mustNot}`);
+    const token = a?.kind === "reply" ? a.token : null;
+    if (text && token) problems.push(...biggestProblems(text, listHolders(snap.ws, { token, limit: 10 }).rows));
     const row = { n: i + 1, q: c.q.slice(0, 70), kind, fallback, secs: Math.round((Date.now() - t0) / 1000), cost: Number(cost.toFixed(4)), calls, text, reason: a?.kind === "silent" ? a.reason : undefined, problems };
     results.push(row);
     console.log(`${problems.length ? "FAIL" : "ok  "} #${row.n} ${row.kind}${fallback ? " (fallback)" : ""} ${row.secs}s $${row.cost} | ${row.q}\n${text ? text.split("\n").map((l) => "      " + l).join("\n") : `      (${row.reason ?? error})`}${problems.length ? `\n      !! ${problems.join("; ")}` : ""}`);
@@ -129,4 +138,5 @@ mkdirSync("out/x", { recursive: true });
 writeFileSync("out/x/eval-latest.json", JSON.stringify(results, null, 2));
 const fails = results.filter((r) => (r.problems as string[]).length);
 const total = results.reduce((s, r) => s + (r.cost as number), 0);
-console.log(`\n${results.length - fails.length}/${results.length} passed · ${results.filter((r) => r.fallback).length} fallbacks · about $${total.toFixed(2)} · median ${[...results.map((r) => r.secs as number)].sort((a, b) => a - b)[Math.floor(results.length / 2)]}s`);
+const median = (k: "secs" | "cost") => [...results.map((r) => r[k] as number)].sort((a, b) => a - b)[Math.floor(results.length / 2)];
+console.log(`\n${results.length - fails.length}/${results.length} passed · ${results.filter((r) => r.fallback).length} fallbacks · about $${total.toFixed(2)} · median ${median("secs")}s, $${median("cost")}`);
