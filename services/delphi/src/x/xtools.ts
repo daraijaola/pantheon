@@ -7,6 +7,18 @@ import { RULES } from "../config.ts";
 import type { Workspace } from "../ai/workspace.ts";
 import type { Verdict } from "../types.ts";
 
+/** Contracts DELPHI can name for sure (Elysium testnet, checked Oct 22). Anything else is "a contract". */
+export const KNOWN_ADDRESSES: Readonly<Record<string, string>> = {
+  "0x30c88fce1fad545df0fc603287f93f0f94076224": "PANTHEON's staking contract (PNTH staked by its holders)",
+  "0x1c6856862aac444b5ebfc65d2847e52b1c2b7176": "PANTHEON's free test-PNTH tap (testnet faucet)",
+  "0xd8cea0015e2c876ab5fa6d9178b46b57d65c6087": "PANTHEON's basket registry contract",
+  "0x2b738a9a69b7a45c9da6b519f6be6efbfb912aec": "Ascend's vault (holds every Ascend pool's tokens)",
+  "0xe2f6254508deb93da081837f545e0baf7b00d8e9": "Ascend's launchpad",
+  "0x90332b0ecbb2c9517f405627b0dd5d5265246563": "Ascend's router",
+  "0xc889ac2f59a88afb3b2fb3f2c452dba336fe5f0f": "Ascend's burn address (burned tokens)",
+  "0xf272cc84c3ba9f1b498ade29aaeed1e7d2d9f3fd": "the Elysium testnet faucet (public)",
+};
+
 /** One loaded scan: the workspace plus when and up to which block it was read. */
 export type Snapshot = { ws: Workspace; head: bigint; readAt: Date; notes: string[] };
 
@@ -96,6 +108,25 @@ export function delphiStatus(snap: Snapshot) {
   };
 }
 
+export function whatIsAddress(snap: Snapshot, input: { address: string }) {
+  let a = lc(input.address.trim());
+  // Reports shorten addresses (0x30c8…6224): match those against what DELPHI knows.
+  const short = a.match(/^0x([0-9a-f]{3,8})(?:…|\.\.\.)([0-9a-f]{3,8})$/);
+  if (short) {
+    const pool = new Set([...Object.keys(KNOWN_ADDRESSES), ...[...snap.ws.coins.values()].flatMap((d) => [lc(d.coin.token), lc(d.coin.creator)])]);
+    const hits = [...pool].filter((x) => x.slice(2).startsWith(short[1]!) && x.endsWith(short[2]!));
+    if (hits.length !== 1) return { address: input.address, is: "unknown to DELPHI: call it 'a contract' or 'a wallet' as the coin report says, and never guess what it is" };
+    a = hits[0]!;
+  }
+  if (!isAddress(a, { strict: false })) return { error: `${input.address} is not an address` };
+  if (KNOWN_ADDRESSES[a]) return { address: input.address, is: KNOWN_ADDRESSES[a] };
+  if (snap.ws.reports.has(a)) return { address: input.address, is: "an Ascend coin", ...row(snap, a) };
+  const creatorOf = [...snap.ws.coins.values()].filter((d) => lc(d.coin.creator) === a).length;
+  return creatorOf
+    ? { address: input.address, is: `the creator wallet of ${creatorOf} Ascend coin(s)` }
+    : { address: input.address, is: "unknown to DELPHI: call it 'a contract' or 'a wallet' as the coin report says, and never guess what it is" };
+}
+
 /** The X-only tools, each answering with JSON. */
 export function xTools(snap: Snapshot, onCall: (name: string, result: string) => void) {
   const json =
@@ -118,6 +149,13 @@ export function xTools(snap: Snapshot, onCall: (name: string, result: string) =>
       description: "Other Ascend coins launched by the same creator or launch wallet, with their verdicts. Use it for 'has this dev launched before?'.",
       inputSchema: z.object({ token: z.string().describe("The coin's token address (0x…)") }),
       run: json("creator_history", (i: { token: string }) => creatorHistory(snap, i)),
+    }),
+    betaZodTool({
+      name: "what_is_address",
+      description:
+        "Names an address DELPHI knows for sure (PANTHEON's staking or tap, Ascend's vault, launchpad or router, the testnet faucet, an Ascend coin, a creator). Call it before describing any contract that holds a big share. Unknown ones must not be guessed.",
+      inputSchema: z.object({ address: z.string().describe("A 0x address from a tool result") }),
+      run: json("what_is_address", (i: { address: string }) => whatIsAddress(snap, i)),
     }),
     betaZodTool({
       name: "delphi_status",

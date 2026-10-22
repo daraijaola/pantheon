@@ -13,7 +13,7 @@ import { findCoin } from "../src/x/find.ts";
 import { authHeader, signature } from "../src/x/oauth.ts";
 import { XState } from "../src/x/state.ts";
 import { grounded, knownNumbers, numbersIn, replyProblems, xLength } from "../src/x/text.ts";
-import { creatorHistory, delphiStatus, findCoinTool, type Snapshot } from "../src/x/xtools.ts";
+import { creatorHistory, delphiStatus, findCoinTool, whatIsAddress, type Snapshot } from "../src/x/xtools.ts";
 import { addr, hash, scenario, TOKEN } from "./scenario.ts";
 
 const WEB = "https://explorer.test/testnet-explorer";
@@ -105,6 +105,8 @@ describe("reply checks", () => {
     expect(replyProblems("the biggest holds 28%", k).join()).toMatch(/not in any tool result: 28%/);
     expect(replyProblems("together 50.78%", k).join()).toMatch(/round these/);
     expect(replyProblems("flagged; one group", k).join()).toMatch(/semicolons/);
+    expect(replyProblems("a contract holds it, likely staking", k).join()).toMatch(/no disclaimers or guesses/);
+    expect(replyProblems("Flagged.\n\nI read wallet patterns, not intent.", k).join()).toMatch(/no disclaimers/);
   });
 
   it("stops links, tags, hashtags, accusations, advice and invented numbers", () => {
@@ -159,6 +161,11 @@ describe("her extra tools", () => {
   it("lists a creator's other launches", () => {
     const got = creatorHistory(s, { token: OTHER });
     expect(got).toMatchObject({ otherLaunches: 2 });
+  });
+  it("names only the contracts it knows", () => {
+    expect(whatIsAddress(s, { address: "0x30c88fce1fAD545Df0fC603287f93F0f94076224" }).is).toMatch(/staking/);
+    expect(whatIsAddress(s, { address: addr(0x777) }).is).toMatch(/never guess/);
+    expect(whatIsAddress(s, { address: "0x30c8…6224" }).is).toMatch(/staking/);
   });
   it("says how fresh the data is", () => {
     expect(delphiStatus(s)).toMatchObject({ coins: 3, upToBlock: "12345" });

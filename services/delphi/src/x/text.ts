@@ -21,6 +21,7 @@ const LINK = /https?:\/\/|www\.|\b[a-z0-9-]{2,}\.(?:com|xyz|io|fun|app|org|net|g
 const ACCUSE = /\b(?:scam|scams|scammer|scammers|scammy|fraud|fraudulent|fraudster|ponzi|honeypot|rug\s?pull(?:s|er|ers|ed)?|rugger|criminal|thief|thieves|stole|steal)\b/i;
 const ADVISE =
   /\b(?:you should|i(?:'d| would) (?:buy|sell|ape|avoid|stay away)|(?:buy|sell|ape|avoid|dump) (?:it|this|now|here)\b|stay away|safe to (?:buy|ape|hold|invest)|not financial advice|nfa\b|dyor\b|guaranteed|to the moon|moon(?:ing)?\b|100x|1000x|gem\b|send it\b|lfg\b)/i;
+const FILLER = /\b(?:not intent|can'?t call|cannot call|can'?t say (?:it'?s|if)|unverified by me|i read (?:wallet )?patterns|just what (?:the )?wallets did|likely|probably|seems to be|appears to be)\b/i;
 const FULL_ADDRESS = /0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/g;
 const SHORT_ADDRESS = /0x([0-9a-fA-F]{3,8})(?:…|\.\.\.)([0-9a-fA-F]{3,8})/g;
 const HASH = /0x[0-9a-fA-F]{64}/g;
@@ -70,6 +71,8 @@ export function replyProblems(text: string, c: Check): string[] {
   if (/@\w/.test(t)) errors.push("no @tags in a reply: X already shows who she is answering");
   if (/#\w/.test(t)) errors.push("no hashtags");
   if (t.includes(";")) errors.push("no semicolons: use a new line or a full stop");
+  const filler = t.match(FILLER);
+  if (filler) errors.push(`"${filler[0]}": no disclaimers or guesses. State what DELPHI knows, or leave it out (name contracts with what_is_address).`);
   const accuse = t.match(ACCUSE);
   if (accuse) errors.push(`"${accuse[0]}" accuses someone; say what the wallets did instead`);
   const advise = t.match(ADVISE);
