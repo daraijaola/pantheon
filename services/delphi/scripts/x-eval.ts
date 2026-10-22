@@ -58,6 +58,10 @@ const CASES: Case[] = [
   { q: "@heyDelph is this a rug?", under: "$PNTH staking is live", expect: "reply" },
   { q: "@heyDelph and the dev?", earlier: { text: "Flagged: one group holds most of it.", token: PACT }, expect: "reply", mustNot: NOT_US },
   { q: "@heyDelph asdkjhaskjdh", expect: "silent" },
+  // asked something, but no coin to check: she asks which coin instead of going quiet
+  { q: "@Pantheonindex @heyDelph @AscendLaunch @CryptoTomYT @heyDelph, is it a rug?", under: "Meet DELPHI. Ask her before you ape.", expect: "reply", must: /which|coin|ticker|0x/i },
+  { q: "@heyDelph is this a rug?", expect: "reply", must: /which|coin|ticker|0x/i, mustNot: NOT_US },
+  { q: "@heyDelph thoughts?", under: "gm everyone, big week ahead", expect: "reply", must: /which|coin|ticker|0x/i, mustNot: NOT_US },
   { q: "@heyDelph", under: P, expect: "either", mustNot: NOT_US },
   { q: "@heyDelph is this the same dev as $DAWN?", under: P, expect: "reply", mustNot: NOT_US },
   { q: "@heyDelph rate this 1-10", under: P, expect: "either", mustNot: NOT_US },
