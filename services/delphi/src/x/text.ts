@@ -71,6 +71,8 @@ export function replyProblems(text: string, c: Check): string[] {
   if (/@\w/.test(t)) errors.push("no @tags in a reply: X already shows who she is answering");
   if (/#\w/.test(t)) errors.push("no hashtags");
   if (t.includes(";")) errors.push("no semicolons: use a new line or a full stop");
+  const cashtags = t.match(/(?<![\w$])\$[A-Za-z][A-Za-z0-9]{0,11}\b/g) ?? [];
+  if (cashtags.length > 1) errors.push(`X allows one $ticker per post: keep the $ on one (${cashtags[0]}) and write the others without it (PNTH, not $PNTH)`);
   const filler = t.match(FILLER);
   if (filler) errors.push(`"${filler[0]}": no disclaimers or guesses. State what DELPHI knows, or leave it out (name contracts with what_is_address).`);
   const accuse = t.match(ACCUSE);

@@ -106,6 +106,8 @@ describe("reply checks", () => {
     expect(replyProblems("together 50.78%", k).join()).toMatch(/round these/);
     expect(replyProblems("flagged; one group", k).join()).toMatch(/semicolons/);
     expect(replyProblems("a contract holds it, likely staking", k).join()).toMatch(/no disclaimers or guesses/);
+    expect(replyProblems("$PACT is not $PNTH", k).join()).toMatch(/one \$ticker per post/);
+    expect(replyProblems("$PACT is not PNTH", k)).toEqual([]);
     expect(replyProblems("Flagged.\n\nI read wallet patterns, not intent.", k).join()).toMatch(/no disclaimers/);
   });
 
@@ -280,6 +282,19 @@ describe("handling a mention", () => {
     const { deps, posted } = setup({ kind: "silent", reason: "a giveaway list" });
     expect(await handleMention(post("40", "@heydelph follow these"), { byId: new Map(), users }, cfg, deps)).toMatchObject({ status: "silent" });
     expect(posted).toEqual([]);
+  });
+
+  it("re-posts with the read time when X calls the reply a duplicate", async () => {
+    const { deps, state } = setup();
+    const sent: string[] = [];
+    deps.api.reply = async (_to, text) => {
+      sent.push(text);
+      if (sent.length === 1) throw new XError("X 403 on POST /2/tweets: You are not allowed to create a Tweet with duplicate content.", 403);
+      return "r9";
+    };
+    expect(await handleMention(post("60", "@heydelph $TEST?"), { byId: new Map(), users }, cfg, deps)).toMatchObject({ status: "replied" });
+    expect(sent[1]).toMatch(/as of \d\d:\d\d UTC$/);
+    expect(state.get("60")?.reply_text).toBe(sent[1]);
   });
 
   it("records a failure and posts nothing when answering breaks", async () => {

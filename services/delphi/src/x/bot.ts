@@ -2,7 +2,7 @@
 // is about, what she answers, and whether that answer is posted (live) or only saved as a draft
 // (shadow). Every outcome is recorded, so no post is ever answered twice.
 import type { Answer, Context } from "./agent.ts";
-import { fullText, type Post, type User } from "./api.ts";
+import { fullText, XError, type Post, type User } from "./api.ts";
 import { findCoin, type Found } from "./find.ts";
 import type { XState } from "./state.ts";
 import type { Snapshot } from "./xtools.ts";
@@ -139,9 +139,20 @@ export async function handleMention(
       deps.onDraft?.({ mention: m.id, author, question: fullText(m), reply: answer.text, token: answer.token });
       return { id: m.id, status: "drafted", text: answer.text };
     }
-    const replyId = await deps.api.reply(m.id, answer.text);
-    deps.state.finish(m.id, "replied", { replyId, replyText: answer.text, token: answer.token, cost });
-    return { id: m.id, status: "replied", text: answer.text };
+    // X refuses a post identical to one she already made (two people asking about the same coin):
+    // the same facts, stamped with the read time, are a different post.
+    let text = answer.text;
+    let replyId: string;
+    try {
+      replyId = await deps.api.reply(m.id, text);
+    } catch (err) {
+      if (!(err instanceof XError && err.status === 403 && /duplicate/i.test(err.message))) throw err;
+      const t = new Date(snap.readAt).toISOString().slice(11, 16);
+      text = `${answer.text}\n\nas of ${t} UTC`;
+      replyId = await deps.api.reply(m.id, text);
+    }
+    deps.state.finish(m.id, "replied", { replyId, replyText: text, token: answer.token, cost });
+    return { id: m.id, status: "replied", text };
   } catch (err) {
     const reason = (err instanceof Error ? err.message : String(err)).slice(0, 300);
     deps.state.finish(m.id, "failed", { reason });
