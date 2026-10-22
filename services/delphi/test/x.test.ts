@@ -13,7 +13,8 @@ import { findCoin } from "../src/x/find.ts";
 import { authHeader, signature } from "../src/x/oauth.ts";
 import { XState } from "../src/x/state.ts";
 import { grounded, knownNumbers, numbersIn, replyProblems, xLength } from "../src/x/text.ts";
-import { creatorHistory, delphiStatus, findCoinTool, whatIsAddress, type Snapshot } from "../src/x/xtools.ts";
+import { creatorHistory, delphiStatus, findCoinTool, market, whatIsAddress, type Snapshot } from "../src/x/xtools.ts";
+import { fallbackReply } from "../src/x/fallback.ts";
 import { addr, hash, scenario, TOKEN } from "./scenario.ts";
 
 const WEB = "https://explorer.test/testnet-explorer";
@@ -164,6 +165,15 @@ describe("her extra tools", () => {
     const got = creatorHistory(s, { token: OTHER });
     expect(got).toMatchObject({ otherLaunches: 2 });
   });
+  it("keeps PANTHEON out of answers about other coins", () => {
+    expect(whatIsAddress(s, { address: "0x30c88fce1fAD545Df0fC603287f93F0f94076224" }, false).is).not.toMatch(/PANTHEON/);
+    expect(whatIsAddress(s, { address: "0x30c88fce1fAD545Df0fC603287f93F0f94076224" }, true).is).toMatch(/PANTHEON/);
+  });
+  it("reads price, market cap and volume from the coin's trades", () => {
+    const m = market(s, { token: TOKEN }) as Record<string, unknown>;
+    expect(m.allTime).toMatchObject({ trades: 2 });
+    expect(m).toHaveProperty("network");
+  });
   it("names only the contracts it knows", () => {
     expect(whatIsAddress(s, { address: "0x30c88fce1fAD545Df0fC603287f93F0f94076224" }).is).toMatch(/staking/);
     expect(whatIsAddress(s, { address: addr(0x777) }).is).toMatch(/never guess/);
@@ -295,6 +305,18 @@ describe("handling a mention", () => {
     expect(await handleMention(post("60", "@heydelph $TEST?"), { byId: new Map(), users }, cfg, deps)).toMatchObject({ status: "replied" });
     expect(sent[1]).toMatch(/as of \d\d:\d\d UTC$/);
     expect(state.get("60")?.reply_text).toBe(sent[1]);
+  });
+
+  it("answers from DELPHI's report when the model fails on a coin question", async () => {
+    const { deps, posted } = setup();
+    deps.answer = async () => {
+      throw new Error("model unreachable");
+    };
+    deps.fallback = fallbackReply;
+    const out = await handleMention(post("70", "@heydelph is $TEST safe?"), { byId: new Map(), users }, cfg, deps);
+    expect(out.status).toBe("replied");
+    expect(posted[0]?.text).toMatch(/^(Flagged|On watch|Clean so far|Too early to tell)/);
+    expect(posted[0]?.text).not.toMatch(/PANTHEON|\d+\.\d+%/);
   });
 
   it("records a failure and posts nothing when answering breaks", async () => {

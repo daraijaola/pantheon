@@ -5,6 +5,7 @@ import type { Answer, Context } from "./agent.ts";
 import { fullText, XError, type Post, type User } from "./api.ts";
 import { findCoin, type Found } from "./find.ts";
 import type { XState } from "./state.ts";
+import type { Verdict } from "../types.ts";
 import type { Snapshot } from "./xtools.ts";
 
 export type BotConfig = Readonly<{
@@ -27,6 +28,8 @@ export type BotDeps = {
   /** Fresher data for one coin when there is any (falls back to the current snapshot). */
   refreshCoin?: (token: string) => Promise<Snapshot>;
   answer: (c: Context, snap: Snapshot) => Promise<{ answer: Answer; cost: number }>;
+  /** A plain answer from DELPHI's report, for when the model can't give one that passes the checks. */
+  fallback?: (snap: Snapshot, token: string) => { text: string; verdict: Verdict } | null;
   onDraft?: (d: { mention: string; author: string; question: string; reply: string; token: string | null }) => void;
   now?: () => number;
   log?: (msg: string) => void;
@@ -125,10 +128,21 @@ export async function handleMention(
     }
 
     const view = (p: Post | null) => (p ? { author: name(p), text: fullText(p) } : null);
-    const { answer, cost } = await deps.answer(
-      { question: { author, text: fullText(m) }, parent: view(parent), quoted: view(quoted), grandparent: view(grandparent), found, earlier },
-      snap,
-    );
+    let answer: Answer;
+    let cost = 0;
+    try {
+      ({ answer, cost } = await deps.answer(
+        { question: { author, text: fullText(m) }, parent: view(parent), quoted: view(quoted), grandparent: view(grandparent), found, earlier },
+        snap,
+      ));
+    } catch (err) {
+      // A coin question still gets an answer when the model fails: DELPHI's own report, in plain words.
+      if (found.kind !== "coin") throw err;
+      const plain = deps.fallback?.(snap, found.token);
+      if (!plain) throw err;
+      log(`answering ${m.id} from the report (${(err as Error).message.slice(0, 120)})`);
+      answer = { kind: "reply", text: plain.text, token: found.token, verdict: plain.verdict };
+    }
 
     if (answer.kind === "silent") {
       deps.state.finish(m.id, "silent", { reason: answer.reason, cost });

@@ -18,6 +18,7 @@ import { XApi, XError, type Post } from "../src/x/api.ts";
 import { handleMention, type BotConfig } from "../src/x/bot.ts";
 import { loadXConfig, loadXKeys, readSecret } from "../src/x/config.ts";
 import { ChainView } from "../src/x/data.ts";
+import { fallbackReply } from "../src/x/fallback.ts";
 import { findCoin } from "../src/x/find.ts";
 import { XState } from "../src/x/state.ts";
 
@@ -114,6 +115,7 @@ try {
             snapshot: () => view.snapshot(),
             refreshCoin: (t) => view.forCoin(t),
             answer: think,
+            fallback: fallbackReply,
             onDraft,
             log,
           });
