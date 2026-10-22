@@ -3,7 +3,7 @@
 import type { Address, Hex } from "viem";
 import { TOTAL_SUPPLY, type Network } from "../src/config.ts";
 import { actorsOf, buildLinks, findHubs, payeesOf, type Payees } from "../src/graph.ts";
-import type { Coin, CoinData, Funding, TokenTransfer, Trade } from "../src/types.ts";
+import type { Coin, CoinData, Funding, FundingKind, TokenTransfer, Trade } from "../src/types.ts";
 
 export const addr = (n: number): Address => `0x${n.toString(16).padStart(40, "0")}`;
 export const hash = (n: number): Hex => `0x${n.toString(16).padStart(64, "0")}`;
@@ -70,16 +70,16 @@ export function scenario(opts: { creator?: Address; launcher?: Address } = {}) {
       transfers.push({ ...at(sec), from, to, value: M(millions) });
       return s;
     },
-    /** `contract`: a contract paid it inside a transaction `funder` sent (a sale, a game win), not a plain transfer. */
-    fund(wallet: Address, funder: Address, sec = -3_600, how: "transfer" | "contract" = "transfer") {
+    /** `payout`: a contract paid it inside a call `funder` made (a sale, a game win); `multisend`: a multi-send call. */
+    fund(wallet: Address, funder: Address, sec = -3_600, kind: FundingKind = "transfer") {
       const b = at(sec);
-      fundings.push({ wallet, funder, value: 10n ** 17n, tx: b.tx, time: b.time, ...(how === "contract" ? { internal: true } : {}) });
+      fundings.push({ wallet, funder, value: 10n ** 17n, tx: b.tx, time: b.time, kind });
       return s;
     },
-    /** One transaction from `sender` in which a contract pays HYPE to every wallet (a batch payment). */
-    payout(wallets: Address[], sender: Address, sec = -3_600) {
+    /** One call by `sender` in which a contract pays HYPE to every wallet: a sale or a game by default, or a multi-send. */
+    payout(wallets: Address[], sender: Address, sec = -3_600, kind: "payout" | "multisend" = "payout") {
       const b = at(sec);
-      for (const wallet of wallets) fundings.push({ wallet, funder: sender, value: 10n ** 17n, tx: b.tx, time: b.time, internal: true });
+      for (const wallet of wallets) fundings.push({ wallet, funder: sender, value: 10n ** 17n, tx: b.tx, time: b.time, kind });
       return s;
     },
     /**

@@ -13,10 +13,7 @@ export const pct = (a: bigint, b: bigint) => (b === 0n ? 0 : Number((a * 10_000n
 const grade = (v: number, t: { watchPct: number; flagPct: number }): Severity | null =>
   v >= t.flagPct ? "flag" : v >= t.watchPct ? "watch" : null;
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
-const linkEvidence = (l: Link) => ({
-  what: `link: ${l.reason.replace("-", " ")} ${short(l.a)} ↔ ${short(l.b)}${l.secondHand ? " (second-hand: a contract's batch payout)" : ""}`,
-  tx: l.evidence[0]!,
-});
+const linkEvidence = (l: Link) => ({ what: `link: ${l.reason.replace("-", " ")} ${short(l.a)} ↔ ${short(l.b)}`, tx: l.evidence[0]! });
 
 function groupBy<T>(items: T[], key: (t: T) => string): Map<string, T[]> {
   const m = new Map<string, T[]>();
@@ -30,8 +27,8 @@ function groupBy<T>(items: T[], key: (t: T) => string): Map<string, T[]> {
 
 /**
  * Launch bundle: linked wallets buying in the first seconds after launch. The creator's own
- * disclosed dev-buy alone is not a bundle; the creator plus linked early buyers is. Only direct
- * evidence links them here (v0.3): one funder's star, tokens or trades passed between them.
+ * disclosed dev-buy alone is not a bundle; the creator plus linked early buyers is. Linked means one
+ * group (v0.3): one funder's star, or wallets that passed tokens or trades between them.
  */
 export function detectBundle(d: CoinData): DetectorResult {
   const end = d.coin.launchTime + RULES.bundle.windowSec;
@@ -42,7 +39,6 @@ export function detectBundle(d: CoinData): DetectorResult {
 
   let worst: { members: Set<string>; tokens: bigint; trades: Trade[]; group: Group } | null = null;
   for (const group of groupsOf(d.links)) {
-    if (group.secondHand) continue;
     const trades = early.filter((t) => group.members.has(lc(t.holder)));
     const members = new Set(trades.map((t) => lc(t.holder)));
     if (members.size < RULES.bundle.minLinkedWallets) continue;
@@ -95,7 +91,7 @@ export function detectWash(d: CoinData): DetectorResult {
   if (!severity) return { enough: true, finding: null };
 
   const washers = new Set([...matched.keys()].map(actor));
-  const linked = linksWithin(d.links.filter((l) => !l.secondHand), washers);
+  const linked = linksWithin(d.links, washers);
   const minutes = RULES.wash.pairWindowSec / 60;
   return {
     enough: true,
@@ -192,45 +188,31 @@ function lastIn(d: CoinData, w: string): Hex | null {
 /**
  * Hidden concentration: linked wallets that together hold much of what is in circulation. The share is
  * measured per group (v0.3): one funder's star, or wallets that passed tokens or trades between them,
- * never a chain of different funders. A group that needs second-hand evidence (HYPE a contract paid
- * out in someone else's transaction) is reported as a WATCH at most, and says so.
+ * never a chain of different funders.
  */
 export function detectConcentration(d: CoinData): DetectorResult {
   const bal = balances(d);
   if (bal.size < RULES.concentration.minHolders) return { enough: false, finding: null };
   const circulating = [...bal.values()].reduce((s, v) => s + v, 0n);
-  const worst = { direct: null as Held | null, secondHand: null as Held | null };
+  let pick: { members: string[]; held: bigint; group: Group } | null = null;
   for (const group of groupsOf(d.links)) {
     const members = [...group.members].filter((w) => bal.has(w)).sort((a, b) => (bal.get(b)! > bal.get(a)! ? 1 : bal.get(b)! < bal.get(a)! ? -1 : 0));
     if (members.length < 2) continue;
     const held = members.reduce((s, w) => s + bal.get(w)!, 0n);
-    const k = group.secondHand ? "secondHand" : "direct";
-    if (!worst[k] || held > worst[k].held) worst[k] = { members, held, group };
+    if (!pick || held > pick.held) pick = { members, held, group };
   }
-  const severityOf = (h: Held | null): Severity | null => {
-    if (!h) return null;
-    const s = grade(pct(h.held, circulating), RULES.concentration);
-    return h.group.secondHand && s === "flag" ? RULES.link.secondHandMax : s;
-  };
-  // Direct evidence wins; second-hand evidence only speaks when there is nothing direct to say.
-  const direct = severityOf(worst.direct);
-  const pick = direct ? worst.direct! : severityOf(worst.secondHand) ? worst.secondHand! : null;
   if (!pick) return { enough: true, finding: null };
-  const severity = severityOf(pick)!;
   const share = pct(pick.held, circulating);
+  const severity = grade(share, RULES.concentration);
+  if (!severity) return { enough: true, finding: null };
   const n = pick.members.length;
-  const summary = pick.group.secondHand
-    ? `${n} wallets hold ${share}% of the tokens held by all ${bal.size} holders, tied only by second-hand evidence: ` +
-      `contracts paid HYPE to several of them at once, in transactions sent by ${short(pick.group.anchor)} (a batch payment, or a ` +
-      "marketplace or game paying several wallets). That does not show one owner, so it is a WATCH at most."
-    : `${n} linked wallets hold ${share}% of the tokens held by all ${bal.size} holders.`;
   return {
     enough: true,
     finding: {
       detector: "concentration",
       severity,
-      summary,
-      metrics: { linkedWallets: n, circulatingPct: share, holders: bal.size, evidence: pick.group.secondHand ? "second-hand" : "direct" },
+      summary: `${n} linked wallets hold ${share}% of the tokens held by all ${bal.size} holders.`,
+      metrics: { linkedWallets: n, circulatingPct: share, holders: bal.size },
       evidence: [
         ...pick.members.slice(0, 8).map((w) => ({ what: `${short(w)} holds ${pct(bal.get(w)!, circulating)}%`, tx: lastIn(d, w) })),
         ...groupEvidence(pick.group, new Set(pick.members)).map(linkEvidence),
@@ -238,5 +220,3 @@ export function detectConcentration(d: CoinData): DetectorResult {
     },
   };
 }
-
-type Held = { members: string[]; held: bigint; group: Group };

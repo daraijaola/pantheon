@@ -6,8 +6,9 @@
 // on a farmed testnet, chaining joined dozens of separate farmers into one "group" through wallets
 // that had each been paid by several of them.
 import type { Address, Hex } from "viem";
-import { KNOWN_HUBS, RULES, type Network } from "./config.ts";
-import type { CoinData, Funding, Link, LinkReason, TokenTransfer, Trade } from "./types.ts";
+import type { TxCall } from "./chain.ts";
+import { KNOWN_HUBS, MULTISEND_SELECTORS, RULES, type Network } from "./config.ts";
+import type { CoinData, Funding, FundingKind, Link, LinkReason, TokenTransfer, Trade } from "./types.ts";
 
 const lc = (a: string) => a.toLowerCase();
 
@@ -17,8 +18,8 @@ export type Payees = { wallets: number; coins: number };
 /**
  * Funders that are public infrastructure: listed faucets, or anything with a huge transaction count.
  * Linking through them would make every faucet user "one sybil ring" (on testnet that is everyone).
- * On testnet (v0.3), also any wallet that paid many of the tracked wallets, or wallets that went on to
- * trade many different coins: a distribution bot or a farm, not one coin's insider.
+ * On testnet (v0.3), also any wallet that paid tracked wallets which went on to trade many different
+ * coins: a distribution bot or a farm, not one coin's insider.
  */
 export function findHubs(
   txCounts: ReadonlyMap<string, number>,
@@ -27,12 +28,22 @@ export function findHubs(
   const hubs = new Set(KNOWN_HUBS.map(lc));
   for (const [addr, n] of txCounts) if (n >= RULES.hub.minTxCount) hubs.add(lc(addr));
   if (opts.network === "testnet") {
-    const { testnetFanoutWallets: many, testnetFanoutCoins: spread } = RULES.hub;
-    for (const [addr, p] of opts.payees ?? []) {
-      if (p.wallets >= many || (p.wallets >= spread.wallets && p.coins >= spread.coins)) hubs.add(lc(addr));
-    }
+    const spread = RULES.hub.testnetFanout;
+    for (const [addr, p] of opts.payees ?? []) if (p.wallets >= spread.wallets && p.coins >= spread.coins) hubs.add(lc(addr));
   }
   return hubs;
+}
+
+/**
+ * What kind of payment a funding is. A contract's payout counts as the caller's own funding only when
+ * the call was a multi-send (a function whose job is sending HYPE to many addresses), the sender put HYPE
+ * in, and the multi-send contract itself paid. Anything else a contract paid is a sale, a game win or a
+ * refund. `payer`: the contract that paid it; `call`: the transaction's call, if known.
+ */
+export function fundingKind(via: "tx" | "internal", payer: string, call: TxCall | undefined): FundingKind {
+  if (via === "tx") return "transfer";
+  const multisend = call !== undefined && MULTISEND_SELECTORS.has(call.selector) && call.to === lc(payer) && BigInt(call.value) > 0n;
+  return multisend ? "multisend" : "payout";
 }
 
 /**
@@ -101,42 +112,29 @@ export function buildLinks(input: {
     links.push({ a: input.launcher, b: input.creator, reason: "is-creator", evidence: [input.launchTx] });
   }
 
-  // Funding. HYPE a contract paid inside someone else's transaction is second-hand, unless the coin's own
-  // creator or launcher sent that transaction. It only counts when one transaction paid two or more of
-  // the coin's wallets (a batch payment, as through a disperse contract). A lone payout is most often a
-  // sale or a game win (seen live: a marketplace paying sellers 88% of a round price, coin-flip payouts).
+  // Funding: plain transfers and multi-sends. Any other contract payout is a sale, a game win or a refund
+  // (seen live: a marketplace paying sellers 88% of a round price, coin-flip and game payouts sent by the
+  // games' own bots) and links no one, unless the coin's own creator or launcher sent that transaction.
   const team = new Set([lc(input.creator), lc(input.launcher)]);
-  const secondHand = (f: Funding) => f.internal === true && !team.has(lc(f.funder));
+  const counts = (f: Funding) => f.kind !== "payout" || team.has(lc(f.funder));
   // A coin's own creator or launcher is never a public hub for that coin, however busy it is elsewhere.
   const publicFunder = (a: string) => system.has(lc(a)) || (hubs.has(lc(a)) && !team.has(lc(a)));
-  const mark = (weak: boolean) => (weak ? { secondHand: true as const } : {});
-  const paidIn = new Map<string, Set<string>>();
-  for (const f of input.fundings) {
-    if (!secondHand(f) || !actors.has(lc(f.wallet))) continue;
-    const k = `${lc(f.funder)} ${lc(f.tx)}`;
-    if (!paidIn.has(k)) paidIn.set(k, new Set());
-    paidIn.get(k)!.add(lc(f.wallet));
-  }
-  const batch = (f: Funding) => (paidIn.get(`${lc(f.funder)} ${lc(f.tx)}`)?.size ?? 0) >= 2;
-  // One payment per funder and wallet: the first plain transfer, else the first batch payout.
+  // One payment per funder and wallet (the first), so repeated top-ups don't repeat the link.
   const byFunder = new Map<string, Map<string, Funding>>();
   for (const f of input.fundings) {
-    if (!actors.has(lc(f.wallet)) || publicFunder(f.funder) || lc(f.funder) === lc(f.wallet)) continue;
-    if (secondHand(f) && !batch(f)) continue;
+    if (!actors.has(lc(f.wallet)) || publicFunder(f.funder) || lc(f.funder) === lc(f.wallet) || !counts(f)) continue;
     const k = lc(f.funder);
     if (!byFunder.has(k)) byFunder.set(k, new Map());
     const paid = byFunder.get(k)!;
-    const cur = paid.get(lc(f.wallet));
-    if (!cur || (secondHand(cur) && !secondHand(f))) paid.set(lc(f.wallet), f);
+    if (!paid.has(lc(f.wallet))) paid.set(lc(f.wallet), f);
   }
   for (const [k, paid] of byFunder) {
-    // Plain transfers first, so the star's direct wallets link to each other directly.
-    const fs = [...paid.values()].sort((x, y) => Number(secondHand(x)) - Number(secondHand(y)));
+    const fs = [...paid.values()];
     // An actor funding another links them; a shared private funder links the funded wallets.
-    if (actors.has(k)) for (const f of fs) links.push({ a: f.funder, b: f.wallet, reason: "funded-by", evidence: [f.tx], ...mark(secondHand(f)) });
+    if (actors.has(k)) for (const f of fs) links.push({ a: f.funder, b: f.wallet, reason: "funded-by", evidence: [f.tx] });
     for (let i = 1; i < fs.length; i++) {
       const [x, y] = [fs[0]!, fs[i]!];
-      links.push({ a: x.wallet, b: y.wallet, reason: "shared-funder", via: x.funder, evidence: [x.tx, y.tx], ...mark(secondHand(x) || secondHand(y)) });
+      links.push({ a: x.wallet, b: y.wallet, reason: "shared-funder", via: x.funder, evidence: [x.tx, y.tx] });
     }
   }
 
@@ -160,11 +158,10 @@ export function buildLinks(input: {
 const PAIR: ReadonlySet<LinkReason> = new Set(["token-pass", "bought-for", "sold-for", "is-creator"]);
 
 /**
- * A set of wallets DELPHI treats as possibly one actor. `anchor`: the funder whose star it is, or the
- * smallest address of a set joined by direct token or trade links. `secondHand`: at least one member is
- * in only through HYPE a contract paid out (a WATCH at most). `links`: the links that make the group.
+ * A set of wallets DELPHI treats as one actor. `anchor`: the funder whose star it is, or the smallest
+ * address of a set joined by direct token or trade links. `links`: the links that make the group.
  */
-export type Group = { anchor: string; members: Set<string>; links: Link[]; secondHand: boolean };
+export type Group = { anchor: string; members: Set<string>; links: Link[] };
 
 /**
  * The groups behind a coin's links (v0.3). Wallets that moved tokens or trades straight between each
@@ -182,19 +179,14 @@ export function groupsOf(links: Link[]): Group[] {
   }
   for (const l of pairs) comps.get(root.get(lc(l.a))!)!.links.push(l);
 
-  type Star = { direct: Set<string>; all: Set<string>; directLinks: Link[]; allLinks: Link[] };
-  const stars = new Map<string, Star>();
+  const stars = new Map<string, { members: Set<string>; links: Link[] }>();
   for (const l of links) {
     if (PAIR.has(l.reason)) continue;
     const anchor = lc(l.via ?? l.a);
-    if (!stars.has(anchor)) stars.set(anchor, { direct: new Set(), all: new Set(), directLinks: [], allLinks: [] });
+    if (!stars.has(anchor)) stars.set(anchor, { members: new Set(), links: [] });
     const s = stars.get(anchor)!;
-    for (const w of [l.a, l.b]) s.all.add(lc(w));
-    s.allLinks.push(l);
-    if (!l.secondHand) {
-      for (const w of [l.a, l.b]) s.direct.add(lc(w));
-      s.directLinks.push(l);
-    }
+    for (const w of [l.a, l.b]) s.members.add(lc(w));
+    s.links.push(l);
   }
   const widen = (seed: Set<string>, base: Link[]) => {
     const members = new Set<string>();
@@ -216,11 +208,8 @@ export function groupsOf(links: Link[]): Group[] {
   };
 
   const groups: Group[] = [];
-  for (const [anchor, s] of stars) {
-    if (s.direct.size >= 2) groups.push({ anchor, ...widen(s.direct, s.directLinks), secondHand: false });
-    if (s.all.size > s.direct.size) groups.push({ anchor, ...widen(s.all, s.allLinks), secondHand: true });
-  }
-  for (const [r, c] of comps) if (c.members.size >= 2) groups.push({ anchor: r, members: new Set(c.members), links: [...c.links], secondHand: false });
+  for (const [anchor, s] of stars) groups.push({ anchor, ...widen(s.members, s.links) });
+  for (const [r, c] of comps) if (c.members.size >= 2) groups.push({ anchor: r, members: new Set(c.members), links: [...c.links] });
   return groups;
 }
 
@@ -252,12 +241,11 @@ function unionFind(links: Link[]): Map<string, string> {
 
 /**
  * Each wallet's actor (wallet, lowercase → cluster id, the smallest address in its cluster), for checks
- * that need every wallet in exactly one place (wash trading, people counts). Built from direct groups
- * only, biggest first: a wallet in two funders' stars goes to the bigger one, and the stars stay apart.
+ * that need every wallet in exactly one place (wash trading, people counts). Built from the groups,
+ * biggest first: a wallet in two funders' stars goes to the bigger one, and the stars stay apart.
  */
 export function clusters(links: Link[], wallets: Iterable<string> = []): Map<string, string> {
   const groups = groupsOf(links)
-    .filter((g) => !g.secondHand)
     .sort((x, y) => y.members.size - x.members.size || (x.anchor < y.anchor ? -1 : x.anchor > y.anchor ? 1 : 0));
   const out = new Map<string, string>();
   for (const g of groups) {

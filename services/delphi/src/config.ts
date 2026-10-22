@@ -1,5 +1,5 @@
 // DELPHI: settings and the detection rules' thresholds. Read-only service: no wallet keys, no transactions.
-import { getAddress, isAddress, type Address } from "viem";
+import { getAddress, isAddress, toFunctionSelector, type Address } from "viem";
 import { z } from "zod";
 
 const address = z
@@ -86,6 +86,34 @@ export const KNOWN_HUBS: readonly Address[] = [
 ];
 
 /**
+ * Contract calls whose job is sending HYPE to many addresses at once. HYPE such a call pays out is the
+ * caller's own money, so it funds each recipient like a plain transfer. Disperse.app's functions plus
+ * common multi-send variants; checked against every contract payout seen on Elysium testnet (Oct 22).
+ * Any other contract payout (a marketplace paying sellers, a game paying winners, a router, a bridge,
+ * a refund) links no one.
+ */
+export const MULTISEND_CALLS: readonly string[] = [
+  "disperseEther(address[],uint256[])",
+  "disperseToken(address,address[],uint256[])",
+  "disperseTokenSimple(address,address[],uint256[])",
+  "multisendEther(address[],uint256[])",
+  "multisendToken(address,address[],uint256[])",
+  "multiSendEth(address[],uint256[])",
+  "multisend(address[],uint256[])",
+  "multiSend(address[],uint256[])",
+  "multiTransfer(address[],uint256[])",
+  "batchTransfer(address[],uint256[])",
+  "batchSend(address[],uint256[])",
+  "bulkTransfer(address[],uint256[])",
+  "bulkSend(address[],uint256[])",
+  "sendEth(address[],uint256[])",
+  "sendEther(address[],uint256[])",
+  "airdropETH(address[],uint256[])",
+];
+/** The 4-byte selectors of MULTISEND_CALLS. */
+export const MULTISEND_SELECTORS: ReadonlySet<string> = new Set(MULTISEND_CALLS.map((c) => toFunctionSelector(c)));
+
+/**
  * The rules, in one place, versioned with every report so a verdict can always be re-derived.
  * Plain thresholds on purpose: v0 must be explainable to a judge in one sentence each.
  */
@@ -98,26 +126,13 @@ export const RULES = {
      */
     minTxCount: 5_000,
     /**
-     * Testnet only (v0.3): a wallet that paid HYPE to this many of the wallets DELPHI tracks is a
-     * distribution bot or a farm, not a coin's insider. Seen live: 211 farm funders paid 10 to 19 wallets
-     * each, and only 3 paid 20 or more (186, 29 and 24, the last a game's payout bot).
-     */
-    testnetFanoutWallets: 20,
-    /**
      * Testnet only (v0.3): a wallet that paid HYPE to at least `wallets` tracked wallets which between them
-     * traded `coins` or more different coins seeds wallets for all kinds of uses: it links no one. A ring
-     * seeds wallets for the coin it pumps.
+     * traded `coins` or more different coins (not counting coins it launched) is a distribution bot or a
+     * farm spreading wallets over everything, not one coin's insider: it links no one. A ring seeds its
+     * wallets for the coin it pumps, however many there are. Seen live: 3 funders match.
      */
-    testnetFanoutCoins: { wallets: 5, coins: 5 },
+    testnetFanout: { wallets: 5, coins: 5 },
   },
-  /**
-   * How wallets join into one actor (v0.3). Only direct evidence can make a FLAG: one private funder's
-   * own star of wallets, a wallet funding another, tokens passed between wallets, a trade made for another
-   * wallet, the launcher naming another creator. Groups never chain through two different funders.
-   * HYPE a contract paid out inside someone else's transaction is second-hand: it counts only when one
-   * transaction paid two or more of the coin's wallets (a batch), and then supports a WATCH at most.
-   */
-  link: { secondHandMax: "watch" },
   bundle: {
     /** Buys this soon after the launch transaction count as "at launch". */
     windowSec: 30,

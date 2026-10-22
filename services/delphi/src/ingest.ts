@@ -12,11 +12,12 @@ import {
   SWAP,
   tokenMeta,
   TRANSFER,
+  txCalls,
   txSenders,
 } from "./chain.ts";
 import { KNOWN_HUBS, STATIC_SYSTEM, type Config } from "./config.ts";
 import { ExplorerBudgetError, type Explorer, type RawFunding } from "./explorer.ts";
-import { actorsOf, buildLinks, findHubs, payeesOf } from "./graph.ts";
+import { actorsOf, buildLinks, findHubs, fundingKind, payeesOf } from "./graph.ts";
 import type { RawLog, Store } from "./store.ts";
 import type { Coin, CoinData, Funding, TokenTransfer, Trade } from "./types.ts";
 
@@ -238,6 +239,11 @@ export async function collect(deps: {
   // A payment made inside a contract call is credited to whoever sent that transaction.
   const internalTxs = [...fundings.values()].flat().filter((f) => f.via === "internal").map((f) => lc(f.tx) as Hex);
   const parentFrom = await txSenders(client, store, internalTxs);
+  // What those transactions called: only a multi-send makes a contract's payout the sender's own funding.
+  const paidByOthers = [...fundings].flatMap(([w, fs]) =>
+    fs.filter((f) => f.via === "internal" && lc(parentFrom.get(lc(f.tx) as Hex) ?? w) !== w).map((f) => lc(f.tx) as Hex),
+  );
+  const calls = await txCalls(client, store, paidByOthers);
   const flat: Funding[] = [...fundings].flatMap(([w, fs]) =>
     fs.map((f) => ({
       wallet: getAddress(w),
@@ -245,7 +251,7 @@ export async function collect(deps: {
       value: BigInt(f.value),
       tx: f.tx,
       time: f.time,
-      internal: f.via === "internal",
+      kind: fundingKind(f.via, f.from, calls.get(lc(f.tx) as Hex)),
     })),
   );
 
@@ -269,8 +275,8 @@ export async function collect(deps: {
     }
   });
   if (stopped && !notes.includes(stopped)) notes.push(stopped);
-  // On testnet, wallets that paid many tracked wallets, or wallets trading many different coins, are
-  // distribution bots or farms (v0.3). Counted over every coin, so one coin's ring still stands out.
+  // On testnet, a wallet whose payees trade many different coins is a distribution bot or a farm (v0.3).
+  // Counted over every coin, so one coin's ring still stands out. Contract payouts are no one's seeding.
   const traded = new Map<string, Set<string>>();
   for (const s of skeletons) {
     for (const t of s.trades) {
@@ -287,7 +293,7 @@ export async function collect(deps: {
       launched.get(who)!.add(lc(s.coin.token));
     }
   }
-  const hubs = findHubs(txCounts, { network: cfg.network, payees: payeesOf(flat, traded, launched) });
+  const hubs = findHubs(txCounts, { network: cfg.network, payees: payeesOf(flat.filter((f) => f.kind !== "payout"), traded, launched) });
   // A funder we could not size might be a public hub: leave it out rather than risk a false link.
   const usable = flat.filter((f) => !unknownFunders.has(lc(f.funder)));
   const blind = new Set(flat.filter((f) => unknownFunders.has(lc(f.funder))).map((f) => lc(f.wallet)));

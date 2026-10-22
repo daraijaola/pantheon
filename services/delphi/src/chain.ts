@@ -218,6 +218,20 @@ export function txSenders(client: PublicClient, store: Store, txs: Iterable<Hex>
   return memoized(store, "txfrom", txs, async (hash) => getAddress((await client.getTransaction({ hash })).from));
 }
 
+/**
+ * Which contract a transaction called, the function's 4-byte selector ("0x" for a plain transfer), and
+ * the HYPE the sender put in (wei, decimal string).
+ */
+export type TxCall = { to: string | null; selector: string; value: string };
+
+/** tx hash → what it called, to tell a multi-send (the sender's own HYPE) from a sale or a game payout. */
+export function txCalls(client: PublicClient, store: Store, txs: Iterable<Hex>) {
+  return memoized(store, "txcall", txs, async (hash): Promise<TxCall> => {
+    const t = await client.getTransaction({ hash });
+    return { to: t.to ? t.to.toLowerCase() : null, selector: t.input.slice(0, 10).toLowerCase(), value: t.value.toString() };
+  });
+}
+
 /** block number (decimal string) → unix time. */
 export function blockTimes(client: PublicClient, store: Store, blocks: Iterable<string>) {
   return memoized(store, "blocktime", blocks, async (b) => Number((await client.getBlock({ blockNumber: BigInt(b) })).timestamp));

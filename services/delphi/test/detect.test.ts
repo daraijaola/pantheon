@@ -254,51 +254,75 @@ describe("farmed testnet (rules v0.3)", () => {
     const s = honest(scenario(), 7_200);
     wallets(0x200, 2).forEach((w, i) => s.fund(w, A).buy(w, 15, 600 + i));
     wallets(0x210, 2).forEach((w, i) => s.fund(w, B).buy(w, 15, 700 + i));
-    // 0x…200 bought an NFT from 0x…210: the marketplace paid the seller inside the buyer's transaction.
-    s.fund(addr(0x210), addr(0x200), 800, "contract");
+    // 0x…200 bought an NFT from 0x…210: the marketplace paid the seller inside the buyer's call.
+    s.fund(addr(0x210), addr(0x200), 800, "payout");
     const d = s.build(new Map(), [], { network: "testnet" });
     expect(d.links.some((l) => l.reason === "funded-by")).toBe(false);
-    // Each farmer's star holds 30M of 100M: a WATCH on direct evidence, not 60% and a FLAG.
-    expect(detectConcentration(d).finding).toMatchObject({ severity: "watch", metrics: { linkedWallets: 2, circulatingPct: 30, evidence: "direct" } });
+    // Each farmer's star holds 30M of 100M: a WATCH, not 60% and a FLAG.
+    expect(detectConcentration(d).finding).toMatchObject({ severity: "watch", metrics: { linkedWallets: 2, circulatingPct: 30 } });
   });
 
-  it("calls a contract's batch payout second-hand: a WATCH at most, and says so", () => {
+  it("does not link the sellers an NFT sweep paid in one transaction", () => {
+    // Seen live: one wallet bought NFTs from 13 sellers in one call, and the marketplace paid each of them
+    // 88% of the price. Four of the sellers here hold 60% of the coin; the buyer holds some too.
+    const buyer = addr(0x5e);
+    const s = honest(scenario(), 7_200).buy(buyer, 5, 500);
+    const sellers = wallets(0x200, 4);
+    s.payout(sellers, buyer, 300);
+    sellers.forEach((w, i) => s.buy(w, 15, 600 + i));
+    const d = s.build(new Map(), [], { network: "testnet" });
+    expect(d.links).toEqual([]);
+    expect(detectConcentration(d).finding).toBeNull();
+    expect(analyze(d, { explorerWeb: WEB }).verdict).toBe("CLEAN");
+  });
+
+  it("does not link the winners a game paid", () => {
+    // A coin-flip game's bot settles rounds: each settlement pays several winners from the game's pot.
+    const bot = addr(0x6a);
     const s = honest(scenario(), 7_200);
-    const paid = wallets(0x200, 4);
-    s.payout(paid, addr(0x5e));
-    paid.forEach((w, i) => s.buy(w, 15, 600 + i));
-    const d = s.build();
-    expect(d.links.every((l) => l.secondHand)).toBe(true);
-    const f = detectConcentration(d).finding!;
-    // 60M of 100M would be a FLAG on direct evidence.
-    expect(f).toMatchObject({ severity: "watch", metrics: { linkedWallets: 4, circulatingPct: 60, evidence: "second-hand" } });
-    expect(f.summary).toContain("tied only by second-hand evidence");
-    expect(f.summary).toContain("WATCH at most");
-    expect(analyze(d, { explorerWeb: WEB }).verdict).toBe("WATCH");
-    // Second-hand links never make a launch bundle either.
+    const winners = wallets(0x200, 5);
+    s.payout(winners.slice(0, 3), bot, -7_200).payout(winners.slice(2), bot, -3_600).fund(winners[0]!, bot, -1_800, "payout");
+    winners.forEach((w, i) => s.buy(w, 12, 600 + i));
+    const d = s.build(new Map(), [], { network: "testnet" });
+    expect(d.links).toEqual([]);
+    expect(detectConcentration(d).finding).toBeNull();
+    // The same payouts at launch are no bundle either.
     const early = scenario();
-    early.payout(wallets(0x200, 3), addr(0x5e));
+    early.payout(wallets(0x200, 3), bot);
     wallets(0x200, 3).forEach((w, i) => early.buy(w, 60, 1 + i));
     expect(detectBundle(early.build()).finding).toBeNull();
   });
 
-  it("counts a batch payout sent by the coin's own creator in full", () => {
+  it("groups 20 fresh wallets a farmer's main wallet paid through one multi-send, and flags them", () => {
+    const main = addr(0xfe);
+    const s = honest(scenario(), 7_200);
+    const fresh = wallets(0x400, 20);
+    s.payout(fresh, main, -3_600, "multisend");
+    fresh.forEach((w, i) => s.buy(w, 3, 600 + i));
+    // 60M of 100M, in one funder's star: a FLAG on testnet too.
+    const f = detectConcentration(s.build(new Map(), [], { network: "testnet" })).finding!;
+    expect(f).toMatchObject({ severity: "flag", metrics: { linkedWallets: 20, circulatingPct: 60 } });
+    expect(f.evidence.some((e) => e.what.startsWith("link: shared funder"))).toBe(true);
+  });
+
+  it("counts any contract payout sent by the coin's own creator", () => {
     const s = honest(scenario(), 7_200);
     const paid = wallets(0x200, 4);
     s.payout(paid, s.coin.creator);
     paid.forEach((w, i) => s.buy(w, 15, 600 + i));
-    expect(detectConcentration(s.build()).finding).toMatchObject({ severity: "flag", metrics: { linkedWallets: 4, circulatingPct: 60, evidence: "direct" } });
+    expect(detectConcentration(s.build()).finding).toMatchObject({ severity: "flag", metrics: { linkedWallets: 4, circulatingPct: 60 } });
   });
 
-  it("treats a distribution bot as public on testnet, but not on mainnet", () => {
+  it("treats a distribution bot whose wallets trade many coins as public on testnet, but not on mainnet", () => {
     const bot = addr(0xb0);
     const s = honest(scenario(), 7_200);
-    // The bot paid gas to 20 tracked wallets; four of them hold 60% of this coin.
+    // The bot paid gas to 20 tracked wallets, which traded 6 different coins; four of them hold 60% of this one.
     const paid = wallets(0x400, 20);
     paid.forEach((w) => s.fund(w, bot));
     paid.slice(0, 4).forEach((w, i) => s.buy(w, 15, 600 + i));
-    expect(s.build(new Map(), [], { network: "testnet" }).links).toEqual([]);
-    expect(detectConcentration(s.build(new Map(), [], { network: "mainnet" })).finding?.severity).toBe("flag");
+    const spread = new Map([[bot.toLowerCase(), { wallets: 20, coins: 6 }]]);
+    expect(s.build(new Map(), [], { network: "testnet", payees: spread }).links).toEqual([]);
+    expect(detectConcentration(s.build(new Map(), [], { network: "mainnet", payees: spread })).finding?.severity).toBe("flag");
   });
 
   it("treats a funder whose wallets trade many different coins as a farm on testnet, but still catches a one-coin ring", () => {
@@ -309,7 +333,7 @@ describe("farmed testnet (rules v0.3)", () => {
     // The same four wallets, when their funder seeded them for this coin only: a real ring, FLAG on testnet too.
     expect(detectConcentration(s.build(new Map(), [], { network: "testnet" })).finding).toMatchObject({
       severity: "flag",
-      metrics: { linkedWallets: 4, circulatingPct: 60, evidence: "direct" },
+      metrics: { linkedWallets: 4, circulatingPct: 60 },
     });
   });
 
@@ -322,13 +346,23 @@ describe("farmed testnet (rules v0.3)", () => {
     expect(f).toMatchObject({ severity: "flag", metrics: { linkedWallets: 4, supplyPct: 20 } });
   });
 
+  it("still flags creator-funded snipers when the creator paid them through any contract", () => {
+    const s = scenario();
+    s.payout(wallets(0x200, 2), s.coin.creator, -600).fund(addr(0x202), s.coin.creator, -300, "payout");
+    wallets(0x200, 3).forEach((w, i) => s.buy(w, 60, 1 + i));
+    expect(detectBundle(s.build(new Map(), [], { network: "testnet" })).finding).toMatchObject({
+      severity: "flag",
+      metrics: { linkedWallets: 3, supplyPct: 18 },
+    });
+  });
+
   it("still sees tokens passed out to fresh wallets as one actor on testnet", () => {
     const boss = addr(0x200);
     const s = honest(scenario(), 7_200).buy(boss, 40, 600);
     wallets(0x300, 4).forEach((w, i) => s.pass(boss, w, 10, 700 + i));
     expect(detectConcentration(s.build(new Map(), [], { network: "testnet" })).finding).toMatchObject({
       severity: "flag",
-      metrics: { linkedWallets: 4, circulatingPct: 50, evidence: "direct" },
+      metrics: { linkedWallets: 4, circulatingPct: 50 },
     });
   });
 });

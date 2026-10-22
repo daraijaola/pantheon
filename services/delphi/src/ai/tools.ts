@@ -7,7 +7,7 @@ import { z } from "zod";
 import { RULES, TOTAL_SUPPLY } from "../config.ts";
 import { balances, pct } from "../detect.ts";
 import { actorsOf, clusters as clusterMap, isSystem, linksWithin } from "../graph.ts";
-import type { CoinData, Link, LinkReason, Trade, Verdict } from "../types.ts";
+import type { CoinData, FundingKind, Link, LinkReason, Trade, Verdict } from "../types.ts";
 import type { Currency, Workspace } from "./workspace.ts";
 
 const lc = (a: string) => a.toLowerCase();
@@ -77,17 +77,14 @@ const MEANING: Record<LinkReason, string> = {
   "is-creator": "`a` sent the launch but named `b` as the creator",
 };
 
-const SECOND_HAND =
-  "second-hand: a contract paid HYPE to several of this coin's wallets in one transaction that `via` (or `a`) sent, like a batch payment or a marketplace paying sellers. Not proof of one owner: it supports a WATCH at most.";
-const linkRow = (l: Link) => ({
-  a: l.a,
-  b: l.b,
-  reason: l.reason,
-  meaning: MEANING[l.reason],
-  ...(l.via ? { via: l.via } : {}),
-  ...(l.secondHand ? { secondHand: SECOND_HAND } : {}),
-  evidence: l.evidence,
-});
+const linkRow = (l: Link) => ({ a: l.a, b: l.b, reason: l.reason, meaning: MEANING[l.reason], ...(l.via ? { via: l.via } : {}), evidence: l.evidence });
+
+/** How a wallet got HYPE, in words (v0.3). */
+const HOW: Record<FundingKind, string> = {
+  transfer: "sent straight from the funder's wallet",
+  multisend: "sent by the funder through a multi-send contract (one call paying many wallets): counts as the funder's own payment",
+  payout: "paid by a contract inside a call the funder made (a sale, a game win or a refund): links no one, unless the funder created the coin",
+};
 
 /** Buys and sells summed per currency: what was spent and received. */
 function volume(ws: Workspace, d: CoinData, trades: Trade[]) {
@@ -243,7 +240,6 @@ export function listClusters(ws: Workspace, input: { token: string }) {
   const held = sum(bal.values());
   const actors = actorsOf(d.trades, d.transfers, d.system);
   const cl = clusterMap(d.links, [...actors].map(lc));
-  const direct = d.links.filter((l) => !l.secondHand);
   const groups = new Map<string, string[]>();
   for (const [w, root] of cl) {
     if (isSystem(d, w)) continue;
@@ -264,7 +260,7 @@ export function listClusters(ws: Workspace, input: { token: string }) {
         })),
         holdTogether: amount(tokens),
         pctOfHeld: pct(tokens, held),
-        linksHoldingItTogether: linksWithin(direct, set, 10).map(linkRow),
+        linksHoldingItTogether: linksWithin(d.links, set, 10).map(linkRow),
       };
     })
     .sort((a, b) => b.wallets - a.wallets);
@@ -309,7 +305,7 @@ export function walletProfile(ws: Workspace, input: { token: string; wallet: str
           tx: f.tx,
           time: iso(f.time),
           publicHub: f.publicHub,
-          ...(f.paidByContract ? { paidByContract: true } : {}),
+          ...(f.kind && f.kind !== "transfer" ? { how: HOW[f.kind] } : {}),
         }))
       : "unknown: DELPHI has no funding history for this wallet",
     otherCoins: elsewhere.map(({ o, n, held }) => ({
