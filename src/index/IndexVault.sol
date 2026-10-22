@@ -18,7 +18,7 @@ interface IStakingRewards {
 /// @title IndexVault
 /// @notice The basket. It receives the USDC half of PNTH's creator fees (from Covenant) and,
 /// whenever anyone calls `rebalance`, buys the active coins by weight and streams what it bought
-/// to PNTH stakers. It never holds coins for itself and has no owner.
+/// to PNTH stakers. It never keeps coins for itself and has no owner.
 ///
 /// Price guard: a buy may not push a coin's price more than BAND_BPS above Ascend's own moving
 /// average of that pool (`emaSqrtPrice`), the same 5% band Ascend's own buyback trusts. If the
@@ -55,6 +55,9 @@ contract IndexVault is AscendSwap, ReentrancyGuard {
     event BasketBuy(address indexed token, uint256 quoteIn, uint256 tokensOut, uint160 emaSqrt, uint160 spotSqrt);
     event BasketSkip(address indexed token, Skip reason);
     event Streamed(address indexed token, uint256 amount);
+    event StreamFailed(address indexed token, uint256 amount);
+
+    error QuoteIsBudget();
 
     constructor(IAscendLaunchpad launchpad_, ConstituentRegistry registry_, IStakingRewards staking_, uint256 maxStale_)
         AscendSwap(launchpad_.vault(), launchpad_.poolManager())
@@ -129,11 +132,24 @@ contract IndexVault is AscendSwap, ReentrancyGuard {
         if (out > 0) _stream(ERC20(c.token), out);
     }
 
+    /// @notice Stream any basket coin this vault is holding (left over from a stream that failed).
+    /// Permissionless. USDC is not flushed: it is the budget that `rebalance` spends.
+    function flush(address token) external nonReentrant {
+        if (token == address(quote)) revert QuoteIsBudget();
+        uint256 amount = ERC20(token).balanceOf(address(this));
+        if (amount > 0) _stream(ERC20(token), amount);
+    }
+
+    /// Hand `amount` to stakers. If staking refuses, the buy still stands: the coins wait here and
+    /// anyone can `flush` them later, so one bad stream never blocks the rest of the basket.
     function _stream(ERC20 asset, uint256 amount) internal {
         asset.safeApprove(address(staking), amount);
-        staking.notifyReward(address(asset), amount);
+        try staking.notifyReward(address(asset), amount) {
+            emit Streamed(address(asset), amount);
+        } catch {
+            emit StreamFailed(address(asset), amount);
+        }
         asset.safeApprove(address(staking), 0);
-        emit Streamed(address(asset), amount);
     }
 
     function _skip(address token, Skip reason) internal {

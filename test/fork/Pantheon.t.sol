@@ -15,6 +15,19 @@ import {IndexVault, IStakingRewards} from "../../src/index/IndexVault.sol";
 import {PantheonStaking, IRewardList} from "../../src/staking/PantheonStaking.sol";
 import {IHypePassport} from "../../src/passport/IHypePassport.sol";
 
+/// Ascend's launch on/off switch (owner only); used on a fork to undo the testnet pause.
+/// The pool manager's protocol-fee lookup; mocked on a fork while testnet refuses Ascend's pools.
+interface IFeeController {
+    function protocolFeeController() external view returns (address);
+    function protocolFeeForPool(PoolKey memory key) external view returns (uint24);
+}
+
+interface ILaunchSwitch {
+    function paused() external view returns (bool);
+    function owner() external view returns (address);
+    function setPaused(bool paused_) external;
+}
+
 interface IMintable {
     function mint(address to, uint256 value) external;
 }
@@ -48,6 +61,17 @@ contract PantheonForkTest is Test {
 
     function setUp() public {
         vm.createSelectFork("elysium");
+        // Ascend has paused new launches on testnet ahead of mainnet. On this private fork we switch
+        // them back on so the launch flow can still be tested; the real chain is untouched.
+        ILaunchSwitch sw = ILaunchSwitch(address(LP));
+        if (sw.paused()) {
+            vm.prank(sw.owner());
+            sw.setPaused(false);
+        }
+        // Its pool manager also stopped accepting the launchpad's pools when looking up the protocol
+        // fee (HookNotAllowed). On the fork that lookup returns no fee, so pools can open again.
+        address feeCtl = IFeeController(address(LP.poolManager())).protocolFeeController();
+        vm.mockCall(feeCtl, abi.encodeWithSelector(IFeeController.protocolFeeForPool.selector), abi.encode(uint24(0)));
         swapper = new Swapper(LP.vault(), LP.poolManager());
         IMintable(USDC).mint(address(this), 1_000_000e6);
         IMintable(USDC).mint(alice, 100_000e6);
@@ -55,12 +79,17 @@ contract PantheonForkTest is Test {
 
         // The basket's coins, launched now and aged past the registry's 3-day minimum.
         for (uint256 i; i < N; ++i) {
-            (coins[i], coinPools[i]) = _launchPlain(string.concat("Basket ", vm.toString(i)), string.concat("BSK", vm.toString(i)));
+            (coins[i], coinPools[i]) =
+                _launchPlain(string.concat("Basket ", vm.toString(i)), string.concat("BSK", vm.toString(i)));
         }
         vm.warp(block.timestamp + 30);
-        for (uint256 i; i < N; ++i) _buy(coins[i], 2_000e6);
+        for (uint256 i; i < N; ++i) {
+            _buy(coins[i], 2_000e6);
+        }
         vm.warp(block.timestamp + 3 days + 1 hours);
-        for (uint256 i; i < N; ++i) _buy(coins[i], 200e6); // fresh trades keep Ascend's average current
+        for (uint256 i; i < N; ++i) {
+            _buy(coins[i], 200e6); // fresh trades keep Ascend's average current
+        }
 
         // PANTHEON's contracts. The basket vault's address is known in advance (CREATE from this
         // contract), so PNTH's router can name it as the target of the USDC leg from the first block.
@@ -184,14 +213,18 @@ contract PantheonForkTest is Test {
         index.rebalance(N);
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 buys;
-        for (uint256 i; i < logs.length; ++i) if (logs[i].topics[0] == IndexVault.BasketBuy.selector) buys++;
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].topics[0] == IndexVault.BasketBuy.selector) buys++;
+        }
         for (uint256 i; i < logs.length; ++i) {
             if (logs[i].topics[0] == IndexVault.BasketSkip.selector) {
                 console2.log("skipped", address(uint160(uint256(logs[i].topics[1]))), abi.decode(logs[i].data, (uint8)));
             }
         }
         assertEq(buys, N, "every coin bought");
-        for (uint256 i; i < N; ++i) assertGt(ERC20(coins[i]).balanceOf(address(staking)), 0, "coin streamed to stakers");
+        for (uint256 i; i < N; ++i) {
+            assertGt(ERC20(coins[i]).balanceOf(address(staking)), 0, "coin streamed to stakers");
+        }
 
         // A day later the stream has paid out; Alice claims every coin.
         vm.warp(block.timestamp + 1 days + 1);
@@ -234,7 +267,9 @@ contract PantheonForkTest is Test {
 
     function _basketList() internal view returns (ConstituentRegistry.Constituent[] memory list) {
         list = new ConstituentRegistry.Constituent[](N);
-        for (uint256 i; i < N; ++i) list[i] = ConstituentRegistry.Constituent(coinPools[i], coins[i], 2_000, 1_000e6);
+        for (uint256 i; i < N; ++i) {
+            list[i] = ConstituentRegistry.Constituent(coinPools[i], coins[i], 2_000, 1_000e6);
+        }
     }
 
     /// Ascend's average only moves when someone trades (at most halfway per trade, once per 10 min of
@@ -242,7 +277,9 @@ contract PantheonForkTest is Test {
     function _settleAverages() internal {
         for (uint256 k; k < 6; ++k) {
             vm.warp(block.timestamp + 601);
-            for (uint256 i; i < N; ++i) _buy(coins[i], 1e6);
+            for (uint256 i; i < N; ++i) {
+                _buy(coins[i], 1e6);
+            }
         }
     }
 

@@ -14,6 +14,19 @@ import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManage
 import {TickMath} from "infinity-core/src/pool-cl/libraries/TickMath.sol";
 import {ERC20} from "solmate/src/tokens/ERC20.sol";
 
+/// Ascend's launch on/off switch (owner only); used on a fork to undo the testnet pause.
+/// The pool manager's protocol-fee lookup; mocked on a fork while testnet refuses Ascend's pools.
+interface IFeeController {
+    function protocolFeeController() external view returns (address);
+    function protocolFeeForPool(PoolKey memory key) external view returns (uint24);
+}
+
+interface ILaunchSwitch {
+    function paused() external view returns (bool);
+    function owner() external view returns (address);
+    function setPaused(bool paused_) external;
+}
+
 interface IMintable {
     function mint(address to, uint256 value) external;
 }
@@ -81,6 +94,17 @@ contract AscendPoC is Test {
 
     function setUp() public {
         vm.createSelectFork("elysium");
+        // Ascend has paused new launches on testnet ahead of mainnet. On this private fork we switch
+        // them back on so the launch flow can still be tested; the real chain is untouched.
+        ILaunchSwitch sw = ILaunchSwitch(address(LP));
+        if (sw.paused()) {
+            vm.prank(sw.owner());
+            sw.setPaused(false);
+        }
+        // Its pool manager also stopped accepting the launchpad's pools when looking up the protocol
+        // fee (HookNotAllowed). On the fork that lookup returns no fee, so pools can open again.
+        address feeCtl = IFeeController(address(LP.poolManager())).protocolFeeController();
+        vm.mockCall(feeCtl, abi.encodeWithSelector(IFeeController.protocolFeeForPool.selector), abi.encode(uint24(0)));
         swapper = new Swapper(LP.vault(), LP.poolManager());
         IMintable(USDC).mint(address(this), 10_000e6);
     }
