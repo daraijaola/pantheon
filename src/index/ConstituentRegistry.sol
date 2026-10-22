@@ -90,7 +90,9 @@ contract ConstituentRegistry {
         uint64 eta = uint64(block.timestamp) + DELAY;
         _proposals.push(Proposal(eta, false, false, scoreRoot, methodologyURI));
         Constituent[] storage stored = _lists[id];
-        for (uint256 i; i < list.length; ++i) stored.push(list[i]);
+        for (uint256 i; i < list.length; ++i) {
+            stored.push(list[i]);
+        }
         emit Proposed(id, eta, scoreRoot, methodologyURI);
     }
 
@@ -146,14 +148,18 @@ contract ConstituentRegistry {
         uint256 sum;
         for (uint256 i; i < n; ++i) {
             _checkOne(list[i], i);
-            for (uint256 j; j < i; ++j) if (list[j].token == list[i].token) revert BadList(i);
+            for (uint256 j; j < i; ++j) {
+                if (list[j].token == list[i].token) revert BadList(i);
+            }
             sum += list[i].weightBps;
         }
         if (sum != 10_000) revert BadList(type(uint256).max);
     }
 
     function _checkStorage(Constituent[] storage list) internal view {
-        for (uint256 i; i < list.length; ++i) _checkOne(list[i], i);
+        for (uint256 i; i < list.length; ++i) {
+            _checkOne(list[i], i);
+        }
     }
 
     function _checkOne(Constituent memory c, uint256 i) internal view {
@@ -162,7 +168,8 @@ contract ConstituentRegistry {
         if (c.token == pnth || c.token == baseQuote) revert BadList(i);
         uint40 launchedAt = launchpad.poolLaunchedAt(c.poolId);
         if (launchedAt == 0 || block.timestamp < uint256(launchedAt) + MIN_AGE) revert BadList(i);
-        PoolKey memory key = LaunchpadKey.keyOf(c.token, baseQuote, address(launchpad), address(launchpad.poolManager()));
+        PoolKey memory key =
+            LaunchpadKey.keyOf(c.token, baseQuote, address(launchpad), address(launchpad.poolManager()));
         if (PoolId.unwrap(key.toId()) != PoolId.unwrap(c.poolId)) revert BadList(i);
     }
 }

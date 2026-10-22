@@ -4,12 +4,12 @@ pragma solidity 0.8.30;
 /// @title IHypePassport: stable read interface (v1 attestor registry and v2 precompile registry both implement it)
 interface IHypePassport {
     struct Passport {
-        bytes32 hlKey;    // keccak256(abi.encodePacked(PEPPER, hlAccount)); never the raw HL address in v1
-        uint8 tier;       // 0..3
-        uint32 stamps;    // bitmap, see spec section 4.3
-        uint64 issuedAt;  // unix seconds (attestor clock) of the latest attestation
-        uint64 expiry;    // unix seconds; passport is valid while block.timestamp < expiry
-        uint64 linkedAt;  // block.timestamp when this hlKey<->account binding was created; kept across renewals
+        bytes32 hlKey; // keccak256(abi.encodePacked(PEPPER, hlAccount)); never the raw HL address in v1
+        uint8 tier; // 0..3
+        uint32 stamps; // bitmap, see spec section 4.3
+        uint64 issuedAt; // unix seconds (attestor clock) of the latest attestation
+        uint64 expiry; // unix seconds; passport is valid while block.timestamp < expiry
+        uint64 linkedAt; // block.timestamp when this hlKey<->account binding was created; kept across renewals
     }
 
     event PassportIssued(

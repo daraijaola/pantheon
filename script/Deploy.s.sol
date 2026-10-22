@@ -116,7 +116,11 @@ contract Deploy is Script {
         return _withTeam(CovenantRouter.Leg(CovenantRouter.Job.INDEX, 10_000, index), c);
     }
 
-    function _withTeam(CovenantRouter.Leg memory main, Config memory c) internal pure returns (CovenantRouter.Leg[] memory legs) {
+    function _withTeam(CovenantRouter.Leg memory main, Config memory c)
+        internal
+        pure
+        returns (CovenantRouter.Leg[] memory legs)
+    {
         if (c.teamBps == 0) {
             legs = new CovenantRouter.Leg[](1);
             legs[0] = main;
@@ -133,7 +137,9 @@ contract Deploy is Script {
         for (uint8 side; side < 2; ++side) {
             CovenantRouter.Leg[] memory legs = CovenantRouter(router).legs(side);
             for (uint256 i; i < legs.length; ++i) {
-                console2.log(side == 0 ? "PNTH fees, job / bps:" : "USDC fees, job / bps:", uint8(legs[i].job), legs[i].bps);
+                console2.log(
+                    side == 0 ? "PNTH fees, job / bps:" : "USDC fees, job / bps:", uint8(legs[i].job), legs[i].bps
+                );
                 console2.log("  to:", legs[i].target);
             }
         }

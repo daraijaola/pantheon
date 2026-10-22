@@ -50,12 +50,14 @@ contract Testnet is Script {
         uint256[] memory caps = vm.parseJsonUintArray(json, ".perRunCaps");
         ConstituentRegistry.Constituent[] memory list = new ConstituentRegistry.Constituent[](tokens.length);
         for (uint256 i; i < tokens.length; ++i) {
-            list[i] = ConstituentRegistry.Constituent(PoolId.wrap(pools[i]), tokens[i], uint16(weights[i]), uint128(caps[i]));
+            list[i] =
+                ConstituentRegistry.Constituent(PoolId.wrap(pools[i]), tokens[i], uint16(weights[i]), uint128(caps[i]));
         }
         // The score root commits to the whole round file: anyone can hash it and compare.
         bytes32 root = keccak256(bytes(json));
         _start();
-        uint256 id = ConstituentRegistry(_addr(".constituentRegistry")).propose(list, root, "https://pantheonindex.com/trials");
+        uint256 id =
+            ConstituentRegistry(_addr(".constituentRegistry")).propose(list, root, "https://pantheonindex.com/trials");
         vm.stopBroadcast();
         console2.log("proposal id:", id);
         console2.logBytes32(root);
@@ -118,9 +120,8 @@ contract Testnet is Script {
         CovenantRouter.Leg[] memory buys = new CovenantRouter.Leg[](2);
         buys[0] = CovenantRouter.Leg(CovenantRouter.Job.PAY, 5_000, me);
         buys[1] = CovenantRouter.Leg(CovenantRouter.Job.INDEX, 5_000, _addr(".indexVault"));
-        (address token,, address router) = CovenantFactory(_addr(".covenantFactory")).launch(
-            name, symbol, LP.baseQuote(), keccak256(bytes(symbol)), sells, buys
-        );
+        (address token,, address router) = CovenantFactory(_addr(".covenantFactory"))
+            .launch(name, symbol, LP.baseQuote(), keccak256(bytes(symbol)), sells, buys);
         vm.stopBroadcast();
         console2.log("coin:", token);
         console2.log("its Covenant:", router);

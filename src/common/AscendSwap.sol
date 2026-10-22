@@ -55,9 +55,7 @@ abstract contract AscendSwap is ILockCallback {
         BalanceDelta d = poolManager.swap(
             key,
             ICLPoolManager.SwapParams({
-                zeroForOne: zeroForOne,
-                amountSpecified: -int256(amountIn),
-                sqrtPriceLimitX96: limit
+                zeroForOne: zeroForOne, amountSpecified: -int256(amountIn), sqrtPriceLimitX96: limit
             }),
             ""
         );

@@ -59,8 +59,12 @@ contract CovenantRouter is ReentrancyGuard {
     uint256[2] public accounted;
     uint256 public runCount;
 
-    event Run(uint256 indexed runId, bool collected, bool claimedToken, bool claimedQuote, uint256 newToken, uint256 newQuote);
-    event LegExecuted(uint256 indexed runId, uint8 indexed side, uint256 indexed leg, Job job, address to, uint256 amount);
+    event Run(
+        uint256 indexed runId, bool collected, bool claimedToken, bool claimedQuote, uint256 newToken, uint256 newQuote
+    );
+    event LegExecuted(
+        uint256 indexed runId, uint8 indexed side, uint256 indexed leg, Job job, address to, uint256 amount
+    );
     event LegDeferred(uint256 indexed runId, uint8 indexed side, uint256 indexed leg, uint256 amount);
 
     error BadPolicy();
@@ -78,8 +82,9 @@ contract CovenantRouter is ReentrancyGuard {
     ) {
         // The pair must be the pool: an Ascend pool's id is a pure function of its token and quote.
         if (
-            PoolId.unwrap(LaunchpadKey.keyOf(token_, quote_, address(launchpad_), address(launchpad_.poolManager())).toId())
-                != PoolId.unwrap(poolId_)
+            PoolId.unwrap(
+                    LaunchpadKey.keyOf(token_, quote_, address(launchpad_), address(launchpad_.poolManager())).toId()
+                ) != PoolId.unwrap(poolId_)
         ) revert WrongPool();
         if (burnSink_ == address(0)) revert BadPolicy();
         launchpad = launchpad_;

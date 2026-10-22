@@ -6,26 +6,27 @@ import {IHypePassport} from "./IHypePassport.sol";
 /// @title HypePassportRegistry v1: immutable attestor, no owner, bounded trust (<= 1.25x reweighting, no funds)
 contract HypePassportRegistry is IHypePassport {
     struct Attestation {
-        address account;  // Elysium wallet receiving the passport
-        bytes32 hlKey;    // peppered hash of the Hyperliquid address
-        uint8 tier;       // 0..3 (0 = downgrade/revoke but keep binding)
+        address account; // Elysium wallet receiving the passport
+        bytes32 hlKey; // peppered hash of the Hyperliquid address
+        uint8 tier; // 0..3 (0 = downgrade/revoke but keep binding)
         uint32 stamps;
         uint64 issuedAt;
         uint64 expiry;
-        uint64 deadline;  // must be submitted before this (short, e.g. 1h)
-        uint256 chainId;  // must equal block.chainid (99801 on Elysium testnet)
+        uint64 deadline; // must be submitted before this (short, e.g. 1h)
+        uint256 chainId; // must equal block.chainid (99801 on Elysium testnet)
     }
 
     // Domain deliberately has NO chainId (MetaMask rejects typed data whose domain.chainId != active chain);
     // chainId is a struct field instead and is checked against block.chainid.
-    bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version,address verifyingContract)");
+    bytes32 public constant DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,address verifyingContract)");
     bytes32 public constant ATTESTATION_TYPEHASH = keccak256(
         "Attestation(address account,bytes32 hlKey,uint8 tier,uint32 stamps,uint64 issuedAt,uint64 expiry,uint64 deadline,uint256 chainId)"
     );
     bytes32 public immutable DOMAIN_SEPARATOR;
     address public immutable ATTESTOR;
     address public immutable GUARDIAN; // may be address(0); can only retire()
-    bool public retired;               // one-way kill switch: everyone back to 1.0x, no new submits
+    bool public retired; // one-way kill switch: everyone back to 1.0x, no new submits
 
     uint64 public constant MAX_VALIDITY = 8 days;
     uint64 public constant MAX_CLOCK_SKEW = 10 minutes;
@@ -59,9 +60,8 @@ contract HypePassportRegistry is IHypePassport {
         if (attestor == address(0)) revert ZeroAccount();
         ATTESTOR = attestor;
         GUARDIAN = guardian;
-        DOMAIN_SEPARATOR = keccak256(
-            abi.encode(DOMAIN_TYPEHASH, keccak256("HYPE Passport"), keccak256("1"), address(this))
-        );
+        DOMAIN_SEPARATOR =
+            keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256("HYPE Passport"), keccak256("1"), address(this)));
     }
 
     // ------------------------------------------------------------------ writes
