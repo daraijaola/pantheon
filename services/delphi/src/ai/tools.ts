@@ -77,7 +77,17 @@ const MEANING: Record<LinkReason, string> = {
   "is-creator": "`a` sent the launch but named `b` as the creator",
 };
 
-const linkRow = (l: Link) => ({ a: l.a, b: l.b, reason: l.reason, meaning: MEANING[l.reason], ...(l.via ? { via: l.via } : {}), evidence: l.evidence });
+const SECOND_HAND =
+  "second-hand: a contract paid HYPE to several of this coin's wallets in one transaction that `via` (or `a`) sent, like a batch payment or a marketplace paying sellers. Not proof of one owner: it supports a WATCH at most.";
+const linkRow = (l: Link) => ({
+  a: l.a,
+  b: l.b,
+  reason: l.reason,
+  meaning: MEANING[l.reason],
+  ...(l.via ? { via: l.via } : {}),
+  ...(l.secondHand ? { secondHand: SECOND_HAND } : {}),
+  evidence: l.evidence,
+});
 
 /** Buys and sells summed per currency: what was spent and received. */
 function volume(ws: Workspace, d: CoinData, trades: Trade[]) {
@@ -233,6 +243,7 @@ export function listClusters(ws: Workspace, input: { token: string }) {
   const held = sum(bal.values());
   const actors = actorsOf(d.trades, d.transfers, d.system);
   const cl = clusterMap(d.links, [...actors].map(lc));
+  const direct = d.links.filter((l) => !l.secondHand);
   const groups = new Map<string, string[]>();
   for (const [w, root] of cl) {
     if (isSystem(d, w)) continue;
@@ -253,7 +264,7 @@ export function listClusters(ws: Workspace, input: { token: string }) {
         })),
         holdTogether: amount(tokens),
         pctOfHeld: pct(tokens, held),
-        linksHoldingItTogether: linksWithin(d.links, set, 10).map(linkRow),
+        linksHoldingItTogether: linksWithin(direct, set, 10).map(linkRow),
       };
     })
     .sort((a, b) => b.wallets - a.wallets);
@@ -292,7 +303,14 @@ export function walletProfile(ws: Workspace, input: { token: string; wallet: str
     links: d.links.filter((l) => lc(l.a) === w || lc(l.b) === w).slice(0, 20).map(linkRow),
     linkedWallets: cluster.slice(0, 20),
     fundedBy: funding
-      ? funding.slice(0, 10).map((f) => ({ funder: f.funder, hype: amount(f.value), tx: f.tx, time: iso(f.time), publicHub: f.publicHub }))
+      ? funding.slice(0, 10).map((f) => ({
+          funder: f.funder,
+          hype: amount(f.value),
+          tx: f.tx,
+          time: iso(f.time),
+          publicHub: f.publicHub,
+          ...(f.paidByContract ? { paidByContract: true } : {}),
+        }))
       : "unknown: DELPHI has no funding history for this wallet",
     otherCoins: elsewhere.map(({ o, n, held }) => ({
       token: o.coin.token,

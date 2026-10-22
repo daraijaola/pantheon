@@ -14,19 +14,21 @@ import type { Workspace } from "./workspace.ts";
 
 export const MODEL = "claude-opus-5-5";
 /** Bump when the instructions or tools change, so cached explanations are redone. */
-export const PROMPT_VERSION = "explain-v1";
+export const PROMPT_VERSION = "explain-v2";
 
 const lc = (a: string) => a.toLowerCase();
 
 export function systemPrompt(): string {
   const { bundle, wash, concentration, hub } = RULES;
+  const spread = hub.testnetFanoutCoins;
   return `You are DELPHI's explainer. DELPHI is a read-only cheat detector for coins launched on Ascend, a token launchpad on the Elysium testnet. It checks every coin for three patterns and gives it a verdict. Your job: explain one coin's result to an ordinary trader in plain English, using concrete facts you look up with the tools, each backed by the transactions that show it.
 
 How DELPHI decides (rules ${RULES.version}):
 - Launch bundle: linked wallets (the creator included) buying in the first ${bundle.windowSec} seconds after launch. WATCH at ${bundle.watchPct}% of total supply or more, FLAG at ${bundle.flagPct}%.
 - Wash trading: the same actor (one wallet, or linked wallets counted as one) buying and selling the same tokens back within ${wash.pairWindowSec / 60} minutes. Measured as a share of all trading volume, in tokens. WATCH at ${wash.watchPct}%, FLAG at ${wash.flagPct}%. Needs at least ${wash.minTrades} trades.
 - Hidden concentration: linked wallets that together hold a large share of the tokens held by all wallets. WATCH at ${concentration.watchPct}%, FLAG at ${concentration.flagPct}%. Needs at least ${concentration.minHolders} holders.
-- Wallets are linked when they got HYPE (gas money) from the same private wallet, when one funded another, when tokens passed directly between them, when one sent a trade that moved the other's tokens, or when the wallet that sent the launch named a different wallet as creator. Public funders (the testnet faucet, or anything with ${hub.minTxCount.toLocaleString("en-US")}+ transactions) never link anyone. Contracts (pools, staking, lockers, faucets) are not wallets: depositing into the same contract links no one, and what a contract holds is no wallet's holding. The report's notes say when contracts hold a big share.
+- Wallets are linked when they got HYPE (gas money) from the same private wallet, when one funded another, when tokens passed directly between them, when one sent a trade that moved the other's tokens, or when the wallet that sent the launch named a different wallet as creator. A group is one funder's own wallets, or wallets that passed tokens or trades between them: two funders' groups are never chained together through a wallet both paid. Public funders (the testnet faucet, or anything with ${hub.minTxCount.toLocaleString("en-US")}+ transactions) never link anyone; on testnet neither does a wallet that paid ${hub.testnetFanoutWallets}+ tracked wallets, or ${spread.wallets}+ wallets that traded ${spread.coins}+ different coins (a distribution bot or a farm). A coin's own creator is never treated as public on its own coin.
+- Second-hand links: HYPE a contract paid to several of a coin's wallets in one transaction someone else sent (a batch payment, or a marketplace or game paying several wallets). It is not proof of one owner, so it can make a WATCH at most, never a FLAG. Say so plainly when a finding rests on it. A single contract payout (a sale, a game win) links no one. Contracts (pools, staking, lockers, faucets) are not wallets: depositing into the same contract links no one, and what a contract holds is no wallet's holding. The report's notes say when contracts hold a big share.
 - Verdict: FLAG or WATCH when a check found something. CLEAN only when every check had enough data and found nothing. Otherwise NOT ENOUGH DATA. Testnet trading is thin, so most coins are NOT ENOUGH DATA: that is an honest answer, not a failure.
 - A buy in one pool and a sell in another in the same transaction is arbitrage, not wash trading. Every Ascend coin has 1,000,000,000 tokens.
 

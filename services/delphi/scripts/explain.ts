@@ -39,10 +39,10 @@ const log = (m: string) => console.error(`[delphi-ai] ${m}`);
 try {
   const client = makeClient(cfg.elysiumRpc, (ms, what) => log(`RPC asked us to slow down (${what}): waiting ${ms / 1000} s`));
   // Cached funding only: explaining never spends the explorer allowance.
-  const { coins, head } = await collect({ client, store, cfg, explorer: null, log });
+  const { coins, head, hubs } = await collect({ client, store, cfg, explorer: null, log });
   const now = new Date();
   const reports = coins.map((d) => analyze(d, { explorerWeb: cfg.explorerWeb, now }));
-  const ws = await loadWorkspace({ client, store, cfg, coins, reports });
+  const ws = await loadWorkspace({ client, store, cfg, coins, reports, hubs });
 
   const worth = (r: CoinReport) => r.verdict !== "NOT_ENOUGH_DATA" || r.stats.trades >= 5;
   const targets = reports.filter((r) => (only ? r.coin.token === only : args.includes("--all") || worth(r)));

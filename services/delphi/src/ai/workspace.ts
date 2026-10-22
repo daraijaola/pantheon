@@ -15,7 +15,8 @@ const lc = (a: string) => a.toLowerCase();
 export type Currency = { address: Address; symbol: string; decimals: number };
 
 /** Native HYPE paid into a wallet. `funder` is the real payer (the sender, for payments made inside a contract call). */
-export type FundingView = { funder: Address; value: bigint; tx: Hex; time: number; publicHub: boolean };
+/** `paidByContract`: a contract paid it inside a transaction the funder sent (a sale, a game payout, a batch). */
+export type FundingView = { funder: Address; value: bigint; tx: Hex; time: number; publicHub: boolean; paidByContract?: boolean };
 
 export type Workspace = {
   explorerWeb: string;
@@ -83,6 +84,8 @@ export async function loadWorkspace(deps: {
   cfg: Config;
   coins: CoinData[];
   reports: CoinReport[];
+  /** The funders this scan treated as public (from `collect`); without it, only the listed and very busy ones. */
+  hubs?: ReadonlySet<string>;
 }): Promise<Workspace> {
   const { client, store, cfg } = deps;
   const lp = await launchpadAddresses(client, cfg.launchpad);
@@ -111,7 +114,8 @@ export async function loadWorkspace(deps: {
         got.map((f) => {
           const funder = getAddress((f.via === "internal" ? store.recall<Address>("txfrom", f.tx) : undefined) ?? f.from);
           const txs = store.recall<number>("txcount", funder);
-          return { funder, value: BigInt(f.value), tx: f.tx, time: f.time, publicHub: hubs.has(lc(funder)) || (txs ?? 0) >= RULES.hub.minTxCount };
+          const publicHub = hubs.has(lc(funder)) || (txs ?? 0) >= RULES.hub.minTxCount || (deps.hubs?.has(lc(funder)) ?? false);
+          return { funder, value: BigInt(f.value), tx: f.tx, time: f.time, publicHub, ...(f.via === "internal" ? { paidByContract: true } : {}) };
         }),
       );
     }
