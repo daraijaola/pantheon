@@ -234,6 +234,9 @@ export function reason(e: unknown): string {
     return "This wallet doesn’t have enough test HYPE for gas yet. If you just got some from the faucet, wait a few seconds and try again.";
   if (/nonce too low|replacement transaction underpriced|already known/i.test(msg))
     return "Your wallet is still sending an earlier transaction. Wait a few seconds and try again.";
+  // Ascend switched new launches off on testnet ahead of mainnet (its own switch, not ours).
+  if (/LaunchesArePaused|0x3a1455a0|HookNotAllowed|0xaf73e17a|ProtocolFeeCannotBeFetched/.test(msg))
+    return "Ascend has paused new launches on testnet while it gets ready for mainnet on Nov 9. Launches open again as soon as Ascend switches them back on.";
   const named = msg.match(/reverted with the following reason:\s*\n?(.+)|error\s+([A-Z][A-Za-z]+)\(/);
   if (named) return `The contract refused: ${(named[1] ?? named[2]).trim()}.`;
   return `${msg.split("\n")[0].slice(0, 160)} Try again in a few seconds, or refresh the page.`;

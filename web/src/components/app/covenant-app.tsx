@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { decodeEventLog, erc20Abi, isAddress, zeroAddress } from "viem";
-import { useConnection, usePublicClient, useReadContracts } from "wagmi";
+import { useConnection, usePublicClient, useReadContract, useReadContracts } from "wagmi";
 import { covenantFactoryAbi, covenantRouterAbi } from "@/lib/chain/abi";
 import { deployedFrom, deployment, elysium, explorer } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
@@ -45,6 +45,9 @@ const BUYS = {
   split: { label: "Half to a wallet, half to the PANTHEON basket", note: "Half for you, half buys Ascend’s best coins for PNTH stakers." },
   basket: { label: "All to the PANTHEON basket", note: "Every buy fee goes to Ascend’s index." },
 };
+/** Ascend's own on/off switch for new launches (owner-only on Ascend's side). */
+const launchSwitchAbi = [{ type: "function", name: "paused", inputs: [], outputs: [{ name: "", type: "bool" }], stateMutability: "view" }] as const;
+const PAUSED_LINE = "Ascend has paused new launches on testnet while it gets ready for mainnet on Nov 9. Covenant launches open again here as soon as Ascend switches them back on.";
 type Sell = keyof typeof SELLS;
 type Buy = keyof typeof BUYS;
 
@@ -89,6 +92,8 @@ function Launch({ d }: { d: Deployment }) {
   const [buy, setBuy] = useState<Buy>("split");
   const [payTo, setPayTo] = useState("");
   const [done, setDone] = useState<Launched | null>(null);
+  const switchQ = useReadContract({ address: d.launchpad, abi: launchSwitchAbi, functionName: "paused", chainId: elysium.id, query: { refetchInterval: 30_000 } });
+  const ascendPaused = switchQ.data === true;
 
   const wallet = (payTo.trim() || address || "") as Hex;
   const needsWallet = sell !== "burn" || buy !== "basket";
@@ -219,9 +224,10 @@ function Launch({ d }: { d: Deployment }) {
                 <span>none</span>
               </li>
             </ul>
-            <button type="button" className={s.primary} disabled={!onChain || !!problem || !!tx.busy} onClick={launch}>
-              {tx.busy ?? (!onChain ? "Connect your wallet to launch" : (problem ?? "Launch on Ascend"))}
+            <button type="button" className={s.primary} disabled={ascendPaused || !onChain || !!problem || !!tx.busy} onClick={launch}>
+              {tx.busy ?? (ascendPaused ? "Launches are paused by Ascend" : !onChain ? "Connect your wallet to launch" : (problem ?? "Launch on Ascend"))}
             </button>
+            {ascendPaused && <p className={s.hint}>{PAUSED_LINE}</p>}
             <p className={s.hint}>One transaction. A Covenant launch can’t include a creator buy, but you can buy your coin right after, like anyone else.</p>
             <TxNote error={tx.error} lastTx={tx.lastTx} />
           </section>
