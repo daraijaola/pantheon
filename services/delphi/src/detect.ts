@@ -5,7 +5,8 @@ import { RULES, supplyOf } from "./config.ts";
 import { clusters, groupEvidence, groupsOf, isSystem, linksWithin, type Group } from "./graph.ts";
 import type { CoinData, Finding, Link, Severity, Trade } from "./types.ts";
 
-export type DetectorResult = { enough: boolean; finding: Finding | null };
+/** `notes`: what the check saw that is context, not cheating (v0.5): a crowd farming, a treasury, an outside whale. */
+export type DetectorResult = { enough: boolean; finding: Finding | null; notes?: string[] };
 
 const lc = (a: string) => a.toLowerCase();
 /** a / b as a percentage with 2 decimals, exact until the last step. */
@@ -81,29 +82,75 @@ const chrono = (a: Trade, b: Trade) => a.time - b.time || Number(a.block - b.blo
  */
 export function detectWash(d: CoinData): DetectorResult {
   const trades = d.trades.filter((t) => t.tokens > 0n && !isSystem(d, actor(t)));
-  if (trades.length < RULES.wash.minTrades) return { enough: false, finding: null };
+  if (trades.length < RULES.wash.minTrades || new Set(trades.map(actor)).size < RULES.wash.minWallets) return { enough: false, finding: null };
   // Measured in tokens, not quote: a coin can trade in pools priced in different currencies.
   const total = trades.reduce((s, t) => s + t.tokens, 0n);
   const matched = roundTrips(d);
   const washTokens = [...matched.values()].reduce((s, m) => s + m, 0n);
   const share = pct(washTokens, total);
-  const severity = grade(share, RULES.wash);
-  if (!severity) return { enough: true, finding: null };
+  if (!grade(share, RULES.wash)) return { enough: true, finding: null };
 
-  const washers = new Set([...matched.keys()].map(actor));
-  const linked = linksWithin(d.links, washers);
+  // Who makes the round trips (v0.5): a crowd of separate wallets, a ring of linked ones (or the
+  // creator), or one or two unlinked bots. Only a ring or the creator is cheating; the rest is context.
   const minutes = RULES.wash.pairWindowSec / 60;
+  const testnet = d.network === "testnet";
+  const cl = clusters(d.links, [...matched.keys()].map(actor));
+  const team = new Set([lc(d.coin.creator), lc(d.coin.launcher)]);
+  const actors = new Map<string, { tokens: bigint; wallets: Set<string>; trades: Trade[] }>();
+  for (const [t, m] of matched) {
+    const root = cl.get(actor(t)) ?? actor(t);
+    const a = actors.get(root) ?? { tokens: 0n, wallets: new Set<string>(), trades: [] };
+    a.tokens += m;
+    a.wallets.add(actor(t));
+    a.trades.push(t);
+    actors.set(root, a);
+  }
+  const ranked = [...actors.values()].sort((x, y) => (y.tokens > x.tokens ? 1 : y.tokens < x.tokens ? -1 : 0));
+  const top = ranked.slice(0, RULES.wash.crowd.topActors).reduce((s, a) => s + a.tokens, 0n);
+  if (pct(top, washTokens) < RULES.wash.crowd.sharePct) {
+    return {
+      enough: true,
+      finding: null,
+      notes: [
+        `${share}% of trading volume is quick round trips, spread over ${ranked.length} separate wallets or groups: ` +
+          (testnet ? "people farming points with test money, not one actor faking volume." : "many traders flipping, not one actor faking volume."),
+      ],
+    };
+  }
+  const ring = ranked.filter((a) => a.wallets.size >= 2 || [...a.wallets].some((w) => team.has(w)));
+  const solo = ranked.filter((a) => !ring.includes(a));
+  const ringShare = pct(ring.reduce((s, a) => s + a.tokens, 0n), total);
+  const ringSeverity = grade(ringShare, RULES.wash);
+  if (ringSeverity) {
+    const washers = new Set(ring.flatMap((a) => [...a.wallets]));
+    const withCreator = [...washers].some((w) => team.has(w));
+    return {
+      enough: true,
+      finding: {
+        detector: "wash",
+        severity: ringSeverity,
+        summary: `${ringShare}% of trading volume is fast round trips by ${washers.size} linked wallet(s)${withCreator ? ", the creator among them," : ""} buying and selling the same tokens back within ${minutes} minutes.`,
+        metrics: { washVolumePct: ringShare, roundTripWallets: washers.size, trades: trades.length, roundTripTrades: ring.reduce((s, a) => s + a.trades.length, 0) },
+        evidence: [
+          ...ring.flatMap((a) => a.trades).sort(chrono).slice(0, 8).map((t) => ({ what: `${short(actor(t))} ${t.side}`, tx: t.tx })),
+          ...linksWithin(d.links, washers).map(linkEvidence),
+        ],
+      },
+    };
+  }
+  const soloShare = pct(solo.reduce((s, a) => s + a.tokens, 0n), total);
+  const soloWallets = solo.slice(0, RULES.wash.crowd.topActors).length;
+  const line = `${soloShare}% of trading volume is ${soloWallets === 1 ? "one wallet" : `${soloWallets} unlinked wallets`} buying and selling the same tokens back within ${minutes} minutes: that volume is not real demand.`;
+  // Not tied to the creator or to each other: a bot or a farmer. On mainnet worth watching, never a flag.
+  if (testnet || !grade(soloShare, RULES.wash)) return { enough: true, finding: null, notes: [`${line}${testnet ? " On testnet, most likely a bot farming points." : ""}`] };
   return {
     enough: true,
     finding: {
       detector: "wash",
-      severity,
-      summary: `${share}% of trading volume is fast round trips: ${washers.size} wallet(s)${linked.length ? " (some linked)" : ""} bought and sold the same tokens back within ${minutes} minutes.`,
-      metrics: { washVolumePct: share, roundTripWallets: washers.size, trades: trades.length, roundTripTrades: matched.size },
-      evidence: [
-        ...[...matched.keys()].sort(chrono).slice(0, 8).map((t) => ({ what: `${short(actor(t))} ${t.side}`, tx: t.tx })),
-        ...linked.map(linkEvidence),
-      ],
+      severity: "watch",
+      summary: line,
+      metrics: { washVolumePct: soloShare, roundTripWallets: soloWallets, trades: trades.length, roundTripTrades: solo.reduce((s, a) => s + a.trades.length, 0) },
+      evidence: solo.flatMap((a) => a.trades).sort(chrono).slice(0, 8).map((t) => ({ what: `${short(actor(t))} ${t.side}`, tx: t.tx })),
     },
   };
 }
@@ -135,6 +182,9 @@ export function roundTrips(d: CoinData): Map<Trade, bigint> {
       for (const o of open) {
         if (left === 0n) break;
         if (o.left === 0n || o.t.side === t.side || t.time - o.t.time > RULES.wash.pairWindowSec) continue;
+        // v0.5: a buy in one pool and a sell in another is arbitrage, even in two transactions (seen live:
+        // bots moving stKALOS between its Kalos pools made 92% of what looked like its wash).
+        if (lc(o.t.pool) !== lc(t.pool)) continue;
         if (o.t.tx === t.tx && lc(o.t.pool) !== lc(t.pool)) continue; // arbitrage, not wash
         const m = min(o.left, left);
         o.left -= m;
@@ -184,26 +234,39 @@ export function contractHoldings(d: CoinData): { share: number; top: Array<{ con
 
 /**
  * The biggest single wallet, when it alone holds a big share of the whole supply (RULES.concentration
- * singleWatchPct / singleFlagPct). Measured against the total supply, not the tokens in wallets, so a
- * thin coin whose first buyer holds most of a small float is not flagged for it.
+ * singleWatchPct). Measured against the total supply, not the tokens in wallets, so a thin coin whose
+ * first buyer holds most of a small float is not caught by it. Says who the wallet is when DELPHI knows
+ * (the creator, a project's own wallet, an outside whale). `finding` is the mainnet WATCH; `note`, the line.
  */
-function singleHolder(d: CoinData, bal: ReadonlyMap<string, bigint>): { wallet: string; severity: Severity; finding: Finding } | null {
+function singleHolder(d: CoinData, bal: ReadonlyMap<string, bigint>): { wallet: string; note: string; finding: Finding | null } | null {
   let top: [string, bigint] | null = null;
   for (const [w, v] of bal) if (!top || v > top[1]) top = [w, v];
   if (!top) return null;
   const share = pct(top[1], supplyOf(d.coin));
-  const severity = grade(share, { watchPct: RULES.concentration.singleWatchPct, flagPct: RULES.concentration.singleFlagPct });
-  if (!severity) return null;
-  const who = top[0] === lc(d.coin.creator) ? "The creator's wallet" : "One wallet";
+  if (share < RULES.concentration.singleWatchPct) return null;
+  const isCreator = top[0] === lc(d.coin.creator);
+  const role = d.roles?.get(top[0]);
+  const who = isCreator ? "The creator's wallet" : "One wallet";
+  const what = role ? ` It ${role.says}.` : "";
+  const line = `${who} holds ${share}% of the total supply.${what}`;
+  const testnet = d.network === "testnet";
+  const context =
+    role?.kind === "project" || role?.kind === "sink"
+      ? " That is the project's own supply, not a hidden whale; it can still be sold."
+      : role?.kind === "whale"
+        ? " An outside trader, not this coin's team."
+        : testnet && isCreator
+          ? " On testnet, makers often keep their test coins."
+          : "";
   const tx = lastIn(d, top[0]);
   return {
     wallet: lc(top[0]),
-    severity,
+    note: `${line}${context}`,
     finding: {
       detector: "concentration",
-      severity,
-      summary: `${who} holds ${share}% of the total supply on its own.`,
-      metrics: { singleWalletPct: share, isCreator: top[0] === lc(d.coin.creator) ? "yes" : "no", holders: bal.size },
+      severity: "watch",
+      summary: `${line} It can sell at any time.`,
+      metrics: { singleWalletPct: share, isCreator: isCreator ? "yes" : "no", holders: bal.size },
       evidence: tx ? [{ what: `${short(top[0])} holds ${share}% of the supply`, tx }] : [],
     },
   };
@@ -222,47 +285,47 @@ function lastIn(d: CoinData, w: string): Hex | null {
  */
 export function detectConcentration(d: CoinData): DetectorResult {
   const bal = balances(d);
-  if (bal.size < RULES.concentration.minHolders) return { enough: false, finding: null };
+  const single = singleHolder(d, bal);
+  const traded = d.trades.filter((t) => t.tokens > 0n && !isSystem(d, actor(t))).length;
+  if (bal.size < RULES.concentration.minHolders || traded < RULES.concentration.minTrades) {
+    return { enough: false, finding: null, ...(single ? { notes: [single.note] } : {}) };
+  }
   const circulating = [...bal.values()].reduce((s, v) => s + v, 0n);
-  let pick: { members: string[]; held: bigint; group: Group } | null = null;
+  // Hidden whales are wallets that look separate but are one actor. The creator's own wallet is out in
+  // the open, so what it holds is not hidden (v0.5): it's said apart, as one wallet's share.
+  const creator = lc(d.coin.creator);
+  let pick: { members: string[]; held: bigint; hidden: bigint; group: Group } | null = null;
   for (const group of groupsOf(d.links)) {
     const members = [...group.members].filter((w) => bal.has(w)).sort((a, b) => (bal.get(b)! > bal.get(a)! ? 1 : bal.get(b)! < bal.get(a)! ? -1 : 0));
     if (members.length < 2) continue;
     const held = members.reduce((s, w) => s + bal.get(w)!, 0n);
-    if (!pick || held > pick.held) pick = { members, held, group };
+    const hidden = held - (members.includes(creator) ? bal.get(creator)! : 0n);
+    if (!pick || hidden > pick.hidden) pick = { members, held, hidden, group };
   }
-  const single = singleHolder(d, bal);
-  const share = pick ? pct(pick.held, circulating) : 0;
+  const share = pick ? pct(pick.hidden, circulating) : 0;
   const severity = pick ? grade(share, RULES.concentration) : null;
-  // One wallet holding most of the supply is no less a risk for being out in the open (v0.4).
-  if (single && (!severity || (severity === "watch" && single.severity === "flag"))) return { enough: true, finding: single.finding };
-  if (!pick || !severity) return { enough: true, finding: null };
-  const n = pick.members.length;
-  // When one member holds most of what the group holds, say that first: it is the fact that matters.
-  const lead = pick.members[0]!;
-  if (single && lc(lead) === single.wallet && bal.get(lead)! * 4n >= pick.held * 3n) {
+  const notes = single ? [single.note] : [];
+  if (pick && severity) {
+    const withCreator = pick.members.includes(creator);
+    const n = withCreator ? pick.members.length - 1 : pick.members.length;
     return {
       enough: true,
+      notes,
       finding: {
-        ...single.finding,
-        severity: severity === "flag" || single.severity === "flag" ? "flag" : "watch",
-        summary: `${single.finding.summary.replace(/ on its own\.$/, "")}; with ${n - 1} linked wallets, the group holds ${share}% of the tokens in wallets.`,
-        metrics: { ...single.finding.metrics, linkedWallets: n, circulatingPct: share },
-        evidence: [...single.finding.evidence, ...groupEvidence(pick.group, new Set(pick.members)).map(linkEvidence)],
+        detector: "concentration",
+        severity,
+        summary: withCreator
+          ? `${n} wallet(s) linked to the creator hold ${share}% of the tokens held by all ${bal.size} holders, on top of what the creator holds.`
+          : `${n} linked wallets hold ${share}% of the tokens held by all ${bal.size} holders.`,
+        metrics: { linkedWallets: n, circulatingPct: share, holders: bal.size },
+        evidence: [
+          ...pick.members.slice(0, 8).map((w) => ({ what: `${short(w)} holds ${pct(bal.get(w)!, circulating)}%`, tx: lastIn(d, w) })),
+          ...groupEvidence(pick.group, new Set(pick.members)).map(linkEvidence),
+        ].filter((e): e is { what: string; tx: Hex } => e.tx !== null),
       },
     };
   }
-  return {
-    enough: true,
-    finding: {
-      detector: "concentration",
-      severity,
-      summary: `${n} linked wallets hold ${share}% of the tokens held by all ${bal.size} holders.`,
-      metrics: { linkedWallets: n, circulatingPct: share, holders: bal.size },
-      evidence: [
-        ...pick.members.slice(0, 8).map((w) => ({ what: `${short(w)} holds ${pct(bal.get(w)!, circulating)}%`, tx: lastIn(d, w) })),
-        ...groupEvidence(pick.group, new Set(pick.members)).map(linkEvidence),
-      ].filter((e): e is { what: string; tx: Hex } => e.tx !== null),
-    },
-  };
+  // One big wallet is a risk to know, not cheating: WATCH on mainnet, a note on testnet (v0.5).
+  if (single && single.finding && d.network !== "testnet") return { enough: true, finding: single.finding };
+  return { enough: true, finding: null, notes };
 }

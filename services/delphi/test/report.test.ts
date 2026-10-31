@@ -48,7 +48,7 @@ describe("analyze", () => {
 describe("missing funding data", () => {
   it("never calls a coin CLEAN while part of its funding history is unknown", () => {
     const s = scenario();
-    for (let i = 0; i < 8; i++) s.buy(addr(0x100 + i), 5, 3_600 * (i + 1));
+    for (let i = 0; i < 8; i++) for (let k = 0; k < 4; k++) s.buy(addr(0x100 + i), 1.25, 3_600 * (i + 1) + k * 7_200);
     expect(analyze(s.build(), { explorerWeb: WEB }).verdict).toBe("CLEAN");
     const r = analyze({ ...s.build(), fundingMissing: 3 }, { explorerWeb: WEB });
     expect(r.verdict).toBe("NOT_ENOUGH_DATA");

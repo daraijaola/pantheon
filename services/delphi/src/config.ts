@@ -118,7 +118,7 @@ export const MULTISEND_SELECTORS: ReadonlySet<string> = new Set(MULTISEND_CALLS.
  * Plain thresholds on purpose: v0 must be explainable to a judge in one sentence each.
  */
 export const RULES = {
-  version: "delphi-v0.4",
+  version: "delphi-v0.5",
   hub: {
     /**
      * A funder with this many transactions is public (faucet, bridge, exchange) and links nobody, on any
@@ -149,15 +149,25 @@ export const RULES = {
     pairWindowSec: 300,
     watchPct: 25,
     flagPct: 50,
-    minTrades: 6,
+    /** v0.5: 30 trades by 5 wallets before saying anything (was 6 trades): a handful of test trades is no market. */
+    minTrades: 30,
+    minWallets: 5,
+    /**
+     * v0.5: round trips spread over many separate wallets are a crowd (on testnet, points farming), not
+     * one actor faking volume: when the 5 biggest round-trippers make less than half of it, it's a note.
+     */
+    crowd: { topActors: 5, sharePct: 50 },
   },
   concentration: {
     watchPct: 20,
     flagPct: 40,
     minHolders: 5,
+    /** v0.5: a coin nobody has traded yet (10 trades) has no market to dump into: not enough data. */
+    minTrades: 10,
     /**
-     * v0.4: one wallet alone holding this share of the total supply. Before, only groups of two or
-     * more linked wallets counted, so a coin whose creator kept 98.9% read CLEAN (FGK, seen Oct 31).
+     * One wallet alone holding this share of the total supply (v0.4). v0.5: it's a risk to know, not a
+     * sign of cheating, so it is never FLAG: WATCH on mainnet, a note on testnet (test coins are often
+     * held by their makers, and project tokens sit in treasuries before they are handed out).
      */
     singleWatchPct: 20,
     singleFlagPct: 40,
@@ -170,6 +180,8 @@ export const RULES = {
      */
     distributorWallets: 100,
   },
+  /** v0.5: a wallet that receives the coin from trades sent by this many different wallets is a sink (fees, buybacks): it links no one. */
+  sink: { traders: 100 },
   /** A report notes how much contracts (staking, lockers…) hold once it reaches this share. v0.2. */
   contracts: {
     notePct: 10,

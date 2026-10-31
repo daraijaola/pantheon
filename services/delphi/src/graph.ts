@@ -163,12 +163,26 @@ export function buildLinks(input: {
     servedBy.get(lc(tr.trader))!.add(lc(tr.holder));
   }
   const relayer = (a: string) => (servedBy.get(lc(a))?.size ?? 0) >= RULES.pass.distributorWallets;
+  // And the other way: a wallet that receives the coin from trades sent by very many wallets is a sink
+  // (v0.5; seen live: Kalos's treasury gets the KALOS bought back with NFT-sale fees inside 991 buyers' transactions).
+  const sinks = sinksOf(input.trades, ignore);
   for (const tr of input.trades) {
-    if (lc(tr.trader) !== lc(tr.holder) && !ignore(tr.holder) && !ignore(tr.trader) && !relayer(tr.trader)) {
+    if (lc(tr.trader) !== lc(tr.holder) && !ignore(tr.holder) && !ignore(tr.trader) && !relayer(tr.trader) && !sinks.has(lc(tr.holder))) {
       links.push({ a: tr.trader, b: tr.holder, reason: tr.side === "buy" ? "bought-for" : "sold-for", evidence: [tr.tx] });
     }
   }
   return links;
+}
+
+/** Wallets whose share of a coin's trades was sent by RULES.sink.traders or more different wallets (fees, buybacks). */
+export function sinksOf(trades: readonly Trade[], ignore: (a: string) => boolean = () => false): Map<string, number> {
+  const from = new Map<string, Set<string>>();
+  for (const tr of trades) {
+    if (lc(tr.trader) === lc(tr.holder) || ignore(tr.holder) || ignore(tr.trader)) continue;
+    if (!from.has(lc(tr.holder))) from.set(lc(tr.holder), new Set());
+    from.get(lc(tr.holder))!.add(lc(tr.trader));
+  }
+  return new Map([...from].filter(([, s]) => s.size >= RULES.sink.traders).map(([h, s]) => [h, s.size]));
 }
 
 /** Links between two wallets directly: tokens or a trade moved from one to the other, or the launch named the other. */

@@ -4,15 +4,21 @@ import { contractHoldings, detectBundle, detectConcentration, detectWash, pct } 
 import { clusters } from "../src/graph.ts";
 import { analyze } from "../src/report.ts";
 import type { Link } from "../src/types.ts";
-import { addr, FAUCET, scenario } from "./scenario.ts";
+import { addr, FAUCET, OUTSIDE_POOL, scenario } from "./scenario.ts";
 
 const WEB = "https://explorer.test";
 const F = addr(0xf0); // a private funder (a farmer's wallet)
 const wallets = (from: number, n: number) => Array.from({ length: n }, (_, i) => addr(from + i));
 
-/** Eight independent faucet-funded traders, spread over a day: the "normal coin" baseline. */
+/**
+ * Eight independent faucet-funded traders, each buying 5M in four buys hours apart: the "normal coin"
+ * baseline, with the 32 trades by 8 wallets that rules v0.5 want before judging volume.
+ */
 function honest(s: ReturnType<typeof scenario>, startSec = 3_600) {
-  wallets(0x100, 8).forEach((w, i) => s.fund(w, FAUCET).buy(w, 5, startSec + i * 3_600));
+  wallets(0x100, 8).forEach((w, i) => {
+    s.fund(w, FAUCET);
+    for (let k = 0; k < 4; k++) s.buy(w, 1.25, startSec + i * 3_600 + k * 7_200);
+  });
   return s;
 }
 
@@ -126,41 +132,63 @@ describe("launch bundle", () => {
 });
 
 describe("wash trading", () => {
+  const testnet = <T extends object>(d: T) => ({ ...d, network: "testnet" as const });
+
   it("flags a linked pair churning the same tokens within minutes", () => {
     const [a, b] = wallets(0x200, 2) as [`0x${string}`, `0x${string}`];
-    const s = scenario();
+    const s = honest(scenario(), 100_000);
     for (let k = 0; k < 4; k++) {
       const t = 3_600 * (k + 1);
       s.buy(a, 10, t).pass(a, b, 10, t + 30).sell(b, 10, t + 60);
     }
-    wallets(0x100, 3).forEach((w, i) => s.buy(w, 10, 50_000 + i * 600));
     const f = detectWash(s.build()).finding!;
-    // 80M of the 110M tokens traded are matched round trips.
-    expect(f).toMatchObject({ severity: "flag", metrics: { washVolumePct: 72.72, roundTripWallets: 2 } });
-    expect(f.summary).toContain("(some linked)");
+    // 80M of the 120M tokens traded are matched round trips, all by the linked pair.
+    expect(f).toMatchObject({ severity: "flag", metrics: { washVolumePct: 66.66, roundTripWallets: 2 } });
+    expect(f.summary).toContain("by 2 linked wallet(s)");
   });
 
-  it("catches one wallet churning on its own", () => {
+  it("flags the creator churning its own coin, even alone", () => {
+    const s = honest(scenario(), 100_000);
+    for (let k = 0; k < 3; k++) s.buy(addr(0xc0), 10, 3_600 * (k + 1)).sell(addr(0xc0), 10, 3_600 * (k + 1) + 90);
+    expect(detectWash(s.build()).finding).toMatchObject({ severity: "flag", summary: expect.stringContaining("the creator among them") });
+  });
+
+  it("watches one unlinked wallet churning on mainnet, and only notes it on testnet (rules v0.5)", () => {
     const w = addr(0x200);
-    const s = scenario();
+    const s = honest(scenario(), 100_000);
     for (let k = 0; k < 3; k++) s.buy(w, 10, 3_600 * (k + 1)).sell(w, 10, 3_600 * (k + 1) + 90);
-    wallets(0x100, 2).forEach((x, i) => s.buy(x, 20, 90_000 + i));
-    expect(detectWash(s.build()).finding).toMatchObject({ severity: "flag", metrics: { washVolumePct: 60, roundTripWallets: 1 } });
+    expect(detectWash(s.build()).finding).toMatchObject({ severity: "watch", metrics: { washVolumePct: 60, roundTripWallets: 1 } });
+    const t = detectWash(testnet(s.build()));
+    expect(t.finding).toBeNull();
+    expect(t.notes?.[0]).toMatch(/^60% of trading volume is one wallet .* On testnet, most likely a bot farming points\.$/);
   });
 
-  it("does not call arbitrage between two pools in one transaction wash trading", () => {
+  it("calls round trips spread over a crowd farming, not one actor faking volume (Kalos, seen Oct 31)", () => {
+    const s = honest(scenario(), 100_000);
+    wallets(0x300, 20).forEach((w, i) => s.buy(w, 10, 1_000 + i * 600).sell(w, 10, 1_000 + i * 600 + 60));
+    const r = detectWash(testnet(s.build()));
+    expect(r.finding).toBeNull();
+    expect(r.notes?.[0]).toContain("spread over 20 separate wallets or groups: people farming points with test money");
+  });
+
+  it("does not call arbitrage between two pools wash trading, in one transaction or two (rules v0.5)", () => {
     const bot = addr(0x400);
     const s = honest(scenario());
     for (let k = 0; k < 5; k++) s.arb(bot, 20, 50_000 + k * 60);
     expect(detectWash(s.build())).toEqual({ enough: true, finding: null });
+    const two = honest(scenario());
+    for (let k = 0; k < 5; k++) two.buy(bot, 20, 50_000 + k * 300).sell(bot, 20, 50_000 + k * 300 + 60);
+    const d = two.build();
+    for (const t of d.trades) if (t.side === "sell" && t.holder === bot) Object.assign(t, { pool: OUTSIDE_POOL, outside: true });
+    expect(detectWash(d)).toEqual({ enough: true, finding: null });
   });
 
-  it("still catches a buy and sell of the same tokens in the same pool and transaction", () => {
+  it("still sees a buy and sell of the same tokens in the same pool and transaction", () => {
     const bot = addr(0x400);
     const s = honest(scenario());
     for (let k = 0; k < 5; k++) s.arb(bot, 20, 50_000 + k * 60, true);
-    // 200M of the 240M tokens traded are matched round trips.
-    expect(detectWash(s.build()).finding).toMatchObject({ severity: "flag", metrics: { washVolumePct: 83.33, roundTripWallets: 1 } });
+    // 200M of the 240M tokens traded are matched round trips, by one unlinked wallet: WATCH on mainnet.
+    expect(detectWash(s.build()).finding).toMatchObject({ severity: "watch", metrics: { washVolumePct: 83.33, roundTripWallets: 1 } });
   });
 
   it("does not call a flip days later wash trading", () => {
@@ -171,25 +199,36 @@ describe("wash trading", () => {
 
   it("only counts the matched part of a partial round trip", () => {
     const w = addr(0x200);
-    const s = scenario().buy(w, 100, 100).sell(w, 10, 160);
-    wallets(0x100, 4).forEach((x, i) => s.buy(x, 1, 90_000 + i));
-    // Matched: 10M of the buy + the 10M sell = 20M of 114M tokens traded.
+    const s = honest(scenario(), 100_000).buy(w, 100, 100).sell(w, 10, 160);
+    // Matched: 10M of the buy + the 10M sell = 20M of 150M tokens traded.
     expect(detectWash(s.build()).finding).toBeNull();
   });
 
-  it("needs a minimum number of trades before it says anything", () => {
+  it("needs 30 trades by 5 wallets before it says anything (rules v0.5)", () => {
     const w = addr(0x200);
-    const s = scenario().buy(w, 10, 100).sell(w, 10, 130);
+    const s = scenario();
+    for (let k = 0; k < 8; k++) s.buy(w, 10, 100 + k * 600).sell(w, 10, 130 + k * 600);
     expect(detectWash(s.build())).toEqual({ enough: false, finding: null });
   });
 });
 
-describe("one wallet holding the supply (rules v0.4)", () => {
-  it("flags a creator who kept nearly all of it (FGK, seen Oct 31: 98.91%)", () => {
+describe("one wallet holding the supply (rules v0.4, v0.5)", () => {
+  it("watches a creator who kept nearly all of it on mainnet, and notes it on testnet (FGK, seen Oct 31: 98.91%)", () => {
     const s = honest(scenario(), 7_200).buy(addr(0xc0), 900, 5);
     const f = detectConcentration(s.build()).finding!;
-    expect(f).toMatchObject({ severity: "flag", metrics: { singleWalletPct: 90, isCreator: "yes" } });
-    expect(f.summary).toBe("The creator's wallet holds 90% of the total supply on its own.");
+    expect(f).toMatchObject({ severity: "watch", metrics: { singleWalletPct: 90, isCreator: "yes" } });
+    expect(f.summary).toBe("The creator's wallet holds 90% of the total supply. It can sell at any time.");
+    const t = detectConcentration({ ...s.build(), network: "testnet" });
+    expect(t.finding).toBeNull();
+    expect(t.notes).toEqual(["The creator's wallet holds 90% of the total supply. On testnet, makers often keep their test coins."]);
+  });
+
+  it("says who a big wallet is when DELPHI knows (a project's own wallet)", () => {
+    const d = { ...honest(scenario(), 7_200).buy(addr(0xc0), 700, 5).build(), network: "testnet" as const };
+    const roles = new Map([[addr(0xc0).toLowerCase(), { kind: "project" as const, says: "owns Kalos's factory: it is Kalos's own wallet" }]]);
+    expect(detectConcentration({ ...d, roles }).notes).toEqual([
+      "The creator's wallet holds 70% of the total supply. It owns Kalos's factory: it is Kalos's own wallet. That is the project's own supply, not a hidden whale; it can still be sold.",
+    ]);
   });
 
   it("watches one wallet with a quarter of the supply, and leaves a 17% dev buy alone", () => {
@@ -202,17 +241,22 @@ describe("one wallet holding the supply (rules v0.4)", () => {
     const s = honest(scenario(), 7_200).buy(rewards, 700, 5);
     wallets(0x1000, 120).forEach((w, i) => s.pass(rewards, w, 1, 900 + i));
     const f = detectConcentration(s.build()).finding!;
-    expect(f).toMatchObject({ severity: "flag", metrics: { isCreator: "yes" } });
-    expect(f.summary).toMatch(/^The creator's wallet holds 58% of the total supply/);
+    expect(f).toMatchObject({ severity: "watch", metrics: { isCreator: "yes" } });
+    expect(f.summary).toMatch(/^The creator's wallet holds 58% of the total supply\./);
   });
 
-  it("names the one wallet first when it holds most of what its group holds", () => {
+  it("counts what the creator's own wallet holds apart from the wallets linked to it (rules v0.5)", () => {
     const boss = addr(0xc0);
-    const s = honest(scenario(), 7_200).buy(boss, 500, 5);
-    wallets(0x200, 3).forEach((w, i) => s.fund(w, boss).buy(w, 10, 600 + i * 60));
-    const f = detectConcentration(s.build()).finding!;
-    expect(f.severity).toBe("flag");
-    expect(f.summary).toMatch(/^The creator's wallet holds 50% of the total supply; with 3 linked wallets, the group holds \d+(\.\d+)?% of the tokens in wallets\.$/);
+    const small = honest(scenario(), 7_200).buy(boss, 500, 5);
+    wallets(0x200, 3).forEach((w, i) => small.fund(w, boss).buy(w, 10, 600 + i * 60));
+    // 30M in three side wallets is no hidden whale; the creator's 50% is said as one wallet's share.
+    expect(detectConcentration(small.build()).finding).toMatchObject({ severity: "watch", summary: expect.stringMatching(/^The creator's wallet holds 50% of the total supply\./) });
+    const big = honest(scenario(), 7_200).buy(boss, 100, 5);
+    wallets(0x200, 3).forEach((w, i) => big.fund(w, boss).buy(w, 100, 600 + i * 60));
+    expect(detectConcentration(big.build()).finding).toMatchObject({
+      severity: "flag",
+      summary: "3 wallet(s) linked to the creator hold 68.18% of the tokens held by all 12 holders, on top of what the creator holds.",
+    });
   });
 
   it("still names a linked group that holds more than one wallet's watch share", () => {

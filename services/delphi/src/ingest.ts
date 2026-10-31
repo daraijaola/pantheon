@@ -1,6 +1,6 @@
 // Turns raw chain and explorer data into one CoinData per Ascend coin. `assemble` is pure (tested
 // with fixtures); `collect` does the fetching, with everything cached so reruns are cheap.
-import { decodeEventLog, getAddress, type Address, type Hex, type PublicClient } from "viem";
+import { decodeEventLog, getAddress, parseAbi, type Address, type Hex, type PublicClient } from "viem";
 import {
   addressKinds,
   blockTimes,
@@ -15,15 +15,17 @@ import {
   txCalls,
   txSenders,
 } from "./chain.ts";
-import { KNOWN_HUBS, RULES, STATIC_SYSTEM, type Config } from "./config.ts";
+import { KNOWN_HUBS, RULES, STATIC_SYSTEM, supplyOf, type Config } from "./config.ts";
 import { ExplorerBudgetError, type RawFunding } from "./explorer.ts";
 import type { FundingSource } from "./funding.ts";
 import { collectKalos, type KalosCollected } from "./kalos-collect.ts";
 import type { LiquidityReport } from "./kalos.ts";
 import type { BatchRpc } from "./rpc.ts";
-import { actorsOf, buildLinks, findHubs, fundingKind, payeesOf } from "./graph.ts";
+import { balances } from "./detect.ts";
+import { actorsOf, buildLinks, findHubs, fundingKind, payeesOf, sinksOf } from "./graph.ts";
+import { KALOS } from "./kalos.ts";
 import type { RawLog, Store } from "./store.ts";
-import type { Coin, CoinData, Funding, TokenTransfer, Trade } from "./types.ts";
+import type { Coin, CoinData, Funding, TokenTransfer, Trade, WalletRole } from "./types.ts";
 
 const lc = (a: string) => a.toLowerCase();
 
@@ -434,8 +436,45 @@ export async function collect(deps: {
       system,
     });
     const fundingMissing = [...targets[i]!].filter((a) => isWallet(a) && (!fundings.has(a) || blind.has(a))).length;
-    return { ...s, links, fundingMissing, contracts };
+    return { ...s, links, fundingMissing, contracts, network: cfg.network };
   });
+  // Who the big wallets are, so a report can say it (v0.5).
+  const projects = new Map<string, string>();
+  if (kalos) {
+    const owner = await client.readContract({ address: KALOS.factory, abi: OWNER_ABI, functionName: "owner" }).catch(() => null);
+    if (owner) projects.set(lc(owner), "owns Kalos's factory: it is Kalos's own wallet");
+  }
+  const withRoles = assignRoles(coins, projects, system);
   if (!explorer) notes.push("explorer skipped: funding links use cached data only");
-  return { coins, head, notes, hubs, liquidity: kalos?.liquidity ?? new Map(), kalos };
+  return { coins: withRoles, head, notes, hubs, liquidity: kalos?.liquidity ?? new Map(), kalos };
+}
+
+const OWNER_ABI = parseAbi(["function owner() view returns (address)"]);
+
+/**
+ * What DELPHI knows each coin's big wallets are (v0.5), with the evidence in plain words:
+ * - "project": a project's own wallet, known from the chain (Kalos's factory owner);
+ * - "sink": it receives this coin from trades sent by many different wallets (fees or buybacks);
+ * - "whale": it holds 5% or more of the supply of 3 or more coins it didn't create (an outside trader).
+ */
+export function assignRoles(coins: CoinData[], projects: ReadonlyMap<string, string>, system: ReadonlySet<string>): CoinData[] {
+  const big = new Map<string, number>();
+  const bals = coins.map((d) => balances(d));
+  coins.forEach((d, i) => {
+    const supply = supplyOf(d.coin);
+    for (const [w, v] of bals[i]!) if (w !== lc(d.coin.creator) && v * 20n >= supply) big.set(w, (big.get(w) ?? 0) + 1);
+  });
+  return coins.map((d, i) => {
+    const roles = new Map<string, WalletRole>();
+    const supply = supplyOf(d.coin);
+    for (const [w, says] of projects) roles.set(w, { kind: "project", says });
+    for (const [w, n] of sinksOf(d.trades, (a) => system.has(lc(a)))) {
+      if (!roles.has(w)) roles.set(w, { kind: "sink", says: `receives this coin from trades sent by ${n} different wallets (fees or buybacks)` });
+    }
+    for (const [w, v] of bals[i]!) {
+      const others = (big.get(w) ?? 0) - (v * 20n >= supply && w !== lc(d.coin.creator) ? 1 : 0);
+      if (!roles.has(w) && others >= 3) roles.set(w, { kind: "whale", says: `also holds 5% or more of ${others} other coins, so it trades across the market` });
+    }
+    return roles.size ? { ...d, roles } : d;
+  });
 }

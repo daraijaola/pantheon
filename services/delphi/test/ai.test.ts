@@ -22,13 +22,18 @@ const [W1, W2] = [addr(0x200), addr(0x201)];
 const HONEST = [addr(0x100), addr(0x101), addr(0x102)];
 const OTHER = addr(0xa4);
 
-/** Two wallets funded by one private wallet churn the coin within minutes; three others just buy. */
+/**
+ * Two wallets funded by one private wallet churn the coin within minutes; three others just buy, and
+ * a few small buyers make up the 30 trades by 5 wallets that rules v0.5 want before judging volume.
+ */
 function washed() {
   const s = scenario().fund(W1, FUNDER).fund(W2, FUNDER);
   s.buy(W1, 100, 10).sell(W1, 100, 60).buy(W2, 50, 100).sell(W2, 50, 200);
   HONEST.forEach((w, i) => s.buy(w, 5, 3_600 * (i + 1)));
+  for (let k = 0; k < 24; k++) s.buy(SMALL[k % SMALL.length]!, 0.001, 20_000 + k * 3_600);
   return s;
 }
+const SMALL = [addr(0x300), addr(0x301), addr(0x302)];
 
 /** A second coin, with its own transaction hashes, where W1 also traded. */
 function otherCoin(): CoinData {
@@ -75,10 +80,10 @@ describe("read-only tools", () => {
     expect(r.verdict).toBe("FLAG");
     expect(r.findings[0]!.check).toBe("wash");
     expect(r.findings[0]!.evidence.length).toBeGreaterThan(0);
-    expect(r.activity).toMatchObject({ trades: 7, buys: 5, sells: 2, tokensBought: "165,000,000", tokensSold: "150,000,000" });
-    expect(r.activity.volume).toEqual([{ currency: "USDC", spentOnBuys: "165", receivedFromSells: "150" }]);
+    expect(r.activity).toMatchObject({ trades: 31, buys: 29, sells: 2, tokensBought: "165,024,000", tokensSold: "150,000,000" });
+    expect(r.activity.volume).toEqual([{ currency: "USDC", spentOnBuys: "165.02", receivedFromSells: "150" }]);
     expect(r.launch.pricedIn).toBe("USDC");
-    expect(r.missing?.hiddenConcentration).toBe("needs 5 holders, has 3");
+    expect(r.missing).toBeUndefined();
     expect(r.supply.holders).toBe(report.stats.holders);
   });
 
@@ -93,8 +98,8 @@ describe("read-only tools", () => {
   it("holders lists balances largest first", () => {
     const { ws } = workspace();
     const h = listHolders(ws, { token: TOKEN });
-    expect(h.holders).toBe(3);
-    expect(h.rows.map((r) => r.pctOfHeld)).toEqual([33.33, 33.33, 33.33]);
+    expect(h.holders).toBe(6);
+    expect(h.rows.map((r) => r.pctOfHeld)).toEqual([33.28, 33.28, 33.28, 0.05, 0.05, 0.05]);
   });
 
   it("clusters and wallet show who is linked, who funded them, and the other coins they touched", () => {

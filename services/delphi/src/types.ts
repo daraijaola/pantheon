@@ -91,6 +91,14 @@ export type CoinData = {
   system: ReadonlySet<string>;
   /** Wallets whose funding history could not be read: funding links may be incomplete. */
   fundingMissing: number;
+  /** Which rules profile applies (config.ts Network). Unset: mainnet, the strict one. */
+  network?: "testnet" | "mainnet";
+  /**
+   * What DELPHI knows a wallet is, with the evidence in plain words (v0.5): a project's own wallet, a
+   * fee or buyback sink, an outside whale holding many coins. Used to say who holds or trades, never to
+   * hide anything: a role explains a pattern, it does not erase it.
+   */
+  roles?: ReadonlyMap<string, WalletRole>;
   /**
    * Contracts that are not pools (staking, lockers, faucets…). They are in `system` too, so they are
    * never holders and never link wallets; this list lets a report say how much they hold.
@@ -106,6 +114,8 @@ export type CoinData = {
 };
 
 export type Severity = "info" | "watch" | "flag";
+
+export type WalletRole = { kind: "project" | "sink" | "whale"; says: string };
 
 export type Finding = {
   detector: "bundle" | "wash" | "concentration";
