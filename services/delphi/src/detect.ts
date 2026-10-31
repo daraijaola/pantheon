@@ -120,12 +120,16 @@ export function detectWash(d: CoinData): DetectorResult {
   const ring = ranked.filter((a) => a.wallets.size >= 2 || [...a.wallets].some((w) => team.has(w)));
   const solo = ranked.filter((a) => !ring.includes(a));
   const ringShare = pct(ring.reduce((s, a) => s + a.tokens, 0n), total);
-  const ringSeverity = grade(ringShare, RULES.wash);
+  const washers = new Set(ring.flatMap((a) => [...a.wallets]));
+  // On testnet, makers often test buying and selling their own coin: the creator alone is WATCH there.
+  const creatorAlone = washers.size === 1 && [...washers].every((w) => team.has(w));
+  const graded = grade(ringShare, RULES.wash);
+  const ringSeverity = graded && testnet && creatorAlone ? "watch" : graded;
   if (ringSeverity) {
-    const washers = new Set(ring.flatMap((a) => [...a.wallets]));
     const withCreator = [...washers].some((w) => team.has(w));
     return {
       enough: true,
+      ...(testnet && creatorAlone ? { notes: ["On testnet, makers often test buying and selling their own coin: from mainnet this is a flag."] } : {}),
       finding: {
         detector: "wash",
         severity: ringSeverity,

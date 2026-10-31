@@ -147,10 +147,13 @@ describe("wash trading", () => {
     expect(f.summary).toContain("by 2 linked wallet(s)");
   });
 
-  it("flags the creator churning its own coin, even alone", () => {
+  it("flags the creator churning its own coin, even alone; on testnet, alone, it's WATCH (makers test their coins)", () => {
     const s = honest(scenario(), 100_000);
     for (let k = 0; k < 3; k++) s.buy(addr(0xc0), 10, 3_600 * (k + 1)).sell(addr(0xc0), 10, 3_600 * (k + 1) + 90);
     expect(detectWash(s.build()).finding).toMatchObject({ severity: "flag", summary: expect.stringContaining("the creator among them") });
+    const t = detectWash(testnet(s.build()));
+    expect(t.finding?.severity).toBe("watch");
+    expect(t.notes?.[0]).toContain("from mainnet this is a flag");
   });
 
   it("watches one unlinked wallet churning on mainnet, and only notes it on testnet (rules v0.5)", () => {
