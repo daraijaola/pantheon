@@ -33,7 +33,9 @@ const SLOW_DOWN = new Set([-32005, 429, -32007, -32017]);
  */
 const TOO_BIG = /logs count limit|narrow down your query|block range|too many (logs|results)/i;
 export const asksTooMuch = (e: { message: string }) => TOO_BIG.test(e.message);
-export const isSlowDown = (e: { code: number; message: string }) => SLOW_DOWN.has(e.code) && !asksTooMuch(e);
+/** A node behind the load balancer that hasn't seen the latest block yet (seen live on both nodes): ask again. */
+const LAGGING = /header not found/i;
+export const isSlowDown = (e: { code: number; message: string }) => (SLOW_DOWN.has(e.code) && !asksTooMuch(e)) || LAGGING.test(e.message);
 const READ_ONLY = /^(eth_(call|chainId|blockNumber|getBalance|getBlock\w*|getCode|getLogs|getStorageAt|getTransaction\w*|simulateV1)|debug_trace\w+)$/;
 
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;

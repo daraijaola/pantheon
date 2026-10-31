@@ -9,6 +9,7 @@
 // Whatever a tool returns is remembered, so the reply checker accepts its numbers and addresses.
 import type { BetaRunnableTool } from "@anthropic-ai/sdk/lib/tools/BetaRunnableTool";
 import { accountTool } from "./account.ts";
+import { contractTool, liquidityTool } from "./safetytools.ts";
 import { compareTool } from "./compare.ts";
 import { NO_FEATURES, type Features } from "./config.ts";
 import type { ExtraTool, ToolEnv } from "./tooling.ts";
@@ -18,7 +19,7 @@ import { WEB_GUIDANCE } from "./webtools.ts";
 export type { ExtraTool, FeatureDeps, ToolEnv } from "./tooling.ts";
 
 /** Every extra client tool, in the order she sees them. Register new ones here. */
-export const EXTRA_TOOLS: readonly ExtraTool[] = [accountTool, walletTool, compareTool];
+export const EXTRA_TOOLS: readonly ExtraTool[] = [accountTool, walletTool, compareTool, contractTool, liquidityTool];
 
 /** Feature "kalos": the coins on Kalos are in DELPHI's data too, with their own meaning of "launch". */
 export const KALOS_GUIDANCE =

@@ -15,7 +15,7 @@ const n = (def: number) => z.string().trim().regex(/^\d+$/).transform(Number).de
  * With none on, she answers exactly as before: same instructions, same tools. src/x/features.ts says
  * what each one adds.
  */
-export const X_FEATURES = ["web", "xaccount", "wallet", "compare", "kalos"] as const;
+export const X_FEATURES = ["web", "xaccount", "wallet", "compare", "kalos", "safety"] as const;
 export type Feature = (typeof X_FEATURES)[number];
 export type Features = ReadonlySet<Feature>;
 export const NO_FEATURES: Features = new Set();

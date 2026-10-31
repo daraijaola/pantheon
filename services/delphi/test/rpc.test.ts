@@ -49,6 +49,12 @@ describe("BatchRpc", () => {
     expect(node.seen).toHaveLength(1);
   });
 
+  it("asks again when a lagging node hasn't seen the latest block (seen live)", async () => {
+    const node = fakeNode((_c, n) => (n === 0 ? { error: { code: -32000, message: "header not found" } } : { result: "0x" }));
+    const rpc = new BatchRpc("http://node", { ...quiet, fetch: node.fetch });
+    expect(await rpc.call("eth_getCode", ["0x01", "latest"])).toBe("0x");
+  });
+
   it("returns other errors in place, and call() throws them", async () => {
     const node = fakeNode((c) => (c.params[0] === 1 ? { error: { code: -32000, message: "execution reverted" } } : { result: 7 }));
     const rpc = new BatchRpc("http://node", { ...quiet, fetch: node.fetch });
