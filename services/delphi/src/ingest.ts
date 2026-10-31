@@ -273,7 +273,9 @@ export async function collect(deps: {
       system.add(lc(a));
       contracts.add(lc(a));
     }
-    notes.push(...kalos.notes);
+    // Notes about one coin stay with that coin's report (scan.ts adds them); the rest are the run's.
+    const perCoin = new Set([...kalos.liquidity.values()].flatMap((r) => r.notes.map((n) => `${r.symbol}: ${n}`)));
+    notes.push(...kalos.notes.filter((n) => !perCoin.has(n)));
     // Ascend coins also traded in Kalos pools: those trades are theirs, outside Ascend.
     for (const s of ascend) {
       const extra = kalos.ascendExtras.get(lc(s.coin.token));

@@ -162,6 +162,14 @@ export const RULES = {
     singleWatchPct: 20,
     singleFlagPct: 40,
   },
+  pass: {
+    /**
+     * v0.4: a wallet that handed the coin directly to this many different wallets is a distributor
+     * (rewards, an airdrop): its hand-outs link no one. A ring seeding its own wallets uses a handful;
+     * Kalos's rewards wallet passed KALOS to 417 holders. What the distributor holds still counts.
+     */
+    distributorWallets: 100,
+  },
   /** A report notes how much contracts (staking, lockers…) hold once it reaches this share. v0.2. */
   contracts: {
     notePct: 10,

@@ -197,6 +197,15 @@ describe("one wallet holding the supply (rules v0.4)", () => {
     expect(detectConcentration(honest(scenario(), 7_200).buy(addr(0xc0), 170, 5).build()).finding).toBeNull();
   });
 
+  it("doesn't make one group of everyone a rewards wallet paid (Kalos, seen Oct 31), but still sees the wallet itself", () => {
+    const rewards = addr(0xc0);
+    const s = honest(scenario(), 7_200).buy(rewards, 700, 5);
+    wallets(0x1000, 120).forEach((w, i) => s.pass(rewards, w, 1, 900 + i));
+    const f = detectConcentration(s.build()).finding!;
+    expect(f).toMatchObject({ severity: "flag", metrics: { isCreator: "yes" } });
+    expect(f.summary).toMatch(/^The creator's wallet holds 58% of the total supply/);
+  });
+
   it("still names a linked group that holds more than one wallet's watch share", () => {
     const s = honest(scenario(), 7_200).buy(addr(0x400), 250, 600);
     wallets(0x200, 4).forEach((w, i) => s.fund(w, F).buy(w, 100, 600 + i * 60));

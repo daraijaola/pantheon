@@ -138,9 +138,18 @@ export function buildLinks(input: {
     }
   }
 
-  // Tokens handed directly from one wallet to another (not through the pool or a router).
+  // Tokens handed directly from one wallet to another (not through the pool or a router). A wallet
+  // that handed the coin to very many wallets is paying rewards or an airdrop, not seeding one actor's
+  // wallets (v0.4; seen live: Kalos's rewards wallet passed KALOS to 417 holders, all made "one group").
+  const recipients = new Map<string, Set<string>>();
   for (const t of input.transfers) {
     if (ignore(t.from) || ignore(t.to) || lc(t.from) === lc(t.to)) continue;
+    if (!recipients.has(lc(t.from))) recipients.set(lc(t.from), new Set());
+    recipients.get(lc(t.from))!.add(lc(t.to));
+  }
+  const distributor = (a: string) => (recipients.get(lc(a))?.size ?? 0) >= RULES.pass.distributorWallets;
+  for (const t of input.transfers) {
+    if (ignore(t.from) || ignore(t.to) || lc(t.from) === lc(t.to) || distributor(t.from)) continue;
     links.push({ a: t.from, b: t.to, reason: "token-pass", evidence: [t.tx] });
   }
 
