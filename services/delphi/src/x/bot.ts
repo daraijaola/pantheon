@@ -1,9 +1,10 @@
 // One mention, start to finish: is it really talking to her, is she within her limits, which coin it
 // is about, what she answers, and whether that answer is posted (live) or only saved as a draft
 // (shadow). Every outcome is recorded, so no post is ever answered twice.
-import type { Answer, Context } from "./agent.ts";
+import type { Answer, Context, PostView } from "./agent.ts";
 import { fullText, XError, type Post, type User } from "./api.ts";
-import { findCoin, type Found } from "./find.ts";
+import type { Features } from "./config.ts";
+import { findCoin, findPair, type Found } from "./find.ts";
 import type { XState } from "./state.ts";
 import type { Verdict } from "../types.ts";
 import type { Snapshot } from "./xtools.ts";
@@ -16,6 +17,8 @@ export type BotConfig = Readonly<{
   perUserHourly: number;
   /** Lowercase usernames she may answer while testing; null = everyone. */
   allow: ReadonlySet<string> | null;
+  /** Extra abilities (X_FEATURES): "compare" finds both coins in "$A vs $B", "web" passes the posts' links on. */
+  features?: Features;
 }>;
 
 export type BotDeps = {
@@ -31,6 +34,8 @@ export type BotDeps = {
   /** A plain answer from DELPHI's report, for when the model can't give one that passes the checks. */
   fallback?: (snap: Snapshot, token: string) => { text: string; verdict: Verdict } | null;
   onDraft?: (d: { mention: string; author: string; question: string; reply: string; token: string | null }) => void;
+  /** The authors of the posts around the question (with profiles when XApi asks for them): for x_account's cache. */
+  seenUsers?: (users: Iterable<User>) => void;
   now?: () => number;
   log?: (msg: string) => void;
 };
@@ -73,6 +78,12 @@ export function addressed(p: Post, cfg: Pick<BotConfig, "selfId" | "handle">, pa
 }
 
 const refOf = (p: Post, type: "replied_to" | "quoted") => p.referenced_tweets?.find((r) => r.type === type)?.id ?? null;
+
+/** The full links behind a post's t.co links, for web_fetch. Links to X itself are left out (it can't read them). */
+export function postLinks(p: Post): string[] {
+  const urls = (p.entities?.urls ?? []).map((u) => u.expanded_url ?? u.url ?? "");
+  return [...new Set(urls.filter((u) => /^https?:\/\//i.test(u) && !/^https?:\/\/(?:[\w-]+\.)*(?:x\.com|twitter\.com|t\.co)(?:[/:?#]|$)/i.test(u)))].slice(0, 5);
+}
 
 export async function handleMention(
   m: Post,
@@ -123,7 +134,7 @@ export async function handleMention(
       ...(parent && parent.author_id !== cfg.selfId ? [{ post: parent, where: "the post it replies to" }] : []),
       ...(quoted ? [{ post: quoted, where: "the quoted post" }] : []),
     ];
-    let found: Found = findCoin(snap.ws, posts);
+    let found: Found = (cfg.features?.has("compare") ? findPair(snap.ws, m) : null) ?? findCoin(snap.ws, posts);
     let grandparent: Post | null = null;
     if (found.kind === "none" && earlier?.token) found = { kind: "coin", token: earlier.token, how: "address", where: "her earlier reply" };
     if (found.kind === "none" && parent && parent.author_id !== cfg.selfId) {
@@ -136,13 +147,29 @@ export async function handleMention(
         return snap;
       });
     }
+    if (found.kind === "pair" && deps.refreshCoin) {
+      for (const token of new Set(found.tokens)) {
+        snap = await deps.refreshCoin(token).catch((err: unknown) => {
+          log(`fresh data for ${token} failed, using the last read: ${(err as Error).message}`);
+          return snap;
+        });
+      }
+    }
+    // the coin's account is usually the author of a post around the question: x_account can use its profile
+    const around = [parent, quoted, grandparent].flatMap((p) => (p?.author_id && users.has(p.author_id) ? [users.get(p.author_id)!] : []));
+    if (around.length) deps.seenUsers?.(around);
 
-    const view = (p: Post | null) => (p ? { author: name(p), text: fullText(p) } : null);
+    const web = cfg.features?.has("web") ?? false;
+    const view = (p: Post | null): PostView | null => {
+      if (!p) return null;
+      const links = web ? postLinks(p) : [];
+      return { author: name(p), text: fullText(p), ...(links.length ? { links } : {}) };
+    };
     let answer: Answer;
     let cost = 0;
     try {
       ({ answer, cost } = await deps.answer(
-        { question: { author, text: fullText(m) }, parent: view(parent), quoted: view(quoted), grandparent: view(grandparent), found, earlier },
+        { question: view(m)!, parent: view(parent), quoted: view(quoted), grandparent: view(grandparent), found, earlier },
         snap,
       ));
     } catch (err) {

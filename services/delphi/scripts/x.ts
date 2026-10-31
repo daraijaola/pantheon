@@ -3,8 +3,10 @@
 // posted); X_MODE=live posts them. Run it by hand or as a service:
 //   node scripts/x.ts                     the loop
 //   node scripts/x.ts --check             check the keys and the data, then stop (nothing is posted)
-//   node scripts/x.ts --ask "is this safe?" [--under "post text with 0x… or $TICKER"]
-//                                         answer one made-up question locally; nothing touches X
+//   node scripts/x.ts --ask "is this safe?" [--under "post text with 0x… or $TICKER"] [--by coin_handle]
+//                                         answer one made-up question locally; nothing is posted (with
+//                                         X_FEATURES=xaccount it does look accounts up on X)
+// X_FEATURES=web,xaccount,wallet,compare turns on extra abilities (off by default; see the README).
 // The first loop run only notes where her mentions stand; she answers what comes after that.
 import Anthropic from "@anthropic-ai/sdk";
 import { accessSync, appendFileSync, constants, existsSync, mkdirSync } from "node:fs";
@@ -13,14 +15,17 @@ import { makeClient } from "../src/chain.ts";
 import { loadConfig } from "../src/config.ts";
 import { Explorer } from "../src/explorer.ts";
 import { Store } from "../src/store.ts";
+import { XAccounts } from "../src/x/account.ts";
 import { answer, costOf, type Context } from "../src/x/agent.ts";
-import { XApi, XError, type Post } from "../src/x/api.ts";
+import { PROFILE_FIELDS, XApi, XError, type Post } from "../src/x/api.ts";
 import { handleMention, type BotConfig } from "../src/x/bot.ts";
 import { loadXConfig, loadXKeys, readSecret } from "../src/x/config.ts";
 import { ChainView } from "../src/x/data.ts";
 import { fallbackReply } from "../src/x/fallback.ts";
-import { findCoin } from "../src/x/find.ts";
+import type { FeatureDeps } from "../src/x/features.ts";
+import { findCoin, findPair } from "../src/x/find.ts";
 import { XState } from "../src/x/state.ts";
+import { chainReader } from "../src/x/wallet.ts";
 
 const args = process.argv.slice(2);
 const arg = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
@@ -40,8 +45,9 @@ if (existsSync(cfg.dbPath)) {
   }
 }
 const store = new Store(cfg.dbPath);
+const client = makeClient(cfg.elysiumRpc, (ms, what) => log(`RPC asked us to slow down (${what}): waiting ${ms / 1000} s`));
 const view = new ChainView({
-  client: makeClient(cfg.elysiumRpc, (ms, what) => log(`RPC asked us to slow down (${what}): waiting ${ms / 1000} s`)),
+  client,
   store,
   cfg,
   explorer: new Explorer(cfg.explorerApi),
@@ -58,33 +64,46 @@ try {
   log(`${snap.ws.reports.size} coins up to block ${snap.head} (${Math.round((Date.now() - t0) / 1000)} s)`);
 
   const claude = new Anthropic({ apiKey: readSecret(xcfg.claudeKeyFile), maxRetries: 3 });
+  const features = xcfg.features;
+  if (features.size) log(`extra abilities on: ${[...features].join(", ")}`);
+  // The extra tools' services. firstFunding: wire src/funding.ts here once it lands; until then
+  // wallet_profile uses DELPHI's cached funding. accounts: set below, once X and its state are open.
+  const deps: FeatureDeps = features.has("wallet") ? { chain: chainReader(client, store) } : {};
+  const xApi = () => new XApi(loadXKeys(xcfg.keysFile), features.has("xaccount") ? { userFields: PROFILE_FIELDS } : {});
   const think = async (c: Context, s: typeof snap) => {
-    const out = await answer(claude, s, c, { model: xcfg.model, handle: xcfg.handle, signal: AbortSignal.timeout(150_000) });
+    const out = await answer(claude, s, c, { model: xcfg.model, handle: xcfg.handle, signal: AbortSignal.timeout(150_000), features, deps });
     const cost = costOf(xcfg.model, out.usage);
-    log(`  ${out.answer.kind}: ${out.toolCalls.join(" → ")} · ${out.usage.requests} requests · about $${cost.toFixed(3)}`);
+    const web = out.usage.webSearches || out.usage.webFetches ? ` · web ${out.usage.webSearches ?? 0} searches, ${out.usage.webFetches ?? 0} pages` : "";
+    log(`  ${out.answer.kind}: ${out.toolCalls.join(" → ")} · ${out.usage.requests} requests${web} · about $${cost.toFixed(3)}`);
     return { answer: out.answer, cost };
   };
 
   if (args.includes("--ask")) {
-    // A made-up question, answered locally (nothing touches X).
+    // A made-up question, answered locally: nothing is posted, and x_account's cache stays in memory.
+    if (features.has("xaccount")) {
+      const api = xApi();
+      deps.accounts = new XAccounts(new XState(":memory:").db, (h) => api.user(h));
+    }
     const q = arg("--ask") ?? "is this safe?";
     const under = arg("--under");
     const mk = (id: string, text: string): Post => ({ id, text });
     const posts = [{ post: mk("1", q), where: "the question" }, ...(under ? [{ post: mk("2", under), where: "the post it replies to" }] : [])];
-    const found = findCoin(snap.ws, posts);
+    const found = (features.has("compare") ? findPair(snap.ws, posts[0]!.post) : null) ?? findCoin(snap.ws, posts);
     if (found.kind === "coin") snap = await view.forCoin(found.token);
+    if (found.kind === "pair") for (const t of new Set(found.tokens)) snap = await view.forCoin(t);
     log(`coin match: ${JSON.stringify(found)}`);
-    const { answer: a } = await think({ question: { author: "tester", text: q }, parent: under ? { author: "coin", text: under } : null, found }, snap);
+    const { answer: a } = await think({ question: { author: "tester", text: q }, parent: under ? { author: arg("--by")?.replace(/^@/, "") ?? "coin", text: under } : null, found }, snap);
     console.log(a.kind === "reply" ? `\n${a.text}\n` : `\n(silent: ${a.reason})\n`);
   } else {
-    const api = new XApi(loadXKeys(xcfg.keysFile));
+    const api = xApi();
     const me = await api.me();
     if (me.username.toLowerCase() !== xcfg.handle.toLowerCase()) throw new Error(`these keys post as @${me.username}, not @${xcfg.handle}`);
     log(`keys work: posting as @${me.username} (${xcfg.mode} mode${xcfg.allow ? `, test list: ${[...xcfg.allow].join(", ")}` : ""})`);
     if (args.includes("--check")) process.exit(0);
 
     const state = new XState(xcfg.statePath);
-    const bot: BotConfig = { selfId: me.id, handle: me.username, mode: xcfg.mode, dailyCap: xcfg.dailyCap, perUserHourly: xcfg.perUserHourly, allow: xcfg.allow };
+    if (features.has("xaccount")) deps.accounts = new XAccounts(state.db, (h) => api.user(h));
+    const bot: BotConfig = { selfId: me.id, handle: me.username, mode: xcfg.mode, dailyCap: xcfg.dailyCap, perUserHourly: xcfg.perUserHourly, allow: xcfg.allow, features };
     mkdirSync(dirname(xcfg.draftsPath), { recursive: true });
     const onDraft = (d: object) => appendFileSync(xcfg.draftsPath, `${JSON.stringify({ at: new Date().toISOString(), ...d })}\n`);
 
@@ -117,6 +136,7 @@ try {
             answer: think,
             fallback: fallbackReply,
             onDraft,
+            ...(deps.accounts?.remember ? { seenUsers: (us) => deps.accounts!.remember!(us) } : {}),
             log,
           });
           log(`${out.id}: ${out.status}${out.reason ? ` (${out.reason})` : ""}${out.text ? `: ${out.text}` : ""}`);

@@ -1,5 +1,5 @@
 // The few X API v2 calls DELPHI needs, signed as @heydelph: her mentions, one post (the coin post a
-// question was asked under), and her reply. Every answer is checked with zod before use; a rate limit
+// question was asked under), her reply, and (feature "xaccount") one account by its handle. Every answer is checked with zod before use; a rate limit
 // says when to come back, and nothing here ever retries a post on its own.
 import { z } from "zod";
 import { authHeader, type OAuthCreds } from "./oauth.ts";
@@ -27,7 +27,27 @@ export const Post = z.object({
 });
 export type Post = z.infer<typeof Post>;
 
-const User = z.object({ id: z.string(), username: z.string(), name: z.string().optional() });
+const Metrics = z.object({
+  followers_count: z.number().optional(),
+  following_count: z.number().optional(),
+  tweet_count: z.number().optional(),
+  listed_count: z.number().optional(),
+});
+const UrlList = z.object({ urls: z.array(Url).optional() });
+/** An X account. The profile fields come only when asked for (PROFILE_FIELDS); by default just the handle. */
+export const User = z.object({
+  id: z.string(),
+  username: z.string(),
+  name: z.string().optional(),
+  created_at: z.string().optional(),
+  description: z.string().optional(),
+  url: z.string().optional(),
+  verified: z.boolean().optional(),
+  verified_type: z.string().optional(),
+  protected: z.boolean().optional(),
+  public_metrics: Metrics.optional(),
+  entities: z.object({ url: UrlList.optional(), description: UrlList.optional() }).optional(),
+});
 export type User = z.infer<typeof User>;
 
 const Includes = z.object({ tweets: z.array(Post).optional(), users: z.array(User).optional() }).optional();
@@ -40,9 +60,13 @@ const MentionsPage = z.object({
 const OnePost = z.object({ data: Post.optional(), includes: Includes, errors: z.array(z.unknown()).optional() });
 const Created = z.object({ data: z.object({ id: z.string(), text: z.string() }) });
 const Me = z.object({ data: User });
+const Problem = z.object({ title: z.string().optional(), detail: z.string().optional(), type: z.string().optional() });
+const OneUser = z.object({ data: User.optional(), errors: z.array(Problem).optional() });
 
 export const POST_FIELDS = "author_id,conversation_id,in_reply_to_user_id,created_at,referenced_tweets,entities,note_tweet,display_text_range";
 const EXPANSIONS = "author_id,referenced_tweets.id,referenced_tweets.id.author_id";
+/** What an account lookup asks X for: enough to say how old and how big an account is. */
+export const PROFILE_FIELDS = "username,created_at,description,entities,protected,public_metrics,url,verified,verified_type";
 
 export class XError extends Error {
   override name = "XError";
@@ -63,9 +87,15 @@ export type Mentions = { posts: Post[]; byId: Map<string, Post>; users: Map<stri
 export class XApi {
   private readonly fetch: Fetch;
   private readonly creds: OAuthCreds;
-  constructor(creds: OAuthCreds, opts: { fetch?: Fetch } = {}) {
+  private readonly userFields: string;
+  /**
+   * `userFields`: what to ask about the people in mentions and posts (default: the handle only). With
+   * PROFILE_FIELDS the coin post's author comes with its profile, so x_account needs no extra lookup.
+   */
+  constructor(creds: OAuthCreds, opts: { fetch?: Fetch; userFields?: string } = {}) {
     this.creds = creds;
     this.fetch = opts.fetch ?? globalThis.fetch;
+    this.userFields = opts.userFields ?? "username";
   }
 
   private async call<T>(method: "GET" | "POST", url: string, schema: z.ZodType<T>, body?: unknown): Promise<T> {
@@ -97,7 +127,7 @@ export class XApi {
 
   /** Posts that mention the account, newer than `sinceId`, oldest first, with the posts they reply to or quote. */
   async mentions(userId: string, sinceId: string | null): Promise<Mentions> {
-    const q = new URLSearchParams({ max_results: "100", "tweet.fields": POST_FIELDS, expansions: EXPANSIONS, "user.fields": "username" });
+    const q = new URLSearchParams({ max_results: "100", "tweet.fields": POST_FIELDS, expansions: EXPANSIONS, "user.fields": this.userFields });
     if (sinceId) q.set("since_id", sinceId);
     const page = await this.call("GET", `${API}/users/${userId}/mentions?${q}`, MentionsPage);
     const byId = new Map((page.includes?.tweets ?? []).map((p) => [p.id, p]));
@@ -109,7 +139,7 @@ export class XApi {
   /** One post with the posts it replies to or quotes; null if it is gone or hidden. */
   async post(id: string): Promise<{ post: Post; byId: Map<string, Post>; users: Map<string, User> } | null> {
     if (!/^\d{1,25}$/.test(id)) throw new XError(`not a post id: ${id}`, 400);
-    const q = new URLSearchParams({ "tweet.fields": POST_FIELDS, expansions: EXPANSIONS, "user.fields": "username" });
+    const q = new URLSearchParams({ "tweet.fields": POST_FIELDS, expansions: EXPANSIONS, "user.fields": this.userFields });
     const got = await this.call("GET", `${API}/tweets/${id}?${q}`, OnePost);
     if (!got.data) return null;
     return {
@@ -117,6 +147,20 @@ export class XApi {
       byId: new Map((got.includes?.tweets ?? []).map((p) => [p.id, p])),
       users: new Map((got.includes?.users ?? []).map((u) => [u.id, u])),
     };
+  }
+
+  /**
+   * One account by its handle, with its profile (signed as @heydelph, OAuth 1.0a user context like every
+   * other call). `user` is null when X has no such account, or won't show it (suspended); `problem` then
+   * says what X answered, in its own short words.
+   */
+  async user(handle: string): Promise<{ user: User | null; problem?: string }> {
+    if (!/^\w{1,15}$/.test(handle)) throw new XError(`not an X handle: ${handle.slice(0, 20)}`, 400);
+    const q = new URLSearchParams({ "user.fields": PROFILE_FIELDS });
+    const got = await this.call("GET", `${API}/users/by/username/${handle}?${q}`, OneUser);
+    if (got.data) return { user: got.data };
+    const p = got.errors?.[0];
+    return { user: null, problem: (p?.detail ?? p?.title ?? "no such account").slice(0, 160) };
   }
 
   /** Replies to one post. Returns the new post's id. */

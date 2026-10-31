@@ -10,6 +10,24 @@ export const KEYS = "/var/lib/delphi/keys";
 
 const n = (def: number) => z.string().trim().regex(/^\d+$/).transform(Number).default(def);
 
+/**
+ * Abilities that stay off until named in X_FEATURES (a comma list, e.g. "web,xaccount,wallet,compare").
+ * With none on, she answers exactly as before: same instructions, same tools. src/x/features.ts says
+ * what each one adds.
+ */
+export const X_FEATURES = ["web", "xaccount", "wallet", "compare"] as const;
+export type Feature = (typeof X_FEATURES)[number];
+export type Features = ReadonlySet<Feature>;
+export const NO_FEATURES: Features = new Set();
+
+/** "web, Wallet" → {web, wallet}. An unknown name is an error, so a typo can't leave a feature quietly off. */
+export function parseFeatures(list: string): Features {
+  const names = list.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const unknown = names.filter((f) => !(X_FEATURES as readonly string[]).includes(f));
+  if (unknown.length) throw new XConfigError(`X_FEATURES: unknown ${unknown.join(", ")} (known: ${X_FEATURES.join(", ")})`);
+  return new Set(names as Feature[]);
+}
+
 const Env = z.object({
   X_MODE: z.enum(["shadow", "live"]).default("shadow"),
   X_HANDLE: z.string().regex(/^\w{1,15}$/).default("heydelph"),
@@ -26,6 +44,8 @@ const Env = z.object({
   X_DRAFTS: z.string().default("out/x/drafts.jsonl"),
   /** Daily Claude spend limit in USD (list prices): she stops answering for the day past it. */
   X_DAILY_USD: z.string().regex(/^\d+(\.\d+)?$/).transform(Number).default(5),
+  /** Extra abilities, comma-separated (see X_FEATURES); empty = none, the default. */
+  X_FEATURES: z.string().default(""),
 });
 
 export type XConfig = Readonly<{
@@ -42,6 +62,7 @@ export type XConfig = Readonly<{
   statePath: string;
   draftsPath: string;
   dailyUsd: number;
+  features: Features;
 }>;
 
 export class XConfigError extends Error {
@@ -68,6 +89,7 @@ export function loadXConfig(env: Record<string, string | undefined> = process.en
     statePath: e.X_STATE,
     draftsPath: e.X_DRAFTS,
     dailyUsd: e.X_DAILY_USD,
+    features: parseFeatures(e.X_FEATURES),
   });
 }
 

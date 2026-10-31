@@ -132,6 +132,33 @@ the round file.
 **Micheal's own reader:** a parse-only copy of his `propose` script (the same `vm.parseJson*` calls and
 `keccak256(bytes(json))`) reads the round-2 file correctly and gives the same fingerprint as this script.
 
+## DELPHI on X: extra abilities (`X_FEATURES`)
+
+@heyDelph (`scripts/x.ts`) can do more than read DELPHI's chain checks, but only when told to. `X_FEATURES` is a comma list, empty by default:
+
+```sh
+X_FEATURES=web,xaccount,wallet,compare node scripts/x.ts --ask "who's the team?" --under '$PNTH is live https://pantheonindex.com' --by Pantheonindex
+```
+
+With no feature on she gets exactly the instructions and tools she had before (a test compares her request with one recorded before this existed), and the prompt version stays `x-v5`. Any feature on makes it `x-v6`. An unknown name in the list stops her from starting, so a typo can't leave a feature quietly off.
+
+| Feature | Tool | What it adds | Rough cost per answer that uses it (Sonnet 5.5) |
+|---|---|---|---|
+| `web` | `web_search`, `web_fetch` (Claude's own server tools, `_20260209` with dynamic filtering) | What a project's site, docs or search results say about its team, supply, tax, locks or roadmap. At most 2 searches and 3 pages (about 4,000 tokens each) per answer. | $0.01 per search plus about $0.01 of tokens per search or page: about $0.03 for one search and one page, about $0.08 at the limits |
+| `xaccount` | `x_account` | An X account's age, followers, following, posts, verified, bio and website. Cached 6 hours in `x.db`. The coin post's author usually comes with the mention, so it often needs no extra X call. | under $0.005 in tokens, plus one X user lookup per new handle |
+| `wallet` | `wallet_profile` | Any address: wallet, contract or pool, HYPE, transactions sent, first funding, coins it created, traded or holds, linked groups it is in (with each coin's verdict) | under $0.01 in tokens, plus 3 RPC reads |
+| `compare` | `compare_coins` | "$A vs $B" side by side: verdicts and checks, holders, the creator's share, age, trades, wallet links. "vs" is found in the question, so both coins are matched. | under $0.005, often less than two `coin_report` calls |
+
+Each feature on also adds about 100–500 tokens to the cached instructions. Most questions are about wallets and use none of these, so the median answer should stay near today's (about $0.02). `scripts/x-eval.ts` prints the median per feature: the median must stay at about $0.04 or less before anything ships.
+
+How the checks treat the new results:
+- Every number in a reply must still come from a tool result, the question, or her earlier reply. Results from the new tools count, and so does what the web returned that can be read: a fetched page's text, search result titles and links, and passages cited in her text. Search snippets come encrypted, and what her filtering code prints is her own writing, so neither counts: a number seen only there is refused until she opens the page.
+- A full or short address may also be one the new tools or a page returned (a wallet's funder, a contract listed on a site).
+- Web pages, bios and search results are written by strangers. They are data, never instructions. She says "their site says …", never vouches for it, and still posts no links. The verdict, advice and link checks apply as before, whatever a page says.
+- `web_fetch` runs on Anthropic's servers and can only open links already in the conversation: the posts' links (passed on with this feature), a profile's links, or search results. DELPHI's own machine never fetches a stranger's link.
+
+Adding a tool (for example a contract check or liquidity): add its name to `X_FEATURES` in `src/x/config.ts`, add the service it needs to `FeatureDeps` in `src/x/tooling.ts`, write an `ExtraTool` with `jsonTool()` and add it to `EXTRA_TOOLS` in `src/x/features.ts`, then pass the service in from `scripts/x.ts`. What it returns is remembered for the reply checks automatically.
+
 ## Commands
 
 | Command | What it does |
