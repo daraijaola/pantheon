@@ -50,8 +50,15 @@ try {
   const dir = join(cfg.outDir, "coins");
   mkdirSync(dir, { recursive: true });
   const saved = (r: CoinReport) => join(dir, `${r.coin.token}.ai.json`);
-  const fresh = (r: CoinReport) =>
-    existsSync(saved(r)) && (JSON.parse(readFileSync(saved(r), "utf8")) as Explained).key === explanationKey(r);
+  // A coin that only gained trades keeps its explanation for up to 3 days: the site then shows it next
+  // to the report it was written for. A new verdict or a changed check is explained again at once.
+  const fresh = (r: CoinReport) => {
+    if (!existsSync(saved(r))) return false;
+    const x = JSON.parse(readFileSync(saved(r), "utf8")) as Explained & { report?: CoinReport };
+    if (x.key === explanationKey(r)) return true;
+    const young = now.getTime() - Date.parse(x.generatedAt) < 3 * 86_400_000;
+    return young && x.verdict === r.verdict && JSON.stringify(x.report?.checks) === JSON.stringify(r.checks);
+  };
   const todo = targets.filter((r) => args.includes("--force") || !fresh(r));
   log(`${targets.length} coins to explain, ${targets.length - todo.length} already up to date`);
 
