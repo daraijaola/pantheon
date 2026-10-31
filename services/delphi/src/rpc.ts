@@ -117,7 +117,16 @@ export class BatchRpc {
         continue;
       }
       if (!res.ok) throw new RpcError(`node answered HTTP ${res.status}`);
-      const parsed = z.array(Answer).safeParse(await res.json());
+      let json: unknown;
+      try {
+        json = await res.json();
+      } catch (err) {
+        // The connection broke mid-answer (seen live: an HTTP/2 stream reset during a big answer), or it was cut short.
+        if (attempt >= this.retries) throw new RpcError(`node answer cut short: ${(err as Error).message}`);
+        await this.sleep(1_000 * 2 ** attempt);
+        continue;
+      }
+      const parsed = z.array(Answer).safeParse(json);
       if (!parsed.success) throw new RpcError(`unexpected node answer: ${parsed.error.issues[0]?.message}`);
       const byId = new Map(parsed.data.map((a) => [a.id, a]));
       return ids.map((id): RpcAnswer => {

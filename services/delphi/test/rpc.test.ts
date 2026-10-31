@@ -58,6 +58,22 @@ describe("BatchRpc", () => {
     await expect(rpc.call("eth_call", [1])).rejects.toBeInstanceOf(RpcError);
   });
 
+  it("asks again when the connection breaks while the answer is being read", async () => {
+    let sent = 0;
+    const fetch = async (_url: string, init?: RequestInit) => {
+      const calls = JSON.parse(String(init!.body)) as Req[];
+      if (sent++ === 0) {
+        // The headers arrive, then the stream is reset (seen live: NGHTTP2_INTERNAL_ERROR).
+        const broken = new ReadableStream({ pull: (c) => c.error(new TypeError("terminated")) });
+        return new Response(broken, { status: 200 });
+      }
+      return new Response(JSON.stringify(calls.map((c) => ({ jsonrpc: "2.0", id: c.id, result: "ok" }))), { status: 200 });
+    };
+    const rpc = new BatchRpc("http://node", { ...quiet, fetch });
+    expect(await rpc.call("eth_blockNumber", [])).toBe("ok");
+    expect(sent).toBe(2);
+  });
+
   it("refuses anything that is not a read", async () => {
     const rpc = new BatchRpc("http://node", { ...quiet, fetch: fakeNode(() => ({ result: null })).fetch });
     await expect(rpc.many([{ method: "eth_sendRawTransaction", params: ["0x"] }])).rejects.toThrow(/not a read method/);
