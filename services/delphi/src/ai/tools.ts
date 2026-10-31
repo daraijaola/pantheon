@@ -4,7 +4,7 @@
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { formatUnits, isAddress, isHash } from "viem";
 import { z } from "zod";
-import { RULES, TOTAL_SUPPLY } from "../config.ts";
+import { RULES, supplyOf } from "../config.ts";
 import { balances, pct } from "../detect.ts";
 import { actorsOf, clusters as clusterMap, isSystem, linksWithin } from "../graph.ts";
 import type { CoinData, FundingKind, Link, LinkReason, Trade, Verdict } from "../types.ts";
@@ -62,7 +62,7 @@ function tradeRow(ws: Workspace, d: CoinData, t: Trade) {
     wallet: t.holder,
     ...(lc(t.trader) !== lc(t.holder) ? { sentBy: t.trader } : {}),
     tokens: amount(t.tokens),
-    pctOfSupply: pct(t.tokens, TOTAL_SUPPLY),
+    pctOfSupply: pct(t.tokens, supplyOf(d.coin)),
     [t.side === "buy" ? "paid" : "received"]: priceText(ws, d, t),
     pool: t.outside ? "outside Ascend (no Ascend fee)" : "Ascend",
   };
@@ -157,7 +157,7 @@ export function coinReport(ws: Workspace, input: { token: string }) {
       time: iso(c.launchTime),
       creator: c.creator,
       ...(lc(c.launcher) !== lc(c.creator) ? { sentBy: c.launcher } : {}),
-      creatorBoughtAtLaunch: { tokens: amount(c.devBuyTokens), pctOfSupply: pct(c.devBuyTokens, TOTAL_SUPPLY) },
+      creatorBoughtAtLaunch: { tokens: amount(c.devBuyTokens), pctOfSupply: pct(c.devBuyTokens, supplyOf(c)) },
       pricedIn: quoteOf(ws, d, c.poolId)?.symbol ?? "unknown",
     },
     activity: {
@@ -173,10 +173,10 @@ export function coinReport(ws: Workspace, input: { token: string }) {
       ...(last ? { lastTrade: { time: iso(last.time), secondsAfterLaunch: last.time - c.launchTime, tx: last.tx } } : {}),
     },
     supply: {
-      total: amount(TOTAL_SUPPLY),
+      total: amount(supplyOf(c)),
       holders: bal.size,
       heldByWallets: amount(held),
-      heldByWalletsPct: pct(held, TOTAL_SUPPLY),
+      heldByWalletsPct: pct(held, supplyOf(c)),
       creatorHolds: amount(bal.get(lc(c.creator)) ?? 0n),
     },
     walletLinksFound: d.links.length,
@@ -218,7 +218,7 @@ export function listHolders(ws: Workspace, input: { token: string; limit?: numbe
         wallet: w,
         tokens: amount(v),
         pctOfHeld: pct(v, held),
-        pctOfSupply: pct(v, TOTAL_SUPPLY),
+        pctOfSupply: pct(v, supplyOf(d.coin)),
         isCreator: w === lc(d.coin.creator),
         ...(n > 1 ? { cluster: short(root), walletsInCluster: n } : {}),
         lastReceivedIn: lastIn(w),
@@ -288,7 +288,7 @@ export function walletProfile(ws: Workspace, input: { token: string; wallet: str
     kind: d.contracts?.has(w) ? "contract, not a wallet (staking, locker, faucet or similar)" : isSystem(d, w) ? "infrastructure (pool, router, vault…)" : "wallet",
     isCreator: w === lc(d.coin.creator),
     sentTheLaunch: w === lc(d.coin.launcher),
-    holds: { tokens: amount(bal.get(w) ?? 0n), pctOfSupply: pct(bal.get(w) ?? 0n, TOTAL_SUPPLY) },
+    holds: { tokens: amount(bal.get(w) ?? 0n), pctOfSupply: pct(bal.get(w) ?? 0n, supplyOf(d.coin)) },
     trades: {
       total: mine.length,
       tokensBought: amount(sum(mine.filter((t) => t.side === "buy").map((t) => t.tokens))),

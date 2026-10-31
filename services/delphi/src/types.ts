@@ -15,7 +15,22 @@ export type Coin = {
   devBuyTokens: bigint;
   name: string | null;
   symbol: string | null;
+  /**
+   * Where the coin trades. "ascend": launched on Ascend's launchpad (the default). "kalos": a token in
+   * Kalos's Uniswap-V3-style pools, where the "launch" is its first pool's first liquidity and the
+   * creator is whoever deployed the token contract.
+   */
+  market?: Market;
+  /** Total supply in the token's smallest unit. Unset: Ascend's fixed TOTAL_SUPPLY. */
+  supply?: bigint;
+  /**
+   * Set when only recent history was read (a token too busy to read in full): the first block read.
+   * Wash trading and holders then describe that window, not the whole life of the coin.
+   */
+  windowFrom?: bigint;
 };
+
+export type Market = "ascend" | "kalos";
 
 export type Trade = {
   tx: Hex;

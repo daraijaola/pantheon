@@ -164,3 +164,6 @@ export const RULES = {
 
 /** Every launched Ascend token has exactly this supply (AscendLaunchpad TOTAL_SUPPLY). */
 export const TOTAL_SUPPLY = 1_000_000_000n * 10n ** 18n;
+
+/** A coin's total supply: read from the token for Kalos coins, fixed for Ascend's. */
+export const supplyOf = (coin: { supply?: bigint }): bigint => coin.supply ?? TOTAL_SUPPLY;

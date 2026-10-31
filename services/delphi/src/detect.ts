@@ -1,7 +1,7 @@
 // The three detectors. Each is a pure function of one coin's data: same input, same finding.
 // Thresholds live in RULES (config.ts) and are written into every report.
 import type { Hex } from "viem";
-import { RULES, TOTAL_SUPPLY } from "./config.ts";
+import { RULES, supplyOf } from "./config.ts";
 import { clusters, groupEvidence, groupsOf, isSystem, linksWithin, type Group } from "./graph.ts";
 import type { CoinData, Finding, Link, Severity, Trade } from "./types.ts";
 
@@ -47,7 +47,7 @@ export function detectBundle(d: CoinData): DetectorResult {
   }
   if (!worst) return { enough: true, finding: null };
 
-  const share = pct(worst.tokens, TOTAL_SUPPLY);
+  const share = pct(worst.tokens, supplyOf(d.coin));
   const severity = grade(share, RULES.bundle);
   if (!severity) return { enough: true, finding: null };
   const withCreator = worst.members.has(lc(d.coin.creator));
