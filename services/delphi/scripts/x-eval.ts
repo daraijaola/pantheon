@@ -22,6 +22,7 @@ import type { FeatureDeps } from "../src/x/features.ts";
 import { findCoin, findPair } from "../src/x/find.ts";
 import { XState } from "../src/x/state.ts";
 import { biggestProblems } from "../src/x/text.ts";
+import { ChainFunding } from "../src/funding.ts";
 import { chainReader } from "../src/x/wallet.ts";
 
 const PACT = "0x4FAA6142168c6A1126df68CF400839126b3664db";
@@ -150,8 +151,7 @@ const client = makeClient(cfg.elysiumRpc);
 const view = new ChainView({ client, store, cfg, explorer: null, log: () => {} });
 const claude = new Anthropic({ apiKey: readSecret(xcfg.claudeKeyFile), maxRetries: 3 });
 const features = xcfg.features;
-// firstFunding: add src/funding.ts here once it lands (wallet_profile uses DELPHI's cached funding until then).
-const deps: FeatureDeps = features.has("wallet") ? { chain: chainReader(client, store) } : {};
+const deps: FeatureDeps = features.has("wallet") ? { chain: chainReader(client, store), firstFunding: new ChainFunding().firstFundingFn(store) } : {};
 if (features.has("xaccount")) {
   const x = new XApi(loadXKeys(xcfg.keysFile));
   deps.accounts = new XAccounts(new XState(":memory:").db, (h) => x.user(h));

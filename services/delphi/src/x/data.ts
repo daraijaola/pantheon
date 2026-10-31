@@ -4,7 +4,8 @@
 import { getAddress, type Address, type PublicClient } from "viem";
 import { loadWorkspace } from "../ai/workspace.ts";
 import type { Config } from "../config.ts";
-import { ExplorerBudgetError, type Explorer } from "../explorer.ts";
+import { ExplorerBudgetError } from "../explorer.ts";
+import type { FundingSource } from "../funding.ts";
 import { actorsOf, isSystem } from "../graph.ts";
 import { collect } from "../ingest.ts";
 import { analyze } from "../report.ts";
@@ -16,7 +17,7 @@ const lc = (a: string) => a.toLowerCase();
 export class ChainView {
   private current: Snapshot | null = null;
   private busy: Promise<unknown> = Promise.resolve();
-  private readonly deps: { client: PublicClient; store: Store; cfg: Config; explorer: Explorer | null; log: (m: string) => void };
+  private readonly deps: { client: PublicClient; store: Store; cfg: Config; explorer: FundingSource | null; log: (m: string) => void };
   private readonly opts: { maxTopUp?: number };
 
   constructor(deps: ChainView["deps"], opts: { maxTopUp?: number } = {}) {
@@ -64,7 +65,18 @@ export class ChainView {
       .slice(0, this.opts.maxTopUp ?? 30);
     const fresh = Date.now() - snap.readAt.getTime() < 60_000;
     if (fresh && missing.length === 0) return snap;
-    if (explorer && missing.length) {
+    if (explorer?.fundingsMany && missing.length) {
+      // All of them at once (about 25 batched reads), then how busy each new funder is.
+      try {
+        const got = await explorer.fundingsMany(missing.map((w) => getAddress(w)));
+        for (const [w, fs] of got) store.remember("funding", w, fs.map((f) => ({ from: f.from, via: f.via, value: f.value.toString(), tx: f.tx, time: f.time })));
+        const funders = [...new Set([...got.values()].flat().map((f) => lc(f.from)))].filter((f) => store.recall<number>("txcount", f) === undefined);
+        if (funders.length && explorer.txCounts) for (const [f, n] of await explorer.txCounts(funders.map((f) => getAddress(f)))) store.remember("txcount", f, n);
+        if (got.size < missing.length) log(`funding read for ${got.size}/${missing.length} wallets of ${token}`);
+      } catch (err) {
+        log(`funding lookup failed for ${token}: ${(err as Error).message}`);
+      }
+    } else if (explorer && missing.length) {
       let looked = 0;
       try {
         for (const w of missing) {

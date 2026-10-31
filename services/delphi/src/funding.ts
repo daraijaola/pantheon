@@ -6,7 +6,9 @@
 import { getAddress, isAddress, isHash, numberToHex, type Address, type Hex } from "viem";
 import { z } from "zod";
 import type { RawFunding } from "./explorer.ts";
+import type { FirstFundingFn } from "./x/wallet.ts";
 import { BatchRpc, type RpcCall } from "./rpc.ts";
+import type { Store } from "./store.ts";
 
 const lc = (a: string) => a.toLowerCase();
 
@@ -22,8 +24,9 @@ export interface FundingSource {
   remaining?: number | null;
 }
 
-export type FirstFunding = { wallet: Address; funder: Address; via: "tx" | "internal"; value: bigint; tx: Hex; block: bigint; time: number } | null;
-export type FirstFundingFn = (wallet: Address) => Promise<FirstFunding>;
+export type { FirstFunding, FirstFundingFn } from "./x/wallet.ts";
+/** How collect() saves funding in the cache. */
+type StoredFunding = { from: Address; via: RawFunding["via"]; value: string; tx: Hex; time: number };
 
 const hexQty = z.string().regex(/^0x[0-9a-fA-F]+$/);
 const addr = z.string().refine((v) => isAddress(v, { strict: false }));
@@ -197,6 +200,28 @@ export class ChainFunding implements FundingSource {
       if (left.size === 0) break;
     }
     return out;
+  }
+
+  /**
+   * For one wallet: its first funding, from the cache when DELPHI already read it, else from the
+   * chain (and then cached). A payment made inside a contract call is credited to whoever sent that
+   * call, as everywhere else in DELPHI.
+   */
+  firstFundingFn(store: Store): FirstFundingFn {
+    return async (wallet) => {
+      const w = lc(wallet);
+      let list = store.recall<StoredFunding[]>("funding", w)?.map((f) => ({ ...f, value: BigInt(f.value) }));
+      if (!list) {
+        const got = (await this.fundingsMany([wallet])).get(w);
+        if (!got) throw new Error(`could not read the first funding of ${wallet}`);
+        store.remember("funding", w, got.map((f) => ({ from: f.from, via: f.via, value: f.value.toString(), tx: f.tx, time: f.time })));
+        list = got;
+      }
+      const first = list.filter((f) => lc(f.from) !== w).sort((a, b) => a.time - b.time)[0];
+      if (!first) return null;
+      const funder = first.via === "internal" ? getAddress((await this.rpc.call<{ from: string }>("eth_getTransactionByHash", [first.tx])).from) : getAddress(first.from);
+      return { wallet: getAddress(w), funder, via: first.via, value: first.value, tx: first.tx, block: 0n, time: first.time };
+    };
   }
 
   private block(n: bigint) {

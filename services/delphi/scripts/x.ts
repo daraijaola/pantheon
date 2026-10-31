@@ -13,7 +13,7 @@ import { accessSync, appendFileSync, constants, existsSync, mkdirSync } from "no
 import { dirname } from "node:path";
 import { makeClient } from "../src/chain.ts";
 import { loadConfig } from "../src/config.ts";
-import { Explorer } from "../src/explorer.ts";
+import { ChainFunding } from "../src/funding.ts";
 import { Store } from "../src/store.ts";
 import { XAccounts } from "../src/x/account.ts";
 import { answer, costOf, type Context } from "../src/x/agent.ts";
@@ -45,12 +45,14 @@ if (existsSync(cfg.dbPath)) {
   }
 }
 const store = new Store(cfg.dbPath);
+const funding = new ChainFunding();
 const client = makeClient(cfg.elysiumRpc, (ms, what) => log(`RPC asked us to slow down (${what}): waiting ${ms / 1000} s`));
 const view = new ChainView({
   client,
   store,
   cfg,
-  explorer: new Explorer(cfg.explorerApi),
+  // Funding is read from the chain itself: the explorer's API sits behind a bot checkpoint since Oct 25.
+  explorer: funding,
   log,
 });
 
@@ -66,9 +68,8 @@ try {
   const claude = new Anthropic({ apiKey: readSecret(xcfg.claudeKeyFile), maxRetries: 3 });
   const features = xcfg.features;
   if (features.size) log(`extra abilities on: ${[...features].join(", ")}`);
-  // The extra tools' services. firstFunding: wire src/funding.ts here once it lands; until then
-  // wallet_profile uses DELPHI's cached funding. accounts: set below, once X and its state are open.
-  const deps: FeatureDeps = features.has("wallet") ? { chain: chainReader(client, store) } : {};
+  // The extra tools' services. accounts: set below, once X and its state are open.
+  const deps: FeatureDeps = features.has("wallet") ? { chain: chainReader(client, store), firstFunding: funding.firstFundingFn(store) } : {};
   const xApi = () => new XApi(loadXKeys(xcfg.keysFile), features.has("xaccount") ? { userFields: PROFILE_FIELDS } : {});
   const think = async (c: Context, s: typeof snap) => {
     const out = await answer(claude, s, c, { model: xcfg.model, handle: xcfg.handle, signal: AbortSignal.timeout(150_000), features, deps });
