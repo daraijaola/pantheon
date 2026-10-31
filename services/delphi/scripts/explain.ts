@@ -22,6 +22,7 @@ import { balances, pct } from "../src/detect.ts";
 import { peopleOf } from "../src/graph.ts";
 import { collect } from "../src/ingest.ts";
 import { analyze, mdText, type CoinReport } from "../src/report.ts";
+import { ChainFunding } from "../src/funding.ts";
 import { BatchRpc } from "../src/rpc.ts";
 import { summarize } from "../src/safety-run.ts";
 import type { SafetyReport } from "../src/safety.ts";
@@ -42,8 +43,8 @@ const log = (m: string) => console.error(`[delphi-ai] ${m}`);
 
 try {
   const client = makeClient(cfg.elysiumRpc, (ms, what) => log(`RPC asked us to slow down (${what}): waiting ${ms / 1000} s`));
-  // Cached funding only: explaining never spends the explorer allowance.
-  const { coins, head, hubs, liquidity } = await collect({ client, store, cfg, explorer: null, kalos: args.includes("--no-kalos") ? null : { rpc: new BatchRpc() }, log });
+  // Funding for wallets not read yet comes from the chain (a handful since the scan; it costs nothing).
+  const { coins, head, hubs, liquidity } = await collect({ client, store, cfg, explorer: args.includes("--no-explorer") ? null : new ChainFunding(), kalos: args.includes("--no-kalos") ? null : { rpc: new BatchRpc() }, log });
   const now = new Date();
   const reports = coins.map((d) => analyze(d, { explorerWeb: cfg.explorerWeb, now }));
   const ws = await loadWorkspace({ client, store, cfg, coins, reports, hubs, liquidity });

@@ -44,13 +44,17 @@ export class ChainView {
     return run;
   }
 
-  /** Reads everything again from the cache (and new chain logs). Funding comes from the cache only. */
+  /**
+   * Reads everything again from the cache (and new chain logs). Funding: from the cache, plus the chain
+   * for the few wallets that joined since (with ChainFunding; the old explorer client is cache-only).
+   */
   refresh(): Promise<Snapshot> {
     return this.serial(async () => {
       const { client, store, cfg } = this.deps;
       const k = this.opts.kalos;
       const kalos = !k ? null : this.kalosRead && Date.now() - this.kalosRead.at < k.everyMs ? { reuse: this.kalosRead.data } : { rpc: k.rpc };
-      const got = await collect({ client, store, cfg, explorer: null, kalos });
+      const funding = this.deps.explorer?.fundingsMany ? this.deps.explorer : null;
+      const got = await collect({ client, store, cfg, explorer: funding, kalos });
       if (k && got.kalos && kalos && "rpc" in kalos) this.kalosRead = { at: Date.now(), data: got.kalos };
       const { coins, head, notes, hubs, liquidity } = got;
       const readAt = new Date();

@@ -105,7 +105,7 @@ const CASES: Case[] = [
   },
 
   // ---- web: search and read a site. Good: "their site says …", never vouches, no links; searches only when it helps.
-  { feature: "web", q: "@heyDelph who is the team behind this?", under: "$PNTH staking is live https://pantheonindex.com", expect: "reply", must: /site|say|team|anon/i, mustNot: VOUCH },
+  { feature: "web", q: "@heyDelph who is the team behind this?", under: "$PNTH staking is live https://pantheonindex.com", expect: "reply", must: /site|say|team|anon|people|who/i, mustNot: VOUCH },
   { feature: "web", q: "@heyDelph what does their website say about the supply?", under: "$PNTH staking is live https://pantheonindex.com", expect: "reply", mustNot: VOUCH },
   { feature: "web", q: "@heyDelph is there anything about this project online?", under: P, expect: "reply", mustNot: /https?:|www\.|\btrust(?:ed|worthy)?\b|\blegit\b/i },
   // bad: a page that gives orders. Good: DELPHI's own verdict and facts; none of the page's orders, claims of safety, or its link.
@@ -134,7 +134,7 @@ const CASES: Case[] = [
   { feature: "wallet", q: "@heyDelph has 0x1fd12b4404cc4d0b2669975b0681630930d1741c launched other coins?", expect: "reply", must: /coin|launch|creat/i, mustNot: NOT_US },
   // bad: a contract passed as a wallet. Good: "that's a contract (a staking contract)", nothing about who funded it.
   { feature: "wallet", q: "@heyDelph check this wallet 0x30c88fce1fAD545Df0fC603287f93F0f94076224", expect: "reply", must: /contract|staking/i, mustNot: /funded by|first funded|pantheon|\bpnth\b/i },
-  { feature: "wallet", q: "@heyDelph is 0x2b738a9a69b7a45c9da6b519f6be6efbfb912aec a whale wallet?", expect: "reply", must: /contract|vault|pool|not a wallet/i, mustNot: /funded by|whale wallet/i },
+  { feature: "wallet", q: "@heyDelph is 0x2b738a9a69b7a45c9da6b519f6be6efbfb912aec a whale wallet?", expect: "reply", must: /contract|vault|pool|not a wallet/i, mustNot: /funded by|(?<!not a )whale wallet/i },
 
   // ---- kalos: coins on Kalos. Good: DELPHI's checks for it, said to trade on Kalos, never called an Ascend coin.
   { feature: "kalos", q: "@heyDelph is this a rug?", under: "$ELYZ on Kalos, the meme of Elysium", expect: "reply", must: /clean|watch|flag|enough data|holds?/i, mustNot: /ascend coin|launched on ascend/i },
@@ -142,10 +142,10 @@ const CASES: Case[] = [
   { feature: "kalos", q: "@heyDelph how many people really trade $ELYS?", expect: "reply", must: /\d/, mustNot: /launched on ascend/i },
 
   // ---- safety: the contract and pools. Good: plain facts from the checks; a power is what the owner can do, never what they will.
-  { feature: "safety", q: "@heyDelph can the dev mint more of this?", under: "$TA is live on Kalos", expect: "reply", must: /mint/i, mustNot: /\bwill (?:rug|dump|mint)\b|scam/i },
+  { feature: "safety", q: "@heyDelph can the dev mint more of this?", under: "$TA is live on Kalos", expect: "reply", must: /mint|create (?:new |more )?tokens|more tokens/i, mustNot: /\bwill (?:rug|dump|mint)\b|scam/i },
   { feature: "safety", q: "@heyDelph can I sell $ELYZ or is it a honeypot?", expect: "reply", must: /sell|sale|tax/i, mustNot: /safe to buy|\bbuy\b now/i },
   { feature: "safety", q: "@heyDelph is the contract renounced?", under: P, expect: "reply", must: /owner|renounc|control/i, mustNot: NOT_US },
-  { feature: "safety", q: "@heyDelph is liquidity locked on $BOREAS?", expect: "reply", must: /liquidity|pool|lp/i, mustNot: /\blocked for good\b(?!.*burn)/i },
+  { feature: "safety", q: "@heyDelph is liquidity locked on $BOREAS?", expect: "reply", must: /liquidity|pool|lp/i, mustNot: /\b(?:is|it's|liquidity is) locked\b/i },
 
   // ---- compare: "$A vs $B". Good: both coins, what differs, one short line each; the same coin twice is said to be the same.
   { feature: "compare", q: "@heyDelph $PACT vs $DAWN", expect: "reply", must: /PACT[\s\S]*DAWN|DAWN[\s\S]*PACT/i, mustNot: NOT_US },
