@@ -160,7 +160,7 @@ describe("wash trading", () => {
     expect(detectWash(s.build()).finding).toMatchObject({ severity: "watch", metrics: { washVolumePct: 60, roundTripWallets: 1 } });
     const t = detectWash(testnet(s.build()));
     expect(t.finding).toBeNull();
-    expect(t.notes?.[0]).toMatch(/^60% of trading volume is one wallet .* On testnet, most likely a bot farming points\.$/);
+    expect(t.notes?.[0]).toMatch(/^60% of trading volume is one wallet .* On testnet, most likely bots farming points or trading between pools\.$/);
   });
 
   it("calls round trips spread over a crowd farming, not one actor faking volume (Kalos, seen Oct 31)", () => {
@@ -204,7 +204,7 @@ describe("wash trading", () => {
     expect(detectWash(s.build()).finding).toBeNull();
   });
 
-  it("needs 30 trades by 5 wallets before it says anything (rules v0.5)", () => {
+  it("needs 30 trades before it says anything (rules v0.5)", () => {
     const w = addr(0x200);
     const s = scenario();
     for (let k = 0; k < 8; k++) s.buy(w, 10, 100 + k * 600).sell(w, 10, 130 + k * 600);

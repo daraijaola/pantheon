@@ -142,7 +142,7 @@ export function detectWash(d: CoinData): DetectorResult {
   const soloWallets = solo.slice(0, RULES.wash.crowd.topActors).length;
   const line = `${soloShare}% of trading volume is ${soloWallets === 1 ? "one wallet" : `${soloWallets} unlinked wallets`} buying and selling the same tokens back within ${minutes} minutes: that volume is not real demand.`;
   // Not tied to the creator or to each other: a bot or a farmer. On mainnet worth watching, never a flag.
-  if (testnet || !grade(soloShare, RULES.wash)) return { enough: true, finding: null, notes: [`${line}${testnet ? " On testnet, most likely a bot farming points." : ""}`] };
+  if (testnet || !grade(soloShare, RULES.wash)) return { enough: true, finding: null, notes: [`${line}${testnet ? " On testnet, most likely bots farming points or trading between pools." : ""}`] };
   return {
     enough: true,
     finding: {

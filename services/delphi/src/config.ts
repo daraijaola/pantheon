@@ -149,9 +149,9 @@ export const RULES = {
     pairWindowSec: 300,
     watchPct: 25,
     flagPct: 50,
-    /** v0.5: 30 trades by 5 wallets before saying anything (was 6 trades): a handful of test trades is no market. */
+    /** v0.5: 30 trades by 2 wallets or more before saying anything (was 6 trades): a handful of test trades is no market. */
     minTrades: 30,
-    minWallets: 5,
+    minWallets: 2,
     /**
      * v0.5: round trips spread over many separate wallets are a crowd (on testnet, points farming), not
      * one actor faking volume: when the 5 biggest round-trippers make less than half of it, it's a note.
