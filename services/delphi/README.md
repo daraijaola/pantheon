@@ -224,8 +224,8 @@ Kalos). Powers hidden behind functions with no known name in unverified code are
 | `src/honeypot.ts` | Dry runs: holder search, transfer test, Kalos sales and round trips |
 | `src/simulate.ts` | `eth_simulateV1` and revert reasons |
 | `src/lookalike.ts` | Fake tickers: names compared after undoing look-alike tricks |
-| `src/conduit.ts`, `src/kalos.ts`, `src/http.ts` | Conduit's verifier and explorer API, Kalos's API, one careful JSON fetch |
-| `src/reads.ts`, `src/tape.ts` | Pinned-block reads; recorded answers for tests |
+| `src/conduit.ts`, `src/kalos-api.ts`, `src/http.ts` | Conduit's verifier and explorer API, Kalos's API, one careful JSON fetch |
+| `src/pinned.ts`, `src/tape.ts` | Pinned-block reads; recorded answers for tests |
 | `scripts/safety.ts`, `scripts/safety-fixtures.ts` | The safety report (run by hand); re-recording its fixtures |
 | `test/` | Synthetic scenarios (`scenario.ts`) and real transactions (`fixtures/live-trades.json`) |
 

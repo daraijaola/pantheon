@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { ContractsApi, ExplorerApi } from "../src/conduit.ts";
 import { HttpError } from "../src/http.ts";
-import { KALOS_CONTRACTS, KalosApi } from "../src/kalos.ts";
+import { KALOS_CONTRACTS, KalosApi } from "../src/kalos-api.ts";
 import { BatchRpc } from "../src/rpc.ts";
 import { recordingFetch, replayFetch, emptyTape, type Tape } from "../src/tape.ts";
 

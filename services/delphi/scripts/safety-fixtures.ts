@@ -17,7 +17,7 @@ import { encodeFunctionData, getAddress, keccak256, parseAbi, toHex, type Addres
 import { ContractsApi, ExplorerApi } from "../src/conduit.ts";
 import { pickHolder } from "../src/honeypot.ts";
 import type { Fetch } from "../src/http.ts";
-import { KalosApi } from "../src/kalos.ts";
+import { KalosApi } from "../src/kalos-api.ts";
 import { BatchRpc, EXPLORER_RPC } from "../src/rpc.ts";
 import { checkSafety, SAFETY_RULES } from "../src/safety.ts";
 import { emptyTape, recordingFetch, type Tape } from "../src/tape.ts";

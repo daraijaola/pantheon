@@ -6,7 +6,7 @@ import { encodeErrorResult, parseAbi, type Address, type Hex } from "viem";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ContractsApi, ExplorerApi } from "../src/conduit.ts";
 import { pickHolder } from "../src/honeypot.ts";
-import { KalosApi } from "../src/kalos.ts";
+import { KalosApi } from "../src/kalos-api.ts";
 import { BatchRpc } from "../src/rpc.ts";
 import { checkSafety, PROXY_SLOTS, SAFETY_RULES, type SafetyOptions, type SafetyReport } from "../src/safety.ts";
 import { replayFetch, type Tape } from "../src/tape.ts";

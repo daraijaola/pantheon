@@ -37,10 +37,10 @@ import {
   type TransferTest,
 } from "./honeypot.ts";
 import type { Fetch } from "./http.ts";
-import { KALOS_CONTRACTS, KalosApi, type KalosContracts } from "./kalos.ts";
+import { KALOS_CONTRACTS, KalosApi, type KalosContracts } from "./kalos-api.ts";
 import { lookalikes, looksDisguised, skeleton, visible, type KnownToken, type LookalikeMatch } from "./lookalike.ts";
 import { NOT_POWERS, POWER_KINDS, POWER_SELECTORS, powerKind, STANDARD_SELECTORS, type PowerId } from "./powers.ts";
-import { answerData, decodeText, ethCall, getCode, getSlot, isRenounced, outcome, pctText, RENOUNCED, short, wordAddress, wordUint, ZERO } from "./reads.ts";
+import { answerData, decodeText, ethCall, getCode, getSlot, isRenounced, outcome, pctText, RENOUNCED, short, wordAddress, wordUint, ZERO } from "./pinned.ts";
 import type { BatchRpc } from "./rpc.ts";
 
 export type { KnownToken } from "./lookalike.ts";
