@@ -40,6 +40,15 @@ describe("BatchRpc", () => {
     expect(node.seen.map((b) => b.length)).toEqual([3, 1]);
   });
 
+  it("returns a too-many-logs answer at once instead of waiting (same code as slow down, seen live)", async () => {
+    const tooMany = { code: -32005, message: "logs count limit exceeded (10000) consider refine/narrow down your query" };
+    const node = fakeNode(() => ({ error: tooMany }));
+    const rpc = new BatchRpc("http://node", { ...quiet, fetch: node.fetch });
+    const [a] = await rpc.many([{ method: "eth_getLogs", params: [{}] }]);
+    expect(a!.error).toEqual(tooMany);
+    expect(node.seen).toHaveLength(1);
+  });
+
   it("returns other errors in place, and call() throws them", async () => {
     const node = fakeNode((c) => (c.params[0] === 1 ? { error: { code: -32000, message: "execution reverted" } } : { result: 7 }));
     const rpc = new BatchRpc("http://node", { ...quiet, fetch: node.fetch });

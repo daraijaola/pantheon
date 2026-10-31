@@ -26,6 +26,14 @@ const Answer = z.object({
 
 /** "Slow down" codes: standard, 429-in-body, QuickNode's, and Conduit's (seen live). */
 const SLOW_DOWN = new Set([-32005, 429, -32007, -32017]);
+/**
+ * The explorer's node uses -32005 also for "logs count limit exceeded (10000)": the query asked for too
+ * much, and waiting won't change the answer. Seen live 2026-10-31. Such an answer goes back to the caller
+ * at once, so it can ask for a smaller block range.
+ */
+const TOO_BIG = /logs count limit|narrow down your query|block range|too many (logs|results)/i;
+export const asksTooMuch = (e: { message: string }) => TOO_BIG.test(e.message);
+export const isSlowDown = (e: { code: number; message: string }) => SLOW_DOWN.has(e.code) && !asksTooMuch(e);
 const READ_ONLY = /^(eth_(call|chainId|blockNumber|getBalance|getBlock\w*|getCode|getLogs|getStorageAt|getTransaction\w*|simulateV1)|debug_trace\w+)$/;
 
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
@@ -72,7 +80,7 @@ export class BatchRpc {
         const again: typeof todo = [];
         todo.forEach((c, i) => {
           const a = answers[i]!;
-          if (a.error && SLOW_DOWN.has(a.error.code) && attempt < this.retries) again.push(c);
+          if (a.error && isSlowDown(a.error) && attempt < this.retries) again.push(c);
           else out[c.at] = a as RpcAnswer<T>;
         });
         if (again.length) await this.sleep(Math.min(60_000, 2_000 * 2 ** attempt));
