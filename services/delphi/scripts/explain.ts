@@ -14,14 +14,17 @@ import { getAddress, isAddress } from "viem";
 import { costOf, explainCoin, explanationKey, toExplainedMarkdown, type Explained } from "../src/ai/explain.ts";
 import { loadApiKey } from "../src/ai/key.ts";
 import { coinReport } from "../src/ai/tools.ts";
-import { siteBundle, type Saved } from "../src/ai/site.ts";
+import { siteBundle, type KalosExtras, type Saved } from "../src/ai/site.ts";
 import { loadWorkspace } from "../src/ai/workspace.ts";
 import { makeClient, mapLimit } from "../src/chain.ts";
-import { loadConfig } from "../src/config.ts";
+import { loadConfig, supplyOf } from "../src/config.ts";
+import { balances, pct } from "../src/detect.ts";
 import { peopleOf } from "../src/graph.ts";
 import { collect } from "../src/ingest.ts";
 import { analyze, mdText, type CoinReport } from "../src/report.ts";
 import { BatchRpc } from "../src/rpc.ts";
+import { summarize } from "../src/safety-run.ts";
+import type { SafetyReport } from "../src/safety.ts";
 import { Store } from "../src/store.ts";
 
 const args = process.argv.slice(2);
@@ -112,8 +115,30 @@ try {
 
   // The website's data: every verdict, and each explanation next to the report it explains.
   const people = new Map(coins.map((d) => [d.coin.token.toLowerCase(), peopleOf(d)]));
-  const bundle = siteBundle({ reports, saved: rows.map(({ x }) => x), explorerWeb: cfg.explorerWeb, head: head.toString(), people, now });
+  // Kalos coins: who holds them, their pools' liquidity, and the contract checks the scan saved.
+  const kalos = new Map<string, KalosExtras>();
+  for (const d of coins) {
+    if (d.coin.market !== "kalos") continue;
+    const t = d.coin.token.toLowerCase();
+    const supply = supplyOf(d.coin);
+    const held = [...balances(d)].sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0));
+    const liq = liquidity.get(t);
+    const tvl = liq?.pools.reduce((s, p) => (p.tvlHype === null ? s : s + p.tvlHype), 0n) ?? 0n;
+    const safe = store.recall<SafetyReport>("safety", t);
+    kalos.set(t, {
+      creatorPct: pct(held.find(([w]) => w === d.coin.creator.toLowerCase())?.[1] ?? 0n, supply),
+      top5Pct: pct(held.slice(0, 5).reduce((s, [, v]) => s + v, 0n), supply),
+      windowed: d.coin.windowFrom !== undefined,
+      pools: liq?.pools.length ?? 0,
+      tvlHype: liq?.pools.some((p) => p.tvlHype !== null) ? Number(tvl / 10n ** 14n) / 1e4 : null,
+      lpOwners: liq?.lpOwners ?? 0,
+      bigRemovals: liq?.pools.reduce((s, p) => s + p.bigRemovals.length, 0) ?? 0,
+      ...(safe ? { safety: summarize(safe) } : {}),
+    });
+  }
+  const bundle = siteBundle({ reports, saved: rows.map(({ x }) => x), explorerWeb: cfg.explorerWeb, head: head.toString(), people, kalos, now });
   writeFileSync(join(cfg.outDir, "site.json"), `${JSON.stringify(bundle)}\n`);
+  if (bundle.kalos) log(`site data for ${bundle.kalos.coins.length} Kalos coins`);
   log(`site data for ${bundle.coins.length} coins (${Object.keys(bundle.explained).length} explained) in ${cfg.outDir}/site.json`);
 } finally {
   store.close();

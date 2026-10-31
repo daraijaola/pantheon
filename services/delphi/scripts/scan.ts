@@ -4,6 +4,7 @@
 //   node scripts/scan.ts --no-explorer    cached funding data only (no new funding lookups)
 //   node scripts/scan.ts --only 0x…       one coin's report (the scan itself still covers all coins)
 //   node scripts/scan.ts --no-kalos       Ascend coins only (skip every coin on Kalos)
+//   node scripts/scan.ts --no-safety      skip the contract and market checks (src/safety.ts)
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAddress, isAddress } from "viem";
@@ -11,6 +12,7 @@ import { makeClient } from "../src/chain.ts";
 import { loadConfig, RULES } from "../src/config.ts";
 import { ChainFunding } from "../src/funding.ts";
 import { BatchRpc } from "../src/rpc.ts";
+import { safetyFor } from "../src/safety-run.ts";
 import { collect } from "../src/ingest.ts";
 import { analyze, toIndexMarkdown, toMarkdown, type CoinReport } from "../src/report.ts";
 import { Store } from "../src/store.ts";
@@ -43,6 +45,10 @@ try {
   for (const r of reports) for (const n of liquidity.get(r.coin.token.toLowerCase())?.notes ?? []) if (!r.notes.includes(n)) r.notes.push(n);
 
   // File names come from the token address only, never from the coin's self-chosen name.
+  // Contract and market checks for every Kalos coin and every Ascend coin with some trading, kept a day.
+  const worth = reports.filter((r) => r.coin.market === "kalos" || r.stats.trades >= 5).map((r) => getAddress(r.coin.token));
+  const safety = args.includes("--no-safety") ? new Map() : await safetyFor({ rpc: kalos?.rpc ?? new BatchRpc(), store, log }, worth);
+
   const dir = join(cfg.outDir, "coins");
   mkdirSync(dir, { recursive: true });
   const file = (r: CoinReport) => `coins/${r.coin.token}.md`;
@@ -51,6 +57,8 @@ try {
     writeFileSync(join(dir, `${r.coin.token}.md`), toMarkdown(r));
     const liq = liquidity.get(r.coin.token.toLowerCase());
     if (liq) writeFileSync(join(dir, `${r.coin.token}.liquidity.json`), `${JSON.stringify(liq, bigints, 2)}\n`);
+    const safe = safety.get(r.coin.token.toLowerCase());
+    if (safe) writeFileSync(join(dir, `${r.coin.token}.safety.json`), `${JSON.stringify(safe, null, 2)}\n`);
   }
   if (!only) {
     writeFileSync(join(cfg.outDir, "index.md"), toIndexMarkdown(reports, file));
