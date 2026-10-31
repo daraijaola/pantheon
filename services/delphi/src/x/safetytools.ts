@@ -81,7 +81,7 @@ export const liquidityTool: ExtraTool = {
   guidance:
     'liquidity shows a Kalos coin\'s pools: their value, who holds the liquidity (the creator, a burn address, others) and big removals. Use it for "is liquidity locked?" or "can the dev pull it?". Liquidity a wallet holds can be removed by that wallet; only liquidity at a burn address is locked for good.',
   build: (env) => {
-    const liquidity = env.deps.liquidity;
+    const liquidity = env.snap.liquidity;
     if (!liquidity) return null;
     return jsonTool(env, {
       name: "liquidity",
@@ -91,7 +91,7 @@ export const liquidityTool: ExtraTool = {
       run: (i) => {
         const t = tokenOf(env.snap, i.token);
         if ("error" in t) return t;
-        const r = liquidity(t.token);
+        const r = liquidity.get(lc(t.token));
         if (!r) return { token: t.token, note: env.snap.ws.coins.get(lc(t.token))?.coin.market === "kalos" ? "no pool data yet" : "not a Kalos coin: this tool covers Kalos pools only" };
         return liquidityView(r);
       },

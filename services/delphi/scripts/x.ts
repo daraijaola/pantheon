@@ -15,6 +15,7 @@ import { makeClient } from "../src/chain.ts";
 import { loadConfig } from "../src/config.ts";
 import { ChainFunding } from "../src/funding.ts";
 import { BatchRpc } from "../src/rpc.ts";
+import { safetyCheck } from "../src/safety-run.ts";
 import { Store } from "../src/store.ts";
 import { XAccounts } from "../src/x/account.ts";
 import { answer, costOf, type Context } from "../src/x/agent.ts";
@@ -70,7 +71,10 @@ try {
   const features = xcfg.features;
   if (features.size) log(`extra abilities on: ${[...features].join(", ")}`);
   // The extra tools' services. accounts: set below, once X and its state are open.
-  const deps: FeatureDeps = features.has("wallet") ? { chain: chainReader(client, store), firstFunding: funding.firstFundingFn(store) } : {};
+  const deps: FeatureDeps = {
+    ...(features.has("wallet") ? { chain: chainReader(client, store), firstFunding: funding.firstFundingFn(store) } : {}),
+    ...(features.has("safety") ? { safety: safetyCheck(new BatchRpc(), store, log) } : {}),
+  };
   const xApi = () => new XApi(loadXKeys(xcfg.keysFile), features.has("xaccount") ? { userFields: PROFILE_FIELDS } : {});
   const think = async (c: Context, s: typeof snap) => {
     const out = await answer(claude, s, c, { model: xcfg.model, handle: xcfg.handle, signal: AbortSignal.timeout(150_000), features, deps });

@@ -24,6 +24,7 @@ import { XState } from "../src/x/state.ts";
 import { biggestProblems } from "../src/x/text.ts";
 import { ChainFunding } from "../src/funding.ts";
 import { BatchRpc } from "../src/rpc.ts";
+import { safetyCheck } from "../src/safety-run.ts";
 import { chainReader } from "../src/x/wallet.ts";
 
 const PACT = "0x4FAA6142168c6A1126df68CF400839126b3664db";
@@ -135,6 +136,17 @@ const CASES: Case[] = [
   { feature: "wallet", q: "@heyDelph check this wallet 0x30c88fce1fAD545Df0fC603287f93F0f94076224", expect: "reply", must: /contract|staking/i, mustNot: /funded by|first funded|pantheon|\bpnth\b/i },
   { feature: "wallet", q: "@heyDelph is 0x2b738a9a69b7a45c9da6b519f6be6efbfb912aec a whale wallet?", expect: "reply", must: /contract|vault|pool|not a wallet/i, mustNot: /funded by|whale wallet/i },
 
+  // ---- kalos: coins on Kalos. Good: DELPHI's checks for it, said to trade on Kalos, never called an Ascend coin.
+  { feature: "kalos", q: "@heyDelph is this a rug?", under: "$ELYZ on Kalos, the meme of Elysium", expect: "reply", must: /clean|watch|flag|enough data|holds?/i, mustNot: /ascend coin|launched on ascend/i },
+  { feature: "kalos", q: "@heyDelph who holds most of $BOREAS?", expect: "reply", must: /%/, mustNot: NOT_US },
+  { feature: "kalos", q: "@heyDelph how many people really trade $ELYS?", expect: "reply", must: /\d/, mustNot: /launched on ascend/i },
+
+  // ---- safety: the contract and pools. Good: plain facts from the checks; a power is what the owner can do, never what they will.
+  { feature: "safety", q: "@heyDelph can the dev mint more of this?", under: "$TA is live on Kalos", expect: "reply", must: /mint/i, mustNot: /\bwill (?:rug|dump|mint)\b|scam/i },
+  { feature: "safety", q: "@heyDelph can I sell $ELYZ or is it a honeypot?", expect: "reply", must: /sell|sale|tax/i, mustNot: /safe to buy|\bbuy\b now/i },
+  { feature: "safety", q: "@heyDelph is the contract renounced?", under: P, expect: "reply", must: /owner|renounc|control/i, mustNot: NOT_US },
+  { feature: "safety", q: "@heyDelph is liquidity locked on $BOREAS?", expect: "reply", must: /liquidity|pool|lp/i, mustNot: /\blocked for good\b(?!.*burn)/i },
+
   // ---- compare: "$A vs $B". Good: both coins, what differs, one short line each; the same coin twice is said to be the same.
   { feature: "compare", q: "@heyDelph $PACT vs $DAWN", expect: "reply", must: /PACT[\s\S]*DAWN|DAWN[\s\S]*PACT/i, mustNot: NOT_US },
   { feature: "compare", q: "@heyDelph which one is cleaner, $AK or $TROLOLO?", expect: "reply", must: /AK[\s\S]*TROLOLO|TROLOLO[\s\S]*AK/i, mustNot: NOT_US },
@@ -152,7 +164,10 @@ const client = makeClient(cfg.elysiumRpc);
 const view = new ChainView({ client, store, cfg, explorer: null, log: () => {} }, { kalos: xcfg.features.has("kalos") ? { rpc: new BatchRpc(), everyMs: 30 * 60_000 } : null });
 const claude = new Anthropic({ apiKey: readSecret(xcfg.claudeKeyFile), maxRetries: 3 });
 const features = xcfg.features;
-const deps: FeatureDeps = features.has("wallet") ? { chain: chainReader(client, store), firstFunding: new ChainFunding().firstFundingFn(store) } : {};
+const deps: FeatureDeps = {
+  ...(features.has("wallet") ? { chain: chainReader(client, store), firstFunding: new ChainFunding().firstFundingFn(store) } : {}),
+  ...(features.has("safety") ? { safety: safetyCheck(new BatchRpc(), store) } : {}),
+};
 if (features.has("xaccount")) {
   const x = new XApi(loadXKeys(xcfg.keysFile));
   deps.accounts = new XAccounts(new XState(":memory:").db, (h) => x.user(h));

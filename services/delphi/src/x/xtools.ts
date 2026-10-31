@@ -4,6 +4,7 @@ import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { formatUnits, isAddress } from "viem";
 import { z } from "zod";
 import { RULES } from "../config.ts";
+import type { LiquidityReport } from "../kalos.ts";
 import type { Workspace } from "../ai/workspace.ts";
 import type { Verdict } from "../types.ts";
 
@@ -30,7 +31,8 @@ const GENERIC: Readonly<Record<string, string>> = {
 };
 
 /** One loaded scan: the workspace plus when and up to which block it was read. */
-export type Snapshot = { ws: Workspace; head: bigint; readAt: Date; notes: string[] };
+/** `liquidity`: Kalos coins' pools, when the bot reads Kalos (feature "kalos"). */
+export type Snapshot = { ws: Workspace; head: bigint; readAt: Date; notes: string[]; liquidity?: ReadonlyMap<string, LiquidityReport> };
 
 const lc = (a: string) => a.toLowerCase();
 const untrusted = (s: string | null) => (s ? [...s.replace(/[\p{Cc}\p{Cf}]/gu, "")].slice(0, 40).join("") : null);

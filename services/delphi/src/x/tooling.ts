@@ -5,7 +5,6 @@ import type { BetaRunnableTool } from "@anthropic-ai/sdk/lib/tools/BetaRunnableT
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
 import type { Address } from "viem";
-import type { LiquidityReport } from "../kalos.ts";
 import type { SafetySummary } from "../safety-run.ts";
 import type { AccountLookup } from "./account.ts";
 import type { Feature } from "./config.ts";
@@ -22,8 +21,6 @@ export type FeatureDeps = {
   accounts?: AccountLookup;
   /** A coin's contract and market checks, kept a day (src/safety-run.ts). */
   safety?: (token: Address) => Promise<SafetySummary>;
-  /** A Kalos coin's pools and LP owners, from the last Kalos read. */
-  liquidity?: (token: Address) => LiquidityReport | undefined;
 };
 
 /** What a tool gets for one answer. */

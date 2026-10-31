@@ -56,7 +56,7 @@ export class ChainView {
       const readAt = new Date();
       const reports = coins.map((d) => analyze(d, { explorerWeb: cfg.explorerWeb, now: readAt }));
       const ws = await loadWorkspace({ client, store, cfg, coins, reports, hubs, liquidity });
-      this.current = { ws, head, readAt, notes: notes.filter((n) => !n.startsWith("explorer skipped")) };
+      this.current = { ws, head, readAt, notes: notes.filter((n) => !n.startsWith("explorer skipped")), ...(liquidity.size ? { liquidity } : {}) };
       return this.current;
     });
   }

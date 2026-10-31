@@ -29,6 +29,15 @@ export function summarize(r: SafetyReport): SafetySummary {
 /** JSON with bigints as decimal strings (the reports carry raw token amounts). */
 export const plainJson = (v: unknown): unknown => JSON.parse(JSON.stringify(v, (_k, x: unknown) => (typeof x === "bigint" ? x.toString() : x)));
 
+/** One coin's summary for @heyDelph: the scan's report when under a day old, else checked now (10–15 s). */
+export function safetyCheck(rpc: BatchRpc, store: Store, log?: (m: string) => void): (token: Address) => Promise<SafetySummary> {
+  return async (token) => {
+    const got = (await safetyFor({ rpc, store, ...(log ? { log } : {}) }, [token])).get(lc(token));
+    if (!got) throw new Error(`could not check the contract of ${token}`);
+    return summarize(got);
+  };
+}
+
 /**
  * Each token's safety report: from the cache when under `maxAgeSec` old, else checked now (a few at a
  * time; about 15 node reads each). A token whose check fails keeps its last report, if it had one.
