@@ -187,7 +187,7 @@ export function contractHoldings(d: CoinData): { share: number; top: Array<{ con
  * singleWatchPct / singleFlagPct). Measured against the total supply, not the tokens in wallets, so a
  * thin coin whose first buyer holds most of a small float is not flagged for it.
  */
-function singleHolder(d: CoinData, bal: ReadonlyMap<string, bigint>): { severity: Severity; finding: Finding } | null {
+function singleHolder(d: CoinData, bal: ReadonlyMap<string, bigint>): { wallet: string; severity: Severity; finding: Finding } | null {
   let top: [string, bigint] | null = null;
   for (const [w, v] of bal) if (!top || v > top[1]) top = [w, v];
   if (!top) return null;
@@ -197,6 +197,7 @@ function singleHolder(d: CoinData, bal: ReadonlyMap<string, bigint>): { severity
   const who = top[0] === lc(d.coin.creator) ? "The creator's wallet" : "One wallet";
   const tx = lastIn(d, top[0]);
   return {
+    wallet: lc(top[0]),
     severity,
     finding: {
       detector: "concentration",
@@ -237,6 +238,20 @@ export function detectConcentration(d: CoinData): DetectorResult {
   if (single && (!severity || (severity === "watch" && single.severity === "flag"))) return { enough: true, finding: single.finding };
   if (!pick || !severity) return { enough: true, finding: null };
   const n = pick.members.length;
+  // When one member holds most of what the group holds, say that first: it is the fact that matters.
+  const lead = pick.members[0]!;
+  if (single && lc(lead) === single.wallet && bal.get(lead)! * 4n >= pick.held * 3n) {
+    return {
+      enough: true,
+      finding: {
+        ...single.finding,
+        severity: severity === "flag" || single.severity === "flag" ? "flag" : "watch",
+        summary: `${single.finding.summary.replace(/ on its own\.$/, "")}; with ${n - 1} linked wallets, the group holds ${share}% of the tokens in wallets.`,
+        metrics: { ...single.finding.metrics, linkedWallets: n, circulatingPct: share },
+        evidence: [...single.finding.evidence, ...groupEvidence(pick.group, new Set(pick.members)).map(linkEvidence)],
+      },
+    };
+  }
   return {
     enough: true,
     finding: {

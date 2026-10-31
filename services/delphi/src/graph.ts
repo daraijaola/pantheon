@@ -154,9 +154,17 @@ export function buildLinks(input: {
   }
 
   // One wallet sending a trade that moves another wallet's tokens (a buy delivered elsewhere, or a sell
-  // of someone else's tokens, which needs their approval).
+  // of someone else's tokens, which needs their approval). A sender that trades for very many wallets
+  // is a relayer or a trading bot serving the public, not one actor's hand (v0.4, like a distributor).
+  const servedBy = new Map<string, Set<string>>();
   for (const tr of input.trades) {
-    if (lc(tr.trader) !== lc(tr.holder) && !ignore(tr.holder) && !ignore(tr.trader)) {
+    if (lc(tr.trader) === lc(tr.holder) || ignore(tr.holder) || ignore(tr.trader)) continue;
+    if (!servedBy.has(lc(tr.trader))) servedBy.set(lc(tr.trader), new Set());
+    servedBy.get(lc(tr.trader))!.add(lc(tr.holder));
+  }
+  const relayer = (a: string) => (servedBy.get(lc(a))?.size ?? 0) >= RULES.pass.distributorWallets;
+  for (const tr of input.trades) {
+    if (lc(tr.trader) !== lc(tr.holder) && !ignore(tr.holder) && !ignore(tr.trader) && !relayer(tr.trader)) {
       links.push({ a: tr.trader, b: tr.holder, reason: tr.side === "buy" ? "bought-for" : "sold-for", evidence: [tr.tx] });
     }
   }

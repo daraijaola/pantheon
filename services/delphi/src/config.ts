@@ -165,8 +165,8 @@ export const RULES = {
   pass: {
     /**
      * v0.4: a wallet that handed the coin directly to this many different wallets is a distributor
-     * (rewards, an airdrop): its hand-outs link no one. A ring seeding its own wallets uses a handful;
-     * Kalos's rewards wallet passed KALOS to 417 holders. What the distributor holds still counts.
+     * (rewards, an airdrop), and one that sent trades for this many is a relayer: neither links anyone.
+     * A ring seeding its own wallets uses a handful. What the distributor holds still counts.
      */
     distributorWallets: 100,
   },

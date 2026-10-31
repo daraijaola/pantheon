@@ -206,6 +206,15 @@ describe("one wallet holding the supply (rules v0.4)", () => {
     expect(f.summary).toMatch(/^The creator's wallet holds 58% of the total supply/);
   });
 
+  it("names the one wallet first when it holds most of what its group holds", () => {
+    const boss = addr(0xc0);
+    const s = honest(scenario(), 7_200).buy(boss, 500, 5);
+    wallets(0x200, 3).forEach((w, i) => s.fund(w, boss).buy(w, 10, 600 + i * 60));
+    const f = detectConcentration(s.build()).finding!;
+    expect(f.severity).toBe("flag");
+    expect(f.summary).toMatch(/^The creator's wallet holds 50% of the total supply; with 3 linked wallets, the group holds \d+(\.\d+)?% of the tokens in wallets\.$/);
+  });
+
   it("still names a linked group that holds more than one wallet's watch share", () => {
     const s = honest(scenario(), 7_200).buy(addr(0x400), 250, 600);
     wallets(0x200, 4).forEach((w, i) => s.fund(w, F).buy(w, 100, 600 + i * 60));
