@@ -182,6 +182,32 @@ export function contractHoldings(d: CoinData): { share: number; top: Array<{ con
   return { share, top: held.slice(0, 3).map((x) => ({ contract: x.c, pct: pct(x.v, outside) })) };
 }
 
+/**
+ * The biggest single wallet, when it alone holds a big share of the whole supply (RULES.concentration
+ * singleWatchPct / singleFlagPct). Measured against the total supply, not the tokens in wallets, so a
+ * thin coin whose first buyer holds most of a small float is not flagged for it.
+ */
+function singleHolder(d: CoinData, bal: ReadonlyMap<string, bigint>): { severity: Severity; finding: Finding } | null {
+  let top: [string, bigint] | null = null;
+  for (const [w, v] of bal) if (!top || v > top[1]) top = [w, v];
+  if (!top) return null;
+  const share = pct(top[1], supplyOf(d.coin));
+  const severity = grade(share, { watchPct: RULES.concentration.singleWatchPct, flagPct: RULES.concentration.singleFlagPct });
+  if (!severity) return null;
+  const who = top[0] === lc(d.coin.creator) ? "The creator's wallet" : "One wallet";
+  const tx = lastIn(d, top[0]);
+  return {
+    severity,
+    finding: {
+      detector: "concentration",
+      severity,
+      summary: `${who} holds ${share}% of the total supply on its own.`,
+      metrics: { singleWalletPct: share, isCreator: top[0] === lc(d.coin.creator) ? "yes" : "no", holders: bal.size },
+      evidence: tx ? [{ what: `${short(top[0])} holds ${share}% of the supply`, tx }] : [],
+    },
+  };
+}
+
 /** The last transaction that sent tokens to a wallet (where its balance can be checked). */
 function lastIn(d: CoinData, w: string): Hex | null {
   for (let i = d.transfers.length - 1; i >= 0; i--) if (lc(d.transfers[i]!.to) === w) return d.transfers[i]!.tx;
@@ -204,10 +230,12 @@ export function detectConcentration(d: CoinData): DetectorResult {
     const held = members.reduce((s, w) => s + bal.get(w)!, 0n);
     if (!pick || held > pick.held) pick = { members, held, group };
   }
-  if (!pick) return { enough: true, finding: null };
-  const share = pct(pick.held, circulating);
-  const severity = grade(share, RULES.concentration);
-  if (!severity) return { enough: true, finding: null };
+  const single = singleHolder(d, bal);
+  const share = pick ? pct(pick.held, circulating) : 0;
+  const severity = pick ? grade(share, RULES.concentration) : null;
+  // One wallet holding most of the supply is no less a risk for being out in the open (v0.4).
+  if (single && (!severity || (severity === "watch" && single.severity === "flag"))) return { enough: true, finding: single.finding };
+  if (!pick || !severity) return { enough: true, finding: null };
   const n = pick.members.length;
   return {
     enough: true,

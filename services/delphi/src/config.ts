@@ -118,7 +118,7 @@ export const MULTISEND_SELECTORS: ReadonlySet<string> = new Set(MULTISEND_CALLS.
  * Plain thresholds on purpose: v0 must be explainable to a judge in one sentence each.
  */
 export const RULES = {
-  version: "delphi-v0.3",
+  version: "delphi-v0.4",
   hub: {
     /**
      * A funder with this many transactions is public (faucet, bridge, exchange) and links nobody, on any
@@ -155,6 +155,12 @@ export const RULES = {
     watchPct: 20,
     flagPct: 40,
     minHolders: 5,
+    /**
+     * v0.4: one wallet alone holding this share of the total supply. Before, only groups of two or
+     * more linked wallets counted, so a coin whose creator kept 98.9% read CLEAN (FGK, seen Oct 31).
+     */
+    singleWatchPct: 20,
+    singleFlagPct: 40,
   },
   /** A report notes how much contracts (staking, lockers…) hold once it reaches this share. v0.2. */
   contracts: {

@@ -7,6 +7,7 @@ DELPHI reads every coin launched on Ascend (Elysium testnet) and checks it for t
 | Launch bundle | Linked wallets (the creator included) buying in the first 30 s after launch | ≥ 5% of supply | ≥ 15% |
 | Wash trading | Fast round trips: the same actor buying and selling the same tokens back within 5 minutes | ≥ 25% of volume | ≥ 50% |
 | Hidden concentration | Linked wallets that together hold the circulating supply | ≥ 20% | ≥ 40% |
+| …or one wallet (v0.4) | A single wallet, the creator's or anyone's, holding the total supply on its own | ≥ 20% | ≥ 40% |
 
 Each coin gets a verdict, **FLAG**, **WATCH**, **CLEAN** or **NOT ENOUGH DATA**, and a report in which every claim links to the transactions behind it on the explorer. DELPHI reports patterns, not intent: anyone can check its work without trusting it.
 

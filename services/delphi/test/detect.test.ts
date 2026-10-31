@@ -184,6 +184,26 @@ describe("wash trading", () => {
   });
 });
 
+describe("one wallet holding the supply (rules v0.4)", () => {
+  it("flags a creator who kept nearly all of it (FGK, seen Oct 31: 98.91%)", () => {
+    const s = honest(scenario(), 7_200).buy(addr(0xc0), 900, 5);
+    const f = detectConcentration(s.build()).finding!;
+    expect(f).toMatchObject({ severity: "flag", metrics: { singleWalletPct: 90, isCreator: "yes" } });
+    expect(f.summary).toBe("The creator's wallet holds 90% of the total supply on its own.");
+  });
+
+  it("watches one wallet with a quarter of the supply, and leaves a 17% dev buy alone", () => {
+    expect(detectConcentration(honest(scenario(), 7_200).buy(addr(0x400), 250, 600).build()).finding).toMatchObject({ severity: "watch", metrics: { isCreator: "no" } });
+    expect(detectConcentration(honest(scenario(), 7_200).buy(addr(0xc0), 170, 5).build()).finding).toBeNull();
+  });
+
+  it("still names a linked group that holds more than one wallet's watch share", () => {
+    const s = honest(scenario(), 7_200).buy(addr(0x400), 250, 600);
+    wallets(0x200, 4).forEach((w, i) => s.fund(w, F).buy(w, 100, 600 + i * 60));
+    expect(detectConcentration(s.build()).finding).toMatchObject({ severity: "flag", metrics: { linkedWallets: 4 } });
+  });
+});
+
 describe("hidden concentration", () => {
   it("flags linked wallets holding most of the circulating tokens", () => {
     const s = honest(scenario(), 7_200);
