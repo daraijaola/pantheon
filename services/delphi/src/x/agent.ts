@@ -94,7 +94,7 @@ function describeFound(snap: Snapshot, f: Found, features: Features): string {
     case "ambiguous":
       return `Several Ascend coins match${f.ticker ? ` the ticker $${f.ticker}` : ""} in ${f.where}: ${f.tokens.slice(0, 6).join(", ")}${f.tokens.length > 6 ? ` and ${f.tokens.length - 6} more` : ""}. Don't guess; ask for the address.`;
     case "unknown-address":
-      return `The address ${f.address} in ${f.where} is not an Ascend coin DELPHI has read: it may be another token, a wallet, or a coin launched after DELPHI's last read.${features.has("wallet") ? " wallet_profile can say what it is." : ""}`;
+      return `The address ${f.address} in ${f.where} is not ${features.has("kalos") ? "a coin DELPHI has read on Ascend or Kalos" : "an Ascend coin DELPHI has read"}: it may be another token, a wallet, or a coin launched after DELPHI's last read.${features.has("wallet") ? " wallet_profile can say what it is." : ""}`;
     case "pair":
       return f.tokens[0] === f.tokens[1]
         ? `${f.where} names the same coin twice: ${f.tokens[0]} (ticker set by its creator: ${sym(f.tokens[0])}). There is nothing to compare; say so.`

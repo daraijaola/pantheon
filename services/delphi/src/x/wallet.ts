@@ -7,7 +7,7 @@ import { formatEther, getAddress, isAddress, type Address, type Hex, type Public
 import { z } from "zod";
 import { amount } from "../ai/tools.ts";
 import { addressKinds, type AddressKind } from "../chain.ts";
-import { KNOWN_HUBS, supplyOf } from "../config.ts";
+import { decimalsOf, KNOWN_HUBS, supplyOf } from "../config.ts";
 import { balances, pct } from "../detect.ts";
 import { actorsOf, clusters } from "../graph.ts";
 import type { Store } from "../store.ts";
@@ -107,9 +107,9 @@ export async function walletProfileAny(
         ...base,
         buys: buys.length,
         sells: sells.length,
-        tokensBought: amount(buys.reduce((s, t) => s + t.tokens, 0n)),
-        tokensSold: amount(sells.reduce((s, t) => s + t.tokens, 0n)),
-        holds: amount(has),
+        tokensBought: amount(buys.reduce((s, t) => s + t.tokens, 0n), decimalsOf(d.coin)),
+        tokensSold: amount(sells.reduce((s, t) => s + t.tokens, 0n), decimalsOf(d.coin)),
+        holds: amount(has, decimalsOf(d.coin)),
         pctOfSupply: pct(has, supplyOf(d.coin)),
         ...(held > 0n && has > 0n ? { pctOfHeld: pct(has, held) } : {}),
       });

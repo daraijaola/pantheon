@@ -14,6 +14,7 @@ import { dirname } from "node:path";
 import { makeClient } from "../src/chain.ts";
 import { loadConfig } from "../src/config.ts";
 import { ChainFunding } from "../src/funding.ts";
+import { BatchRpc } from "../src/rpc.ts";
 import { Store } from "../src/store.ts";
 import { XAccounts } from "../src/x/account.ts";
 import { answer, costOf, type Context } from "../src/x/agent.ts";
@@ -54,7 +55,7 @@ const view = new ChainView({
   // Funding is read from the chain itself: the explorer's API sits behind a bot checkpoint since Oct 25.
   explorer: funding,
   log,
-});
+}, { kalos: xcfg.features.has("kalos") ? { rpc: new BatchRpc(), everyMs: 10 * 60_000 } : null });
 
 let stopping = false;
 for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => ((stopping = true), log(`${sig}: stopping after this step`)));

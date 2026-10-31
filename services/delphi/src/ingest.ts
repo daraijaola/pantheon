@@ -15,9 +15,12 @@ import {
   txCalls,
   txSenders,
 } from "./chain.ts";
-import { KNOWN_HUBS, STATIC_SYSTEM, type Config } from "./config.ts";
+import { KNOWN_HUBS, RULES, STATIC_SYSTEM, type Config } from "./config.ts";
 import { ExplorerBudgetError, type RawFunding } from "./explorer.ts";
 import type { FundingSource } from "./funding.ts";
+import { collectKalos, type KalosCollected } from "./kalos-collect.ts";
+import type { LiquidityReport } from "./kalos.ts";
+import type { BatchRpc } from "./rpc.ts";
 import { actorsOf, buildLinks, findHubs, fundingKind, payeesOf } from "./graph.ts";
 import type { RawLog, Store } from "./store.ts";
 import type { Coin, CoinData, Funding, TokenTransfer, Trade } from "./types.ts";
@@ -155,8 +158,38 @@ const EMPTY_FUNDING_MAX_AGE = 12 * 3_600;
 const TXCOUNT_MAX_AGE = 7 * 86_400;
 const toStored = (f: RawFunding): StoredFunding => ({ from: f.from, via: f.via, value: f.value.toString(), tx: f.tx, time: f.time });
 
-/** `hubs`: the funders treated as public this run (they link no one). */
-export type Collected = { coins: CoinData[]; head: bigint; notes: string[]; hubs: ReadonlySet<string> };
+/** `hubs`: the funders treated as public this run (they link no one). `liquidity`: Kalos coins' pools. */
+export type Collected = { coins: CoinData[]; head: bigint; notes: string[]; hubs: ReadonlySet<string>; liquidity: ReadonlyMap<string, LiquidityReport>; kalos: KalosCollected | null };
+
+/**
+ * Kalos coins can have tens of thousands of traders (KALOS: 28,000 in its windows). Funding is read for
+ * the wallets the checks turn on: everyone who bought in the launch window, the biggest holders and the
+ * biggest traders. Everyone else counts as their own person.
+ */
+export const KALOS_FUNDING = { holders: 300, traders: 300 } as const;
+
+/** The wallets of one Kalos coin whose funding matters to its checks (see KALOS_FUNDING). */
+export function kalosFundingTargets(s: Skeleton, system: ReadonlySet<string>, windowSec: number): Set<string> {
+  const wallet = (a: string) => !system.has(lc(a));
+  const out = new Set<string>();
+  const end = s.coin.launchTime + windowSec;
+  for (const t of s.trades) if (t.side === "buy" && t.time <= end && wallet(t.holder)) out.add(lc(t.holder));
+  const bal = new Map<string, bigint>(s.holdings ? [...s.holdings].map(([a, v]) => [lc(a), v]) : []);
+  if (!s.holdings) {
+    for (const t of s.transfers) {
+      bal.set(lc(t.from), (bal.get(lc(t.from)) ?? 0n) - t.value);
+      bal.set(lc(t.to), (bal.get(lc(t.to)) ?? 0n) + t.value);
+    }
+  }
+  const top = <K>(m: Map<string, K>, n: number, v: (k: K) => bigint) =>
+    [...m].filter(([a]) => wallet(a)).sort((a, b) => (v(b[1]) > v(a[1]) ? 1 : v(b[1]) < v(a[1]) ? -1 : 0)).slice(0, n).map(([a]) => a);
+  for (const a of top(bal, KALOS_FUNDING.holders, (x) => x)) out.add(a);
+  const volume = new Map<string, bigint>();
+  for (const t of s.trades) volume.set(lc(t.holder), (volume.get(lc(t.holder)) ?? 0n) + t.tokens);
+  for (const a of top(volume, KALOS_FUNDING.traders, (x) => x)) out.add(a);
+  if (wallet(s.coin.creator)) out.add(lc(s.coin.creator));
+  return out;
+}
 
 /**
  * Everything, end to end. `explorer` is where funding comes from: ChainFunding (the chain itself)
@@ -168,6 +201,11 @@ export async function collect(deps: {
   store: Store;
   cfg: Config;
   explorer: FundingSource | null;
+  /**
+   * Also read every coin on Kalos (Elysium's Uniswap-V3-style DEX): over this batched node, or reuse
+   * an earlier read (the X bot re-reads Kalos less often than Ascend). Unset: Ascend coins only.
+   */
+  kalos?: { rpc: BatchRpc; recentBlocks?: bigint } | { reuse: KalosCollected } | null;
   log?: (msg: string) => void;
 }): Promise<Collected> {
   const { client, store, cfg, explorer } = deps;
@@ -220,9 +258,38 @@ export async function collect(deps: {
   }
   log(`${parties.size} addresses checked: ${[...kinds.values()].filter((k) => k === "pool").length} outside pools, ${contracts.size} other contracts`);
 
-  const skeletons = assemble({ launches, pools, swaps, transfers, txFrom, blockTime, system, meta });
+  const ascend = assemble({ launches, pools, swaps, transfers, txFrom, blockTime, system, meta });
+
+  // Kalos: its coins join the same infrastructure set, linking and hub rules as Ascend's.
+  let kalos: KalosCollected | null = null;
+  if (deps.kalos && "reuse" in deps.kalos) kalos = deps.kalos.reuse;
+  else if (deps.kalos) {
+    kalos = await collectKalos({ client, rpc: deps.kalos.rpc, store, log: (m) => log(`kalos: ${m}`), launchpad: cfg.launchpad, launchFrom: cfg.fromBlock, ...(deps.kalos.recentBlocks !== undefined ? { recentBlocks: deps.kalos.recentBlocks } : {}) });
+  }
+  const kalosWallets = new Set<string>();
+  if (kalos) {
+    for (const a of kalos.system) system.add(lc(a));
+    for (const a of kalos.contracts) {
+      system.add(lc(a));
+      contracts.add(lc(a));
+    }
+    notes.push(...kalos.notes);
+    // Ascend coins also traded in Kalos pools: those trades are theirs, outside Ascend.
+    for (const s of ascend) {
+      const extra = kalos.ascendExtras.get(lc(s.coin.token));
+      if (extra?.length) s.trades = [...s.trades, ...extra].sort((a, b) => Number(a.block - b.block) || a.logIndex - b.logIndex);
+    }
+  }
+  const kalosCoins: Skeleton[] = (kalos?.skeletons ?? []).map((s) => {
+    const decimals = kalos!.liquidity.get(lc(s.coin.token))?.decimals;
+    return { ...s, coin: { ...s.coin, ...(decimals != null && decimals !== 18 ? { decimals } : {}) }, system };
+  });
+  const skeletons = [...ascend, ...kalosCoins];
   const coinActors = skeletons.map((s) => actorsOf(s.trades, s.transfers, system));
-  const wallets = [...new Set(coinActors.flatMap((a) => [...a].map(lc)))].filter((a) => kinds.get(a) === "wallet");
+  const targets = skeletons.map((s, i) => (s.coin.market === "kalos" ? kalosFundingTargets(s, system, RULES.bundle.windowSec) : new Set([...coinActors[i]!].map(lc))));
+  for (const [i, s] of skeletons.entries()) if (s.coin.market === "kalos") for (const w of targets[i]!) kalosWallets.add(w);
+  const isWallet = (a: string) => kinds.get(a) === "wallet" || (kinds.get(a) === undefined && kalosWallets.has(a) && !system.has(a));
+  const wallets = [...new Set(targets.flatMap((t) => [...t]))].filter(isWallet);
 
   // Funding per wallet: kept from earlier runs, looked up only for wallets not read yet.
   const fundings = new Map<string, StoredFunding[]>();
@@ -355,7 +422,8 @@ export async function collect(deps: {
     const links = buildLinks({
       actors,
       creator: s.coin.creator,
-      launcher: s.coin.launcher,
+      // On Kalos, whoever added the first liquidity is not tied to the deployer by that alone.
+      launcher: s.coin.market === "kalos" ? s.coin.creator : s.coin.launcher,
       launchTx: s.coin.launchTx,
       trades: s.trades,
       transfers: s.transfers,
@@ -363,9 +431,9 @@ export async function collect(deps: {
       hubs,
       system,
     });
-    const fundingMissing = [...actors].filter((a) => kinds.get(lc(a)) === "wallet" && (!fundings.has(lc(a)) || blind.has(lc(a)))).length;
+    const fundingMissing = [...targets[i]!].filter((a) => isWallet(a) && (!fundings.has(a) || blind.has(a))).length;
     return { ...s, links, fundingMissing, contracts };
   });
   if (!explorer) notes.push("explorer skipped: funding links use cached data only");
-  return { coins, head, notes, hubs };
+  return { coins, head, notes, hubs, liquidity: kalos?.liquidity ?? new Map(), kalos };
 }

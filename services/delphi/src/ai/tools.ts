@@ -4,7 +4,7 @@
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { formatUnits, isAddress, isHash } from "viem";
 import { z } from "zod";
-import { RULES, supplyOf } from "../config.ts";
+import { decimalsOf, RULES, supplyOf } from "../config.ts";
 import { balances, pct } from "../detect.ts";
 import { actorsOf, clusters as clusterMap, isSystem, linksWithin } from "../graph.ts";
 import type { CoinData, FundingKind, Link, LinkReason, Trade, Verdict } from "../types.ts";
@@ -61,10 +61,10 @@ function tradeRow(ws: Workspace, d: CoinData, t: Trade) {
     side: t.side,
     wallet: t.holder,
     ...(lc(t.trader) !== lc(t.holder) ? { sentBy: t.trader } : {}),
-    tokens: amount(t.tokens),
+    tokens: amount(t.tokens, decimalsOf(d.coin)),
     pctOfSupply: pct(t.tokens, supplyOf(d.coin)),
     [t.side === "buy" ? "paid" : "received"]: priceText(ws, d, t),
-    pool: t.outside ? "outside Ascend (no Ascend fee)" : "Ascend",
+    pool: d.coin.market === "kalos" ? "Kalos" : t.outside ? "outside Ascend (no Ascend fee)" : "Ascend",
   };
 }
 
@@ -148,36 +148,48 @@ export function coinReport(ws: Workspace, input: { token: string }) {
     token: c.token,
     nameSetByCreator: untrusted(c.name),
     symbolSetByCreator: untrusted(c.symbol),
+    ...(c.market === "kalos" ? { trades: "on Kalos (a DEX on Elysium), not launched on Ascend" } : {}),
     verdict: r.verdict,
     checks: r.checks,
     notes: r.notes,
     ...(Object.keys(needs).length ? { missing: needs } : {}),
-    launch: {
-      tx: c.launchTx,
-      time: iso(c.launchTime),
-      creator: c.creator,
-      ...(lc(c.launcher) !== lc(c.creator) ? { sentBy: c.launcher } : {}),
-      creatorBoughtAtLaunch: { tokens: amount(c.devBuyTokens), pctOfSupply: pct(c.devBuyTokens, supplyOf(c)) },
-      pricedIn: quoteOf(ws, d, c.poolId)?.symbol ?? "unknown",
-    },
+    launch:
+      c.market === "kalos"
+        ? {
+            meaning: "the first liquidity added to its first Kalos pool; creator = the wallet that deployed the token",
+            tx: c.launchTx,
+            time: iso(c.launchTime),
+            creator: c.creator,
+            ...(lc(c.launcher) !== lc(c.creator) ? { firstLiquidityBy: c.launcher } : {}),
+            pricedIn: quoteOf(ws, d, c.poolId)?.symbol ?? "unknown",
+          }
+        : {
+            tx: c.launchTx,
+            time: iso(c.launchTime),
+            creator: c.creator,
+            ...(lc(c.launcher) !== lc(c.creator) ? { sentBy: c.launcher } : {}),
+            creatorBoughtAtLaunch: { tokens: amount(c.devBuyTokens, decimalsOf(c)), pctOfSupply: pct(c.devBuyTokens, supplyOf(c)) },
+            pricedIn: quoteOf(ws, d, c.poolId)?.symbol ?? "unknown",
+          },
     activity: {
+      ...(c.windowFrom !== undefined ? { readWindow: `too busy to read in full: trades at launch and since block ${c.windowFrom} only` } : {}),
       trades: d.trades.length,
       buys: buys.length,
       sells: sells.length,
-      outsideAscend: d.trades.filter((t) => t.outside).length,
+      ...(c.market === "kalos" ? {} : { outsideAscend: d.trades.filter((t) => t.outside).length }),
       wallets: r.stats.traders,
-      tokensBought: amount(sum(buys.map((t) => t.tokens))),
-      tokensSold: amount(sum(sells.map((t) => t.tokens))),
+      tokensBought: amount(sum(buys.map((t) => t.tokens)), decimalsOf(c)),
+      tokensSold: amount(sum(sells.map((t) => t.tokens)), decimalsOf(c)),
       volume: volume(ws, d, d.trades),
       ...(first ? { firstTrade: { time: iso(first.time), secondsAfterLaunch: first.time - c.launchTime, tx: first.tx } } : {}),
       ...(last ? { lastTrade: { time: iso(last.time), secondsAfterLaunch: last.time - c.launchTime, tx: last.tx } } : {}),
     },
     supply: {
-      total: amount(supplyOf(c)),
+      total: amount(supplyOf(c), decimalsOf(c)),
       holders: bal.size,
-      heldByWallets: amount(held),
+      heldByWallets: amount(held, decimalsOf(c)),
       heldByWalletsPct: pct(held, supplyOf(c)),
-      creatorHolds: amount(bal.get(lc(c.creator)) ?? 0n),
+      creatorHolds: amount(bal.get(lc(c.creator)) ?? 0n, decimalsOf(c)),
     },
     walletLinksFound: d.links.length,
     findings: r.findings.map((f) => ({
@@ -210,13 +222,13 @@ export function listHolders(ws: Workspace, input: { token: string; limit?: numbe
   const rows = [...bal].sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0)).slice(0, input.limit ?? 25);
   return {
     holders: bal.size,
-    heldByWallets: amount(held),
+    heldByWallets: amount(held, decimalsOf(d.coin)),
     rows: rows.map(([w, v]) => {
       const root = cl.get(w)!;
       const n = size.get(root)!;
       return {
         wallet: w,
-        tokens: amount(v),
+        tokens: amount(v, decimalsOf(d.coin)),
         pctOfHeld: pct(v, held),
         pctOfSupply: pct(v, supplyOf(d.coin)),
         isCreator: w === lc(d.coin.creator),
@@ -254,11 +266,11 @@ export function listClusters(ws: Workspace, input: { token: string }) {
         wallets: members.length,
         members: members.slice(0, 15).map((w) => ({
           wallet: w,
-          holds: amount(bal.get(w) ?? 0n),
+          holds: amount(bal.get(w) ?? 0n, decimalsOf(d.coin)),
           trades: d.trades.filter((t) => lc(t.holder) === w || lc(t.trader) === w).length,
           isCreator: w === lc(d.coin.creator),
         })),
-        holdTogether: amount(tokens),
+        holdTogether: amount(tokens, decimalsOf(d.coin)),
         pctOfHeld: pct(tokens, held),
         linksHoldingItTogether: linksWithin(d.links, set, 10).map(linkRow),
       };
@@ -288,11 +300,11 @@ export function walletProfile(ws: Workspace, input: { token: string; wallet: str
     kind: d.contracts?.has(w) ? "contract, not a wallet (staking, locker, faucet or similar)" : isSystem(d, w) ? "infrastructure (pool, router, vault…)" : "wallet",
     isCreator: w === lc(d.coin.creator),
     sentTheLaunch: w === lc(d.coin.launcher),
-    holds: { tokens: amount(bal.get(w) ?? 0n), pctOfSupply: pct(bal.get(w) ?? 0n, supplyOf(d.coin)) },
+    holds: { tokens: amount(bal.get(w) ?? 0n, decimalsOf(d.coin)), pctOfSupply: pct(bal.get(w) ?? 0n, supplyOf(d.coin)) },
     trades: {
       total: mine.length,
-      tokensBought: amount(sum(mine.filter((t) => t.side === "buy").map((t) => t.tokens))),
-      tokensSold: amount(sum(mine.filter((t) => t.side === "sell").map((t) => t.tokens))),
+      tokensBought: amount(sum(mine.filter((t) => t.side === "buy").map((t) => t.tokens)), decimalsOf(d.coin)),
+      tokensSold: amount(sum(mine.filter((t) => t.side === "sell").map((t) => t.tokens)), decimalsOf(d.coin)),
       volume: volume(ws, d, mine),
       rows: mine.slice(0, 20).map((t) => tradeRow(ws, d, t)),
     },
@@ -313,7 +325,7 @@ export function walletProfile(ws: Workspace, input: { token: string; wallet: str
       symbolSetByCreator: untrusted(o.coin.symbol),
       verdict: ws.reports.get(lc(o.coin.token))?.verdict ?? null,
       trades: n,
-      holds: amount(held),
+      holds: amount(held, decimalsOf(o.coin)),
     })),
   };
 }
@@ -330,7 +342,7 @@ export function lookupTransaction(ws: Workspace, input: { tx: string }) {
     if (lc(d.coin.launchTx) === h) launches.push({ token: d.coin.token, symbolSetByCreator: symbol, creator: d.coin.creator, sentBy: d.coin.launcher });
     for (const t of d.trades) if (lc(t.tx) === h) trades.push({ token: d.coin.token, symbolSetByCreator: symbol, ...tradeRow(ws, d, t) });
     for (const t of d.transfers) {
-      if (lc(t.tx) === h) transfers.push({ token: d.coin.token, from: t.from, to: t.to, tokens: amount(t.value) });
+      if (lc(t.tx) === h) transfers.push({ token: d.coin.token, from: t.from, to: t.to, tokens: amount(t.value, decimalsOf(d.coin)) });
     }
     for (const l of d.links) if (l.evidence.some((e) => lc(e) === h)) links.push({ token: d.coin.token, ...linkRow(l) });
   }

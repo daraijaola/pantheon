@@ -21,6 +21,8 @@ export type CoinReport = {
     launchTime: string;
     url: string;
     launchUrl: string;
+    /** Set only for coins outside Ascend ("kalos"): Ascend reports stay exactly as they were. */
+    market?: "kalos";
   };
   stats: { trades: number; outsideTrades: number; traders: number; holders: number; links: number; fundingMissing: number };
   verdict: Verdict;
@@ -58,6 +60,12 @@ export function analyze(d: CoinData, opts: { explorerWeb: string; now?: Date }):
     // Nothing found is not the same as clean when part of the picture is missing.
     if (verdict === "CLEAN") verdict = "NOT_ENOUGH_DATA";
   }
+  if (c.windowFrom !== undefined) {
+    notes.push(
+      `Too busy to read in full: trades and transfers are read at launch and since block ${c.windowFrom}, and holders come from ` +
+        "the balances of every wallet seen in those windows. Wash trading describes that recent window.",
+    );
+  }
   const parked = contractHoldings(d);
   if (parked) {
     const top = parked.top.map((x) => `${x.contract.slice(0, 6)}…${x.contract.slice(-4)} ${x.pct}%`).join(", ");
@@ -80,6 +88,7 @@ export function analyze(d: CoinData, opts: { explorerWeb: string; now?: Date }):
       launchTime: new Date(c.launchTime * 1000).toISOString(),
       url: `${web}/token/${c.token}`,
       launchUrl: `${web}/tx/${c.launchTx}`,
+      ...(c.market === "kalos" ? { market: "kalos" as const } : {}),
     },
     stats: {
       trades: d.trades.length,

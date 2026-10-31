@@ -21,6 +21,7 @@ import { loadConfig } from "../src/config.ts";
 import { peopleOf } from "../src/graph.ts";
 import { collect } from "../src/ingest.ts";
 import { analyze, mdText, type CoinReport } from "../src/report.ts";
+import { BatchRpc } from "../src/rpc.ts";
 import { Store } from "../src/store.ts";
 
 const args = process.argv.slice(2);
@@ -39,14 +40,14 @@ const log = (m: string) => console.error(`[delphi-ai] ${m}`);
 try {
   const client = makeClient(cfg.elysiumRpc, (ms, what) => log(`RPC asked us to slow down (${what}): waiting ${ms / 1000} s`));
   // Cached funding only: explaining never spends the explorer allowance.
-  const { coins, head, hubs } = await collect({ client, store, cfg, explorer: null, log });
+  const { coins, head, hubs, liquidity } = await collect({ client, store, cfg, explorer: null, kalos: args.includes("--no-kalos") ? null : { rpc: new BatchRpc() }, log });
   const now = new Date();
   const reports = coins.map((d) => analyze(d, { explorerWeb: cfg.explorerWeb, now }));
-  const ws = await loadWorkspace({ client, store, cfg, coins, reports, hubs });
+  const ws = await loadWorkspace({ client, store, cfg, coins, reports, hubs, liquidity });
 
   const worth = (r: CoinReport) => r.verdict !== "NOT_ENOUGH_DATA" || r.stats.trades >= 5;
   const targets = reports.filter((r) => (only ? r.coin.token === only : args.includes("--all") || worth(r)));
-  if (only && targets.length === 0) throw new Error(`${only} is not an Ascend coin launched from ${cfg.launchpad}`);
+  if (only && targets.length === 0) throw new Error(`${only} is not a coin DELPHI reads`);
   const dir = join(cfg.outDir, "coins");
   mkdirSync(dir, { recursive: true });
   const saved = (r: CoinReport) => join(dir, `${r.coin.token}.ai.json`);

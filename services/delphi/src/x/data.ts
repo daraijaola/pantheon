@@ -6,6 +6,8 @@ import { loadWorkspace } from "../ai/workspace.ts";
 import type { Config } from "../config.ts";
 import { ExplorerBudgetError } from "../explorer.ts";
 import type { FundingSource } from "../funding.ts";
+import type { KalosCollected } from "../kalos-collect.ts";
+import type { BatchRpc } from "../rpc.ts";
 import { actorsOf, isSystem } from "../graph.ts";
 import { collect } from "../ingest.ts";
 import { analyze } from "../report.ts";
@@ -18,9 +20,14 @@ export class ChainView {
   private current: Snapshot | null = null;
   private busy: Promise<unknown> = Promise.resolve();
   private readonly deps: { client: PublicClient; store: Store; cfg: Config; explorer: FundingSource | null; log: (m: string) => void };
-  private readonly opts: { maxTopUp?: number };
+  /**
+   * `kalos`: also read every coin on Kalos, over this batched node, again at most every `everyMs`
+   * (Kalos is busy: a fresh read takes about 40 s, so in between the last one is reused).
+   */
+  private readonly opts: { maxTopUp?: number; kalos?: { rpc: BatchRpc; everyMs: number } | null };
+  private kalosRead: { at: number; data: KalosCollected } | null = null;
 
-  constructor(deps: ChainView["deps"], opts: { maxTopUp?: number } = {}) {
+  constructor(deps: ChainView["deps"], opts: ChainView["opts"] = {}) {
     this.deps = deps;
     this.opts = opts;
   }
@@ -41,10 +48,14 @@ export class ChainView {
   refresh(): Promise<Snapshot> {
     return this.serial(async () => {
       const { client, store, cfg } = this.deps;
-      const { coins, head, notes, hubs } = await collect({ client, store, cfg, explorer: null });
+      const k = this.opts.kalos;
+      const kalos = !k ? null : this.kalosRead && Date.now() - this.kalosRead.at < k.everyMs ? { reuse: this.kalosRead.data } : { rpc: k.rpc };
+      const got = await collect({ client, store, cfg, explorer: null, kalos });
+      if (k && got.kalos && kalos && "rpc" in kalos) this.kalosRead = { at: Date.now(), data: got.kalos };
+      const { coins, head, notes, hubs, liquidity } = got;
       const readAt = new Date();
       const reports = coins.map((d) => analyze(d, { explorerWeb: cfg.explorerWeb, now: readAt }));
-      const ws = await loadWorkspace({ client, store, cfg, coins, reports, hubs });
+      const ws = await loadWorkspace({ client, store, cfg, coins, reports, hubs, liquidity });
       this.current = { ws, head, readAt, notes: notes.filter((n) => !n.startsWith("explorer skipped")) };
       return this.current;
     });

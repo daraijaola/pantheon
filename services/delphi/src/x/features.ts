@@ -20,6 +20,10 @@ export type { ExtraTool, FeatureDeps, ToolEnv } from "./tooling.ts";
 /** Every extra client tool, in the order she sees them. Register new ones here. */
 export const EXTRA_TOOLS: readonly ExtraTool[] = [accountTool, walletTool, compareTool];
 
+/** Feature "kalos": the coins on Kalos are in DELPHI's data too, with their own meaning of "launch". */
+export const KALOS_GUIDANCE =
+  "DELPHI also reads every coin trading on Kalos, Elysium's biggest DEX, with the same three checks. For a Kalos coin, the launch is the first liquidity added to its first Kalos pool, and the creator is the wallet that deployed the token. Coins too busy to read in full (KALOS, stKALOS) are read at launch and over the last day: say so when it matters. A Kalos coin was not launched on Ascend: never call it an Ascend coin.";
+
 /** The extra tools that are on and have what they need. */
 export function extraTools(features: Features, env: ToolEnv): BetaRunnableTool[] {
   return EXTRA_TOOLS.filter((t) => features.has(t.feature))
@@ -30,6 +34,6 @@ export function extraTools(features: Features, env: ToolEnv): BetaRunnableTool[]
 /** The lines her instructions gain for the features that are on ("" when none is). */
 export function featureGuidance(features: Features = NO_FEATURES): string {
   if (features.size === 0) return "";
-  const lines = [...(features.has("web") ? [WEB_GUIDANCE] : []), ...EXTRA_TOOLS.filter((t) => features.has(t.feature)).map((t) => t.guidance)];
+  const lines = [...(features.has("kalos") ? [KALOS_GUIDANCE] : []), ...(features.has("web") ? [WEB_GUIDANCE] : []), ...EXTRA_TOOLS.filter((t) => features.has(t.feature)).map((t) => t.guidance)];
   return `More you can look up. Use these only when the question needs them: most questions are about wallets, and the tools above answer those.\n${lines.map((l) => `- ${l}`).join("\n")}`;
 }

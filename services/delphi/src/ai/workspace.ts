@@ -5,6 +5,7 @@ import { isRevert, launchpadAddresses, type TxCall } from "../chain.ts";
 import { KNOWN_HUBS, RULES, type Config } from "../config.ts";
 import { actorsOf, fundingKind } from "../graph.ts";
 import { decodeLaunch, decodePool } from "../ingest.ts";
+import type { LiquidityReport } from "../kalos.ts";
 import type { CoinReport } from "../report.ts";
 import type { Store } from "../store.ts";
 import type { CoinData, FundingKind } from "../types.ts";
@@ -86,6 +87,8 @@ export async function loadWorkspace(deps: {
   reports: CoinReport[];
   /** The funders this scan treated as public (from `collect`); without it, only the listed and very busy ones. */
   hubs?: ReadonlySet<string>;
+  /** Kalos coins' pools (from `collect`), so their trades are priced in the right currency. */
+  liquidity?: ReadonlyMap<string, LiquidityReport>;
 }): Promise<Workspace> {
   const { client, store, cfg } = deps;
   const lp = await launchpadAddresses(client, cfg.launchpad);
@@ -96,7 +99,10 @@ export async function loadWorkspace(deps: {
   for (const p of store.logs(`pools:${lc(lp.poolManager)}`).map(decodePool)) {
     if (coinSet.has(lc(p.currency0)) || coinSet.has(lc(p.currency1))) pairs.set(lc(p.poolId), [p.currency0, p.currency1]);
   }
-  // Ascend coins all have 18 decimals; only the other side needs looking up.
+  for (const r of deps.liquidity?.values() ?? []) {
+    for (const p of r.pools) pairs.set(lc(p.pool), p.tokenIs0 ? [r.token, p.quote] : [p.quote, r.token]);
+  }
+  // Ascend coins all have 18 decimals; only the other side (and Kalos coins) need looking up.
   const others = [...pairs.values()].flat().filter((a) => !coinSet.has(lc(a)));
   const meta = await currencies(client, store, others);
   const asCurrency = (a: Address): Currency => meta.get(lc(a)) ?? { address: getAddress(a), symbol: `tokens of ${shortAddr(a)}`, decimals: 18 };

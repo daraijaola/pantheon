@@ -23,6 +23,8 @@ export type Coin = {
   market?: Market;
   /** Total supply in the token's smallest unit. Unset: Ascend's fixed TOTAL_SUPPLY. */
   supply?: bigint;
+  /** The token's decimals. Unset: 18, like every Ascend coin. */
+  decimals?: number;
   /**
    * Set when only recent history was read (a token too busy to read in full): the first block read.
    * Wash trading and holders then describe that window, not the whole life of the coin.

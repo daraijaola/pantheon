@@ -167,3 +167,5 @@ export const TOTAL_SUPPLY = 1_000_000_000n * 10n ** 18n;
 
 /** A coin's total supply: read from the token for Kalos coins, fixed for Ascend's. */
 export const supplyOf = (coin: { supply?: bigint }): bigint => coin.supply ?? TOTAL_SUPPLY;
+/** A coin's decimals: read from the token for Kalos coins (stKALOS has 24), 18 for Ascend's. */
+export const decimalsOf = (coin: { decimals?: number }): number => coin.decimals ?? 18;

@@ -23,6 +23,7 @@ import { findCoin, findPair } from "../src/x/find.ts";
 import { XState } from "../src/x/state.ts";
 import { biggestProblems } from "../src/x/text.ts";
 import { ChainFunding } from "../src/funding.ts";
+import { BatchRpc } from "../src/rpc.ts";
 import { chainReader } from "../src/x/wallet.ts";
 
 const PACT = "0x4FAA6142168c6A1126df68CF400839126b3664db";
@@ -148,7 +149,7 @@ const cfg = loadConfig();
 const xcfg = loadXConfig();
 const store = new Store(cfg.dbPath);
 const client = makeClient(cfg.elysiumRpc);
-const view = new ChainView({ client, store, cfg, explorer: null, log: () => {} });
+const view = new ChainView({ client, store, cfg, explorer: null, log: () => {} }, { kalos: xcfg.features.has("kalos") ? { rpc: new BatchRpc(), everyMs: 30 * 60_000 } : null });
 const claude = new Anthropic({ apiKey: readSecret(xcfg.claudeKeyFile), maxRetries: 3 });
 const features = xcfg.features;
 const deps: FeatureDeps = features.has("wallet") ? { chain: chainReader(client, store), firstFunding: new ChainFunding().firstFundingFn(store) } : {};
