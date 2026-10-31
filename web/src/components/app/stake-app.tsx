@@ -16,18 +16,20 @@ import s from "./app.module.css";
 const ONE = 10n ** 18n;
 const AGE_RAMP = 30 * 86_400;
 
-export function StakeApp() {
+export type BasketSnapshot = { token: string; symbol: string; weightPct: number };
+
+export function StakeApp({ initialBasket = null }: { initialBasket?: BasketSnapshot[] | null }) {
   if (!deployment) return <NotLive title="Stake PNTH" line="PANTHEON isn’t live on testnet yet. Staking opens here the moment it is." />;
   return (
     <Providers>
-      <Stake d={deployment} />
+      <Stake d={deployment} initialBasket={initialBasket} />
     </Providers>
   );
 }
 
 // ------------------------------------------------------------------ the screen
 
-function Stake({ d }: { d: Deployment }) {
+function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnapshot[] | null }) {
   const { address, isConnected, chainId } = useConnection();
   const onChain = isConnected && chainId === elysium.id;
   const me = (address ?? zeroAddress) as Hex;
@@ -43,7 +45,10 @@ function Stake({ d }: { d: Deployment }) {
     ],
     query: { refetchInterval: 10_000 },
   });
-  const basket = pub.data?.[0].result ?? [];
+  const basketRead = pub.data?.[0];
+  // An empty list before the chain answers is "not loaded", not "there is no basket".
+  const basketSettled = basketRead?.status === "success";
+  const basket = basketSettled ? (basketRead.result ?? []) : [];
   const totalStaked = pub.data?.[1].result;
   const totalWorking = pub.data?.[2].result;
   const rewardTokens = (pub.data?.[3].result ?? []) as readonly Hex[];
@@ -143,7 +148,9 @@ function Stake({ d }: { d: Deployment }) {
               <p className={s.label}>Earned</p>
               <ClaimButton d={d} enabled={onChain && anyEarned} />
             </div>
-            {rewardTokens.length === 0 ? (
+            {!pub.data ? (
+              <p className={s.empty}>{pub.isError ? "Rewards couldn’t be read just now." : "Reading rewards…"}</p>
+            ) : rewardTokens.length === 0 ? (
               <p className={s.empty}>Nothing is streaming yet. The basket&rsquo;s first buy starts it.</p>
             ) : (
               <ul className={s.coins}>
@@ -176,9 +183,9 @@ function Stake({ d }: { d: Deployment }) {
         <aside className={s.side}>
           <div className={s.cell}>
             <p className={s.label}>The basket</p>
-            {basket.length === 0 ? (
+            {basketSettled && basket.length === 0 ? (
               <p className={s.empty}>No basket yet. The first list is waiting out its 24 hours on-chain. Until it starts, fees reach stakers as USDC.</p>
-            ) : (
+            ) : basket.length > 0 ? (
               <ul className={s.basket}>
                 {basket.map((c) => (
                   <li key={c.token}>
@@ -192,6 +199,22 @@ function Stake({ d }: { d: Deployment }) {
                   </li>
                 ))}
               </ul>
+            ) : initialBasket && initialBasket.length > 0 ? (
+              <ul className={s.basket}>
+                {initialBasket.map((c) => (
+                  <li key={c.token}>
+                    <a href={explorer("token", c.token)} target="_blank" rel="noreferrer">
+                      {c.symbol}
+                    </a>
+                    <span className={s.bar}>
+                      <i style={{ width: `${c.weightPct}%` }} />
+                    </span>
+                    <span className={s.num}>{c.weightPct}%</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={s.empty}>{pub.isError ? "The basket couldn’t be read just now." : "Reading the basket…"}</p>
             )}
           </div>
           <div className={s.cell}>

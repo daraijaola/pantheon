@@ -223,7 +223,15 @@ export const SECURITY: Feature = {
   faq: [
     {
       q: "Has it been audited?",
-      a: "Not yet. It runs on testnet, and an audit comes before mainnet. Until then our contracts are verified on the explorer, every note from Slither (the standard automatic checker) is answered in our code repository, and the code goes public on GitHub before launch.",
+      a: (
+        <>
+          Not yet. It runs on testnet, and an audit comes before mainnet. Until then our contracts are verified on the explorer, every note from Slither (the standard automatic checker) is answered in our code repository, and the code is public on{" "}
+          <a href="https://github.com/daraijaola/pantheon" target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+          .
+        </>
+      ),
     },
     {
       q: "Who holds the keys?",
