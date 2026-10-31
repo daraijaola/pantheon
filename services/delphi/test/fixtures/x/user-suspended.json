@@ -1,0 +1,13 @@
+{
+  "errors": [
+    {
+      "value": "rugdev",
+      "detail": "User has been suspended: [rugdev].",
+      "title": "Forbidden",
+      "resource_type": "user",
+      "parameter": "username",
+      "resource_id": "rugdev",
+      "type": "https://api.twitter.com/2/problems/resource-not-found"
+    }
+  ]
+}

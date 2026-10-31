@@ -208,6 +208,13 @@ export function biggestProblems(text: string, top: readonly TopHolder[]): string
   return [...new Set(errors)];
 }
 
+/** Every full address in some text (lowercase): what the extra tools and web pages returned may be named. */
+export function addressesIn(texts: Iterable<string>): Set<string> {
+  const out = new Set<string>();
+  for (const s of texts) for (const a of s.replace(HASH, " ").match(FULL_ADDRESS) ?? []) out.add(a.toLowerCase());
+  return out;
+}
+
 /** Every number that appears in some text (tool results, the question), for grounding. */
 export function knownNumbers(texts: Iterable<string>): number[] {
   const out = new Set<number>();

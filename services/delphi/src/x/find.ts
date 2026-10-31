@@ -1,6 +1,6 @@
 // Which coin a question is about. People tag DELPHI under a coin's post, paste its address, or write
 // its $TICKER. Addresses are exact; tickers are chosen by creators and can repeat, so a ticker shared
-// by several coins is "ambiguous", never a guess.
+// by several coins is "ambiguous", never a guess. With the "compare" feature, "$A vs $B" finds both.
 import type { Workspace } from "../ai/workspace.ts";
 import { fullText, type Post } from "./api.ts";
 
@@ -9,6 +9,8 @@ export type Found =
   | { kind: "ambiguous"; tokens: string[]; ticker: string; where: string }
   /** An address that is not an Ascend coin DELPHI has scanned (another token, a wallet, or too new). */
   | { kind: "unknown-address"; address: string; where: string }
+  /** Two coins asked about together ("$A vs $B"): only with the "compare" feature. Both may be the same coin. */
+  | { kind: "pair"; tokens: [string, string]; where: string }
   | { kind: "none" };
 
 const lc = (a: string) => a.toLowerCase();
@@ -54,4 +56,35 @@ export function findCoin(ws: Workspace, posts: Array<{ post: Post; where: string
     }
   }
   return unknown ?? { kind: "none" };
+}
+
+/** What stands between two coins in a comparison: "$A vs $B", "$A vs. $B", "$A versus $B", "$A or $B?". */
+const BETWEEN = /^[\s,]*(?:vs\.?|v\.?|versus|against|or|compared (?:to|with))[\s,]*$/i;
+
+/**
+ * "$A vs $B" in the question: two coins (by address or ticker) with "vs" between them. Both found: a
+ * pair (the same coin twice is a pair of one coin, so she can say there is nothing to compare). A side
+ * that is ambiguous or not an Ascend coin is returned as such. Anything else is not a comparison: null,
+ * and findCoin decides as before.
+ */
+export function findPair(ws: Workspace, post: Post, where = "the question"): Found | null {
+  const text = fullText(post);
+  const refs = [
+    ...[...text.matchAll(ADDRESS)].map((m) => ({ at: m.index, end: m.index + m[0].length, address: lc(m[0]), ticker: null })),
+    ...[...text.matchAll(TICKER)].map((m) => ({ at: m.index, end: m.index + m[0].length, address: null, ticker: m[1]!.toUpperCase() })),
+  ].sort((a, b) => a.at - b.at);
+  for (let i = 0; i + 1 < refs.length; i++) {
+    const [x, y] = [refs[i]!, refs[i + 1]!];
+    if (!BETWEEN.test(text.slice(x.end, y.at))) continue;
+    const sides: Found[] = [x, y].map((r): Found => {
+      if (r.address) return ws.coins.has(r.address) ? { kind: "coin", token: r.address, how: "address", where } : { kind: "unknown-address", address: r.address, where };
+      const hits = coinsByTicker(ws, r.ticker!);
+      if (hits.length === 1) return { kind: "coin", token: hits[0]!, how: "ticker", where };
+      return hits.length > 1 ? { kind: "ambiguous", tokens: hits, ticker: r.ticker!, where } : { kind: "none" };
+    });
+    const [a, b] = sides as [Found, Found];
+    if (a.kind === "coin" && b.kind === "coin") return { kind: "pair", tokens: [a.token, b.token], where };
+    return sides.find((f) => f.kind === "ambiguous") ?? sides.find((f) => f.kind === "unknown-address") ?? null;
+  }
+  return null;
 }
