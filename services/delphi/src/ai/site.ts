@@ -84,7 +84,11 @@ export function siteBundle(input: {
       ? {
           kalos: {
             counts: countIn(onKalos),
-            coins: sort(onKalos).map((r) => ({ ...row(r), ...(input.kalos?.get(r.coin.token.toLowerCase()) ?? {}) })),
+            coins: sort(onKalos).map((r) => ({
+              ...row(r),
+              findings: r.findings.map((f) => ({ detector: f.detector, severity: f.severity, summary: f.summary })),
+              ...(input.kalos?.get(r.coin.token.toLowerCase()) ?? {}),
+            })),
           },
         }
       : {}),

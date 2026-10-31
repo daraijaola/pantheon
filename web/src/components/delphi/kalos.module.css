@@ -1,0 +1,22 @@
+/* DELPHI on Kalos: a coin's findings stacked next to its name. */
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.quiet {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.nowrap {
+  white-space: nowrap;
+}

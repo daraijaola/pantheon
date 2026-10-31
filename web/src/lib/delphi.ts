@@ -59,6 +59,32 @@ export type Delphi = {
   counts: Record<Verdict, number> & { coins: number };
   coins: CoinRow[];
   explained: Record<string, { report: Report; explanation: Explanation; model: string; writtenAt: string }>;
+  /** Every coin on Kalos, Elysium's biggest DEX: the same checks, plus contract and pool facts. */
+  kalos?: { counts: Record<Verdict, number> & { coins: number }; coins: KalosRow[] };
+};
+
+export type SafetyCheck = "code" | "verified" | "owner" | "powers" | "transfer" | "sell" | "impersonation";
+export type Safety = {
+  rules: string;
+  block: string;
+  checkedAt: string;
+  risks: SafetyCheck[];
+  unknowns: SafetyCheck[];
+  checks: Record<SafetyCheck, { state: "ok" | "risk" | "unknown"; summary: string }>;
+};
+
+export type KalosRow = CoinRow & {
+  findings: Array<{ detector: Check; severity: "watch" | "flag"; summary: string }>;
+  /** Shares of the total supply. */
+  creatorPct: number;
+  top5Pct: number;
+  /** Too busy to read in full: read at launch and over the last day. */
+  windowed: boolean;
+  pools: number;
+  tvlHype: number | null;
+  lpOwners: number;
+  bigRemovals: number;
+  safety?: Safety;
 };
 
 /** The published scan, or null before DELPHI has published one. */
