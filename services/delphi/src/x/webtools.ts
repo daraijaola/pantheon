@@ -33,10 +33,11 @@ export function siteNames(texts: Iterable<string>): Set<string> {
   return out;
 }
 
-/** Readable text from one turn's web results, and which server tools ran (for the log). */
-export function webEvidence(content: readonly BetaContentBlock[]): { texts: string[]; used: string[] } {
+/** Readable text from one turn's web results, which server tools ran, and why any failed (for the log). */
+export function webEvidence(content: readonly BetaContentBlock[]): { texts: string[]; used: string[]; failed: string[] } {
   const texts: string[] = [];
   const used: string[] = [];
+  const failed: string[] = [];
   for (const b of content) {
     switch (b.type) {
       case "server_tool_use":
@@ -49,11 +50,12 @@ export function webEvidence(content: readonly BetaContentBlock[]): { texts: stri
           if (doc.title) texts.push(doc.title);
           // a PDF comes as base64: nothing she could quote from it is readable here, so nothing counts
           if (doc.source.type === "text") texts.push(doc.source.data.slice(0, 200_000));
-        }
+        } else failed.push(`web_fetch: ${b.content.error_code}`);
         break;
       case "web_search_tool_result":
         // a list of results, or one error object
         if (Array.isArray(b.content)) for (const r of b.content) texts.push(r.title, r.url);
+        else failed.push(`web_search: ${b.content.error_code}`);
         break;
       case "text":
         for (const c of b.citations ?? []) {
@@ -65,5 +67,5 @@ export function webEvidence(content: readonly BetaContentBlock[]): { texts: stri
         break;
     }
   }
-  return { texts: texts.filter(Boolean), used };
+  return { texts: texts.filter(Boolean), used, failed };
 }

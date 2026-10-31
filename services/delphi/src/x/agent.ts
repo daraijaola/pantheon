@@ -273,7 +273,7 @@ export async function answer(
       const web = webEvidence(message.content);
       seen.push(...web.texts);
       extra.push(...web.texts);
-      calls.push(...web.used);
+      calls.push(...web.used, ...web.failed.map((f) => `(${f})`));
       usage.webSearches = (usage.webSearches ?? 0) + (message.usage.server_tool_use?.web_search_requests ?? 0);
       usage.webFetches = (usage.webFetches ?? 0) + (message.usage.server_tool_use?.web_fetch_requests ?? 0);
     }
