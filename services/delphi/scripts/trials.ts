@@ -10,7 +10,7 @@ import { join, resolve } from "node:path";
 import { BaseError, ContractFunctionRevertedError, getAddress, keccak256, parseAbi, toBytes, type Address } from "viem";
 import { makeClient } from "../src/chain.ts";
 import { loadConfig, RULES } from "../src/config.ts";
-import { Explorer } from "../src/explorer.ts";
+import { ChainFunding } from "../src/funding.ts";
 import { collect, decodeLaunch } from "../src/ingest.ts";
 import { analyze } from "../src/report.ts";
 import { Store } from "../src/store.ts";
@@ -59,7 +59,7 @@ const pmAbi = parseAbi(["function getSlot0(bytes32 id) view returns (uint160 sqr
 const read = <T>(functionName: string) => client.readContract({ address: registry, abi: registryAbi, functionName } as never) as Promise<T>;
 
 try {
-  const { coins: data, head } = await collect({ client, store, cfg, explorer: args.includes("--no-explorer") ? null : new Explorer(cfg.explorerApi), log });
+  const { coins: data, head } = await collect({ client, store, cfg, explorer: args.includes("--no-explorer") ? null : new ChainFunding(), log });
   const headBlock = await client.getBlock({ blockNumber: head });
   const nowSec = Number(headBlock.timestamp); // the scan block's time, not the clock: same scan, same file
   const [maxN, maxW, minAge, maxRunCap, baseQuote, pnth, curator, count, delay] = await Promise.all([

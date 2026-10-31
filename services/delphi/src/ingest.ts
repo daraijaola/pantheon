@@ -16,7 +16,8 @@ import {
   txSenders,
 } from "./chain.ts";
 import { KNOWN_HUBS, STATIC_SYSTEM, type Config } from "./config.ts";
-import { ExplorerBudgetError, type Explorer, type RawFunding } from "./explorer.ts";
+import { ExplorerBudgetError, type RawFunding } from "./explorer.ts";
+import type { FundingSource } from "./funding.ts";
 import { actorsOf, buildLinks, findHubs, fundingKind, payeesOf } from "./graph.ts";
 import type { RawLog, Store } from "./store.ts";
 import type { Coin, CoinData, Funding, TokenTransfer, Trade } from "./types.ts";
@@ -146,21 +147,27 @@ export function assemble(input: {
 }
 
 type StoredFunding = { from: Address; via: RawFunding["via"]; value: string; tx: Hex; time: number };
-const FUNDING_MAX_AGE = 12 * 3_600;
+/**
+ * Funding already read is kept for good: a first funding never changes, and what the explorer
+ * returned before its checkpoint is still true. Only "never funded" is asked again, after 12 h.
+ */
+const EMPTY_FUNDING_MAX_AGE = 12 * 3_600;
 const TXCOUNT_MAX_AGE = 7 * 86_400;
+const toStored = (f: RawFunding): StoredFunding => ({ from: f.from, via: f.via, value: f.value.toString(), tx: f.tx, time: f.time });
 
 /** `hubs`: the funders treated as public this run (they link no one). */
 export type Collected = { coins: CoinData[]; head: bigint; notes: string[]; hubs: ReadonlySet<string> };
 
 /**
- * Everything, end to end. With `explorer: null` it uses only what the cache already holds
- * (e.g. when the explorer allowance is used up), and says so in the notes.
+ * Everything, end to end. `explorer` is where funding comes from: ChainFunding (the chain itself)
+ * or the old explorer client. With `explorer: null` it uses only what the cache already holds, and
+ * says so in the notes.
  */
 export async function collect(deps: {
   client: PublicClient;
   store: Store;
   cfg: Config;
-  explorer: Explorer | null;
+  explorer: FundingSource | null;
   log?: (msg: string) => void;
 }): Promise<Collected> {
   const { client, store, cfg, explorer } = deps;
@@ -217,22 +224,46 @@ export async function collect(deps: {
   const coinActors = skeletons.map((s) => actorsOf(s.trades, s.transfers, system));
   const wallets = [...new Set(coinActors.flatMap((a) => [...a].map(lc)))].filter((a) => kinds.get(a) === "wallet");
 
-  // Funding history per wallet, from the explorer (cached for 12 h).
+  // Funding per wallet: kept from earlier runs, looked up only for wallets not read yet.
   const fundings = new Map<string, StoredFunding[]>();
   let stopped: string | null = null;
-  await mapLimit(wallets, 4, async (w) => {
-    const cached = store.recall<StoredFunding[]>("funding", w, explorer ? FUNDING_MAX_AGE : Infinity);
-    if (cached) return void fundings.set(w, cached);
-    if (!explorer || stopped) return;
-    try {
-      const got = (await explorer.fundings(getAddress(w))).map((f) => ({ from: f.from, via: f.via, value: f.value.toString(), tx: f.tx, time: f.time }));
-      store.remember("funding", w, got);
-      fundings.set(w, got);
-    } catch (err) {
-      if (!(err instanceof ExplorerBudgetError)) throw err;
-      stopped = err.message;
+  const todo: string[] = [];
+  for (const w of wallets) {
+    const cached = store.recall<StoredFunding[]>("funding", w);
+    const stale = cached !== undefined && cached.length === 0 && store.recall("funding", w, EMPTY_FUNDING_MAX_AGE) === undefined;
+    if (cached && !(stale && explorer)) fundings.set(w, cached);
+    else todo.push(w);
+  }
+  if (explorer && todo.length) {
+    log(`looking up funding for ${todo.length} wallets…`);
+    if (explorer.fundingsMany) {
+      try {
+        for (const [w, got] of await explorer.fundingsMany(todo.map((w) => getAddress(w)))) {
+          store.remember("funding", w, got.map(toStored));
+          fundings.set(w, got.map(toStored));
+        }
+      } catch (err) {
+        stopped = `funding lookup stopped: ${(err as Error).message}`;
+      }
+    } else {
+      await mapLimit(todo, 4, async (w) => {
+        if (stopped) return;
+        try {
+          const got = (await explorer.fundings(getAddress(w))).map(toStored);
+          store.remember("funding", w, got);
+          fundings.set(w, got);
+        } catch (err) {
+          if (!(err instanceof ExplorerBudgetError)) throw err;
+          stopped = err.message;
+        }
+      });
     }
-  });
+  }
+  // A wallet asked again but not answered keeps what it had before.
+  for (const w of todo) {
+    const old = fundings.has(w) ? undefined : store.recall<StoredFunding[]>("funding", w);
+    if (old) fundings.set(w, old);
+  }
   if (stopped) notes.push(stopped);
   log(`funding history for ${fundings.size}/${wallets.length} wallets${explorer?.remaining != null ? ` (explorer allowance left: ${explorer.remaining})` : ""}`);
 
@@ -260,20 +291,41 @@ export async function collect(deps: {
   const funders = [...new Set(flat.map((f) => lc(f.funder)))].filter((f) => !system.has(f) && !known.has(f));
   const txCounts = new Map<string, number>();
   const unknownFunders = new Set<string>();
-  await mapLimit(funders, 4, async (f) => {
+  const countTodo: string[] = [];
+  for (const f of funders) {
     const cached = store.recall<number>("txcount", f, explorer ? TXCOUNT_MAX_AGE : Infinity);
-    if (cached !== undefined) return void txCounts.set(f, cached);
-    if (!explorer || stopped) return void unknownFunders.add(f);
+    if (cached !== undefined) txCounts.set(f, cached);
+    else countTodo.push(f);
+  }
+  if (explorer && countTodo.length && explorer.txCounts) {
     try {
-      const n = await explorer.txCount(getAddress(f));
-      store.remember("txcount", f, n);
-      txCounts.set(f, n);
+      for (const [f, n] of await explorer.txCounts(countTodo.map((f) => getAddress(f)))) {
+        store.remember("txcount", f, n);
+        txCounts.set(f, n);
+      }
     } catch (err) {
-      if (!(err instanceof ExplorerBudgetError)) throw err;
-      stopped = err.message;
-      unknownFunders.add(f);
+      stopped ??= `transaction counts stopped: ${(err as Error).message}`;
     }
-  });
+  } else if (explorer && countTodo.length) {
+    await mapLimit(countTodo, 4, async (f) => {
+      if (stopped) return;
+      try {
+        const n = await explorer.txCount(getAddress(f));
+        store.remember("txcount", f, n);
+        txCounts.set(f, n);
+      } catch (err) {
+        if (!(err instanceof ExplorerBudgetError)) throw err;
+        stopped = err.message;
+      }
+    });
+  }
+  // An old count is better than none: a busy funder stays busy.
+  for (const f of countTodo) {
+    if (txCounts.has(f)) continue;
+    const old = store.recall<number>("txcount", f);
+    if (old !== undefined) txCounts.set(f, old);
+    else unknownFunders.add(f);
+  }
   if (stopped && !notes.includes(stopped)) notes.push(stopped);
   // On testnet, a wallet whose payees trade many different coins is a distribution bot or a farm (v0.3).
   // Counted over every coin, so one coin's ring still stands out. Contract payouts are no one's seeding.

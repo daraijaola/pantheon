@@ -1,14 +1,14 @@
 // Scans every Ascend coin on Elysium testnet and writes one report per coin, plus an index.
-// Read-only: public RPC and explorer reads, no keys, no transactions. Live, so run it by hand:
+// Read-only: public chain reads, no keys, no transactions. Live, so run it by hand:
 //   node scripts/scan.ts                  everything (first run fills the cache: a few minutes)
-//   node scripts/scan.ts --no-explorer    cached funding data only (when the explorer allowance is used up)
+//   node scripts/scan.ts --no-explorer    cached funding data only (no new funding lookups)
 //   node scripts/scan.ts --only 0x…       one coin's report (the scan itself still covers all coins)
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAddress, isAddress } from "viem";
 import { makeClient } from "../src/chain.ts";
 import { loadConfig, RULES } from "../src/config.ts";
-import { Explorer } from "../src/explorer.ts";
+import { ChainFunding } from "../src/funding.ts";
 import { collect } from "../src/ingest.ts";
 import { analyze, toIndexMarkdown, toMarkdown, type CoinReport } from "../src/report.ts";
 import { Store } from "../src/store.ts";
@@ -23,7 +23,8 @@ const only = onlyArg ? getAddress(onlyArg) : undefined;
 
 const cfg = loadConfig();
 const store = new Store(cfg.dbPath);
-const explorer = args.includes("--no-explorer") ? null : new Explorer(cfg.explorerApi);
+// Funding is read from the chain itself: the explorer's API sits behind a bot checkpoint since Oct 25.
+const explorer = args.includes("--no-explorer") ? null : new ChainFunding();
 const log = (m: string) => console.error(`[delphi] ${m}`);
 
 try {
