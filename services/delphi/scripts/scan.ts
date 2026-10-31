@@ -46,7 +46,7 @@ try {
 
   // File names come from the token address only, never from the coin's self-chosen name.
   // Contract and market checks for every Kalos coin and every Ascend coin with some trading, kept a day.
-  const worth = reports.filter((r) => r.coin.market === "kalos" || r.stats.trades >= 5).map((r) => getAddress(r.coin.token));
+  const worth = reports.filter((r) => r.coin.market !== undefined || r.stats.trades >= 5).map((r) => getAddress(r.coin.token));
   const safety = args.includes("--no-safety") ? new Map() : await safetyFor({ rpc: kalos?.rpc ?? new BatchRpc(), store, log }, worth);
 
   const dir = join(cfg.outDir, "coins");

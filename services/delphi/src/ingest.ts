@@ -25,7 +25,7 @@ import { balances } from "./detect.ts";
 import { actorsOf, buildLinks, findHubs, fundingKind, payeesOf, sinksOf } from "./graph.ts";
 import { KALOS } from "./kalos.ts";
 import type { RawLog, Store } from "./store.ts";
-import type { Coin, CoinData, Funding, TokenTransfer, Trade, WalletRole } from "./types.ts";
+import { offAscend, type Coin, type CoinData, type Funding, type TokenTransfer, type Trade, type WalletRole } from "./types.ts";
 
 const lc = (a: string) => a.toLowerCase();
 
@@ -290,8 +290,8 @@ export async function collect(deps: {
   });
   const skeletons = [...ascend, ...kalosCoins];
   const coinActors = skeletons.map((s) => actorsOf(s.trades, s.transfers, system));
-  const targets = skeletons.map((s, i) => (s.coin.market === "kalos" ? kalosFundingTargets(s, system, RULES.bundle.windowSec) : new Set([...coinActors[i]!].map(lc))));
-  for (const [i, s] of skeletons.entries()) if (s.coin.market === "kalos") for (const w of targets[i]!) kalosWallets.add(w);
+  const targets = skeletons.map((s, i) => (offAscend(s.coin) ? kalosFundingTargets(s, system, RULES.bundle.windowSec) : new Set([...coinActors[i]!].map(lc))));
+  for (const [i, s] of skeletons.entries()) if (offAscend(s.coin)) for (const w of targets[i]!) kalosWallets.add(w);
   const isWallet = (a: string) => kinds.get(a) === "wallet" || (kinds.get(a) === undefined && kalosWallets.has(a) && !system.has(a));
   const wallets = [...new Set(targets.flatMap((t) => [...t]))].filter(isWallet);
 
@@ -427,7 +427,7 @@ export async function collect(deps: {
       actors,
       creator: s.coin.creator,
       // On Kalos, whoever added the first liquidity is not tied to the deployer by that alone.
-      launcher: s.coin.market === "kalos" ? s.coin.creator : s.coin.launcher,
+      launcher: offAscend(s.coin) ? s.coin.creator : s.coin.launcher,
       launchTx: s.coin.launchTx,
       trades: s.trades,
       transfers: s.transfers,

@@ -21,8 +21,8 @@ export type CoinReport = {
     launchTime: string;
     url: string;
     launchUrl: string;
-    /** Set only for coins outside Ascend ("kalos"): Ascend reports stay exactly as they were. */
-    market?: "kalos";
+    /** Set only for coins outside Ascend: Ascend reports stay exactly as they were. */
+    market?: "kalos" | "perpme";
   };
   stats: { trades: number; outsideTrades: number; traders: number; holders: number; links: number; fundingMissing: number };
   verdict: Verdict;
@@ -91,7 +91,7 @@ export function analyze(d: CoinData, opts: { explorerWeb: string; now?: Date }):
       launchTime: new Date(c.launchTime * 1000).toISOString(),
       url: `${web}/token/${c.token}`,
       launchUrl: `${web}/tx/${c.launchTx}`,
-      ...(c.market === "kalos" ? { market: "kalos" as const } : {}),
+      ...(c.market === "kalos" || c.market === "perpme" ? { market: c.market } : {}),
     },
     stats: {
       trades: d.trades.length,

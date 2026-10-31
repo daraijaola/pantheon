@@ -32,7 +32,10 @@ export type Coin = {
   windowFrom?: bigint;
 };
 
-export type Market = "ascend" | "kalos";
+/** "perpme": launched on PerpMe, the launchpad whose coins fill Kalos's Sniper (same meanings as "kalos"). */
+export type Market = "ascend" | "kalos" | "perpme";
+/** True for coins that were not launched on Ascend (their launch and creator mean something else). */
+export const offAscend = (coin: { market?: Market }) => coin.market !== undefined && coin.market !== "ascend";
 
 export type Trade = {
   tx: Hex;

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { decimalsOf, RULES, supplyOf } from "../config.ts";
 import { balances, pct } from "../detect.ts";
 import { actorsOf, clusters as clusterMap, isSystem, linksWithin } from "../graph.ts";
-import type { CoinData, FundingKind, Link, LinkReason, Trade, Verdict } from "../types.ts";
+import { offAscend, type CoinData, type FundingKind, type Link, type LinkReason, type Trade, type Verdict } from "../types.ts";
 import type { Currency, Workspace } from "./workspace.ts";
 
 const lc = (a: string) => a.toLowerCase();
@@ -64,7 +64,7 @@ function tradeRow(ws: Workspace, d: CoinData, t: Trade) {
     tokens: amount(t.tokens, decimalsOf(d.coin)),
     pctOfSupply: pct(t.tokens, supplyOf(d.coin)),
     [t.side === "buy" ? "paid" : "received"]: priceText(ws, d, t),
-    pool: d.coin.market === "kalos" ? "Kalos" : t.outside ? "outside Ascend (no Ascend fee)" : "Ascend",
+    pool: d.coin.market === "kalos" ? "Kalos" : d.coin.market === "perpme" ? "PerpMe" : t.outside ? "outside Ascend (no Ascend fee)" : "Ascend",
   };
 }
 
@@ -148,15 +148,18 @@ export function coinReport(ws: Workspace, input: { token: string }) {
     token: c.token,
     nameSetByCreator: untrusted(c.name),
     symbolSetByCreator: untrusted(c.symbol),
-    ...(c.market === "kalos" ? { trades: "on Kalos (a DEX on Elysium), not launched on Ascend" } : {}),
+    ...(c.market === "kalos" ? { trades: "on Kalos (a DEX on Elysium), not launched on Ascend" } : c.market === "perpme" ? { trades: "launched on PerpMe (a launchpad on Elysium), not on Ascend" } : {}),
     verdict: r.verdict,
     checks: r.checks,
     notes: r.notes,
     ...(Object.keys(needs).length ? { missing: needs } : {}),
     launch:
-      c.market === "kalos"
+      offAscend(c)
         ? {
-            meaning: "the first liquidity added to its first Kalos pool; creator = the wallet that deployed the token",
+            meaning:
+              c.market === "perpme"
+                ? "its PerpMe launch: one transaction made the token, its pool and the creator's first buy; creator = the wallet that launched it"
+                : "the first liquidity added to its first Kalos pool; creator = the wallet that deployed the token",
             tx: c.launchTx,
             time: iso(c.launchTime),
             creator: c.creator,
@@ -176,7 +179,7 @@ export function coinReport(ws: Workspace, input: { token: string }) {
       trades: d.trades.length,
       buys: buys.length,
       sells: sells.length,
-      ...(c.market === "kalos" ? {} : { outsideAscend: d.trades.filter((t) => t.outside).length }),
+      ...(offAscend(c) ? {} : { outsideAscend: d.trades.filter((t) => t.outside).length }),
       wallets: r.stats.traders,
       tokensBought: amount(sum(buys.map((t) => t.tokens)), decimalsOf(c)),
       tokensSold: amount(sum(sells.map((t) => t.tokens)), decimalsOf(c)),
