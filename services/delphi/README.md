@@ -132,6 +132,65 @@ the round file.
 **Micheal's own reader:** a parse-only copy of his `propose` script (the same `vm.parseJson*` calls and
 `keccak256(bytes(json))`) reads the round-2 file correctly and gives the same fingerprint as this script.
 
+## Coin safety: the contract and the market (rules `safety-v0.1`)
+
+What a trader wants to know before buying any coin on Elysium, Kalos's or Ascend's. Each check answers
+**ok**, **risk** or **unknown** in one plain sentence, with the address, transaction, function or
+storage slot behind it and the raw facts. Every read and dry run is pinned to one block.
+
+| Check | What it does | Risk when |
+|---|---|---|
+| Code | Is it a contract? A proxy (EIP-1967 implementation, admin and beacon slots, EIP-1822, EIP-1167 clones, OpenZeppelin's old slots)? Who can replace its code (the admin, the admin's or beacon's owner)? | Its code can be replaced by someone who has not given up control |
+| Verified | Asks Conduit's verifier (Sourcify) for the code it really runs (the implementation, behind a proxy) | Not published, or published for other code |
+| Owner | `owner()`, `getOwner()`, `admin()`, `pendingOwner()`, `minter()`, AccessControl roles, who deployed it (and through which factory) | Someone still in control can use a power, or anyone can |
+| Powers | Mint, take or burn others' tokens, blacklists, pause, fees and taxes, trade limits, trading switch, fee exemptions, pulling funds out, router and pair, upgrades: from the verified ABI, else from the bytecode's dispatcher | A power is present and someone (or anyone) can still use it |
+| Transfer | A real holder sends some to a fresh wallet, which passes it on (eth_simulateV1) | Refused, taxed, or the new holder is stuck |
+| Sell | On Kalos: the holder sells, and a fresh wallet buys with HYPE and sells it all back, each compared with Kalos's QuoterV2 | A sale fails, or a trade comes up short of the quote |
+| Fake ticker | Its symbol or name against Kalos's approved tokens, WHYPE, USDC, KALOS, stKALOS, PNTH, HYPE and KNTQ, after undoing case, spaces, `$`, invisible characters, accents and Cyrillic, Greek, 0/O and 1/l/I look-alikes | It copies one at another address |
+
+```sh
+node scripts/safety.ts 0xTOKEN                           # the report, as JSON
+node scripts/safety.ts 0xTOKEN --holder 0x… --amount 100 # test with this holder and 100 whole tokens
+node scripts/safety.ts --kalos-all [--out dir]           # every non-base coin in Kalos's list: a table
+node scripts/safety-fixtures.ts [--only name]            # re-record the test fixtures (live)
+```
+
+**Who can use a power is tested, not guessed.** Each power found is dry-run (`eth_call`) with harmless
+arguments from a random wallet, the deployer, its factory, the owner, the minter and any address the
+contract names (`creator()`, `launcher()`). A random wallet's call going through means anyone can use it.
+On Kalos's list, anyone can mint TA and set its tax. A power with no arguments that every controller is
+refused (`enableTrading()` once trading is on) counts as used up.
+
+**A function in the bytecode must be in the dispatcher.** A 4-byte value counts only in a dispatch test
+(`PUSH3/4 sel [DUPn] EQ PUSH dest JUMPI`, or XOR / EQ ISZERO for "not this one") whose target is a real
+JUMPDEST. Contracts push the same values to call other contracts or to revert with errors. On every plain
+contract tried, this matched the explorer's own extraction exactly. When `transfer()` is not found, the
+answer is "could not read", never "no powers".
+
+**Taxes are measured against Kalos's own quote** at the same moment, so the pool's fee and price impact
+cancel out. A coin that keeps part of every transfer cannot be sold into a Uniswap-V3-style pool at all:
+the pool gets less than it was promised and refuses (`IIA`). When no wallet holds the coin (the whole
+supply is in the pool), the transfer is tested from the fresh wallet right after its test buy.
+
+**Things we learned from the live chain (2026-10-31)**
+
+- `contracts.conduit.xyz/v2/contract/99801/<address>` is a Sourcify v2 server, the one the explorer asks.
+  81 contracts were verified on chain 99801, and only Kalos's USDC proxy among Kalos's 22 tokens (not
+  its implementation). A hit counts only if the bytecode it was matched against is the code on chain.
+- The explorer's `/api/abi/batch` is not verification: it guesses ABIs from bytecode and a public
+  signature database (every function "nonpayable", names like `transfer_attention_tg_invmru_ec11fa8`).
+- `/api/contract/creation/<address>` names the transaction and sender only for a wallet's deploy. For a
+  contract made by a factory or the launchpad it gives the block, and the block's call trace gives the rest.
+- The explorer's node runs `eth_simulateV1` with `validation: false` from any address, unsigned. It caps
+  `eth_getLogs` at 10,000 logs, so the holder search walks back in windows that grow from 2,000 blocks.
+- WHYPE and Kalos's USDC can be upgraded by Elysium's UpgradeExecutor (the chain owner's contract).
+
+**Limits.** Ascend coins trade through Ascend's own router (Infinity-style pools): for them DELPHI tests
+a transfer, not a sale. Role holders are listed only when the contract can enumerate them; otherwise
+DELPHI asks about the deployer and the owner only. The holder found is the biggest wallet among recent
+recipients: it may be exempt from a tax that hits others (the fresh wallets' tests cover that case on
+Kalos). Powers hidden behind functions with no known name in unverified code are counted, not named.
+
 ## Commands
 
 | Command | What it does |
@@ -159,6 +218,15 @@ the round file.
 | `src/ai/tools.ts` | The explainer's read-only tools (plain functions, wrapped for Claude) |
 | `src/ai/explain.ts` | Instructions, the `submit_report` checks, the Claude loop, markdown |
 | `scripts/explain.ts` | Plain-English explanations (run by hand) |
+| `src/safety.ts` | Coin safety: the rules (`SAFETY_RULES`), the checks and `checkSafety` |
+| `src/bytecode.ts` | Reading code without source: dispatcher selectors, clones, delegations |
+| `src/powers.ts` | The powers table: signatures and their selectors |
+| `src/honeypot.ts` | Dry runs: holder search, transfer test, Kalos sales and round trips |
+| `src/simulate.ts` | `eth_simulateV1` and revert reasons |
+| `src/lookalike.ts` | Fake tickers: names compared after undoing look-alike tricks |
+| `src/conduit.ts`, `src/kalos.ts`, `src/http.ts` | Conduit's verifier and explorer API, Kalos's API, one careful JSON fetch |
+| `src/reads.ts`, `src/tape.ts` | Pinned-block reads; recorded answers for tests |
+| `scripts/safety.ts`, `scripts/safety-fixtures.ts` | The safety report (run by hand); re-recording its fixtures |
 | `test/` | Synthetic scenarios (`scenario.ts`) and real transactions (`fixtures/live-trades.json`) |
 
 ## Safety
