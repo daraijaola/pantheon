@@ -55,7 +55,9 @@ export function analyze(d: CoinData, opts: { explorerWeb: string; now?: Date }):
   const c = d.coin;
   let verdict = verdictOf(results.map(([, r]) => r));
   // What the checks saw that is context, not cheating (v0.5): said first, in plain words.
-  const notes: string[] = results.flatMap(([, r]) => r.notes ?? []);
+  // Who holds the coin comes first: it's the context people need most.
+  const order: Detector[] = ["concentration", "bundle", "wash"];
+  const notes: string[] = order.flatMap((k) => results.find(([name]) => name === k)?.[1].notes ?? []);
   if (d.fundingMissing > 0) {
     notes.push(`Funding history missing for ${d.fundingMissing} wallet(s): links through shared funders may be incomplete.`);
     // Nothing found is not the same as clean when part of the picture is missing.

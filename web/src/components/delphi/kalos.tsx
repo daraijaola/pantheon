@@ -53,7 +53,7 @@ export function KalosIndex({ data }: { data: Delphi }) {
   const kalos = data.kalos!;
   const risky = kalos.coins.filter((c) => (c.safety?.risks ?? []).some((r) => r !== "verified")).length;
   // Every coin with something to say: what's wrong first, then the context that explains the rest.
-  const context = (c: KalosRow) => c.notes.filter((n) => !/^(Too busy to read|\d+ decimals|Supply changed|Contracts hold)/.test(n));
+  const context = (c: KalosRow) => (c.notes ?? []).filter((n) => !/^(Too busy to read|\d+ decimals|Supply changed|Contracts hold)/.test(n));
   const worth = kalos.coins.filter((c) => found(c).length > 0 || context(c).length > 0);
   const published = kalos.coins.filter((c) => c.safety?.checks.verified.state === "ok").length;
   return (
