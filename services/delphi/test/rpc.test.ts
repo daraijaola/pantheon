@@ -40,6 +40,15 @@ describe("BatchRpc", () => {
     expect(node.seen.map((b) => b.length)).toEqual([3, 1]);
   });
 
+  it("returns a too-many-logs answer at once instead of waiting (same code as slow down, seen live)", async () => {
+    const tooMany = { code: -32005, message: "logs count limit exceeded (10000) consider refine/narrow down your query" };
+    const node = fakeNode(() => ({ error: tooMany }));
+    const rpc = new BatchRpc("http://node", { ...quiet, fetch: node.fetch });
+    const [a] = await rpc.many([{ method: "eth_getLogs", params: [{}] }]);
+    expect(a!.error).toEqual(tooMany);
+    expect(node.seen).toHaveLength(1);
+  });
+
   it("returns other errors in place, and call() throws them", async () => {
     const node = fakeNode((c) => (c.params[0] === 1 ? { error: { code: -32000, message: "execution reverted" } } : { result: 7 }));
     const rpc = new BatchRpc("http://node", { ...quiet, fetch: node.fetch });
@@ -47,6 +56,22 @@ describe("BatchRpc", () => {
     expect(got[0]!.result).toBe(7);
     expect(got[1]!.error?.message).toBe("execution reverted");
     await expect(rpc.call("eth_call", [1])).rejects.toBeInstanceOf(RpcError);
+  });
+
+  it("asks again when the connection breaks while the answer is being read", async () => {
+    let sent = 0;
+    const fetch = async (_url: string, init?: RequestInit) => {
+      const calls = JSON.parse(String(init!.body)) as Req[];
+      if (sent++ === 0) {
+        // The headers arrive, then the stream is reset (seen live: NGHTTP2_INTERNAL_ERROR).
+        const broken = new ReadableStream({ pull: (c) => c.error(new TypeError("terminated")) });
+        return new Response(broken, { status: 200 });
+      }
+      return new Response(JSON.stringify(calls.map((c) => ({ jsonrpc: "2.0", id: c.id, result: "ok" }))), { status: 200 });
+    };
+    const rpc = new BatchRpc("http://node", { ...quiet, fetch });
+    expect(await rpc.call("eth_blockNumber", [])).toBe("ok");
+    expect(sent).toBe(2);
   });
 
   it("refuses anything that is not a read", async () => {

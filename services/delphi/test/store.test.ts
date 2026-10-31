@@ -25,6 +25,33 @@ describe("Store", () => {
     s.close();
   });
 
+  it("trims a moving window: drops old logs, and jumps a cursor that fell behind", () => {
+    const s = new Store(":memory:");
+    s.saveLogs("recent", [log(100n, 0), log(150n, 0), log(190n, 0)], 200n);
+    expect(s.countLogs("recent")).toBe(3);
+    s.trimLogs("recent", 150n);
+    expect(s.logs("recent").map((l) => l.block)).toEqual([150n, 190n]);
+    expect(s.cursor("recent", 0n)).toBe(200n); // still ahead: kept
+    s.trimLogs("recent", 500n);
+    expect(s.logs("recent")).toEqual([]);
+    expect(s.cursor("recent", 0n)).toBe(500n); // the gap before 500 is never read
+    expect(s.countLogs("recent")).toBe(0);
+    s.trimLogs("fresh", 70n);
+    expect(s.cursor("fresh", 0n)).toBe(70n);
+    s.close();
+  });
+
+  it("remembers and recalls many answers at once", () => {
+    const s = new Store(":memory:");
+    const keys = Array.from({ length: 1_200 }, (_, i) => `0xAB${i}`);
+    s.rememberMany("txfrom", keys.map((k, i) => [k, i] as const));
+    const got = s.recallMany<number>("txfrom", [...keys, "0xnothing"]);
+    expect(got.size).toBe(1_200);
+    expect(got.get("0xab7")).toBe(7);
+    expect(s.recall("txfrom", "0xAB1199")).toBe(1_199);
+    s.close();
+  });
+
   it("remembers answers, case-insensitively, and forgets them after their age limit", () => {
     const s = new Store(":memory:");
     s.remember("kind", "0xABC", { a: 1 }, 1_000_000);

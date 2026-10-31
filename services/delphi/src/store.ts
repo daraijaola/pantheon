@@ -50,6 +50,26 @@ export class Store {
     })();
   }
 
+  /**
+   * Forgets a stream's logs before `before` and starts its cursor there if it was behind: for a window
+   * of recent history that moves forward with the chain. Logs at or after `before` are kept.
+   */
+  trimLogs(stream: string, before: bigint): void {
+    this.db.transaction(() => {
+      this.db.prepare("DELETE FROM logs WHERE stream = ? AND block < ?").run(stream, Number(before));
+      this.db
+        .prepare(
+          "INSERT INTO cursors (stream, next_block) VALUES (?, ?) ON CONFLICT(stream) DO UPDATE SET next_block = MAX(next_block, excluded.next_block)",
+        )
+        .run(stream, Number(before));
+    })();
+  }
+
+  /** How many logs a stream holds. */
+  countLogs(stream: string): number {
+    return (this.db.prepare("SELECT COUNT(*) AS n FROM logs WHERE stream = ?").get(stream) as { n: number }).n;
+  }
+
   logs(stream: string): RawLog[] {
     const rows = this.db
       .prepare("SELECT block, log_index, tx, address, topics, data FROM logs WHERE stream = ? ORDER BY block, log_index")
@@ -70,6 +90,28 @@ export class Store {
     this.db
       .prepare("INSERT OR REPLACE INTO memo (kind, key, value, at) VALUES (?, ?, ?, ?)")
       .run(kind, key.toLowerCase(), JSON.stringify(value), now);
+  }
+
+  /** Remembered answers for many keys at once (no age limit); keys not remembered are left out. */
+  recallMany<T>(kind: string, keys: Iterable<string>): Map<string, T> {
+    const out = new Map<string, T>();
+    const all = [...new Set([...keys].map((k) => k.toLowerCase()))];
+    for (let i = 0; i < all.length; i += 500) {
+      const chunk = all.slice(i, i + 500);
+      const rows = this.db
+        .prepare(`SELECT key, value FROM memo WHERE kind = ? AND key IN (${chunk.map(() => "?").join(",")})`)
+        .all(kind, ...chunk) as Array<{ key: string; value: string }>;
+      for (const r of rows) out.set(r.key, JSON.parse(r.value) as T);
+    }
+    return out;
+  }
+
+  /** Remembers many answers in one transaction. */
+  rememberMany(kind: string, entries: Iterable<readonly [string, unknown]>, now = Date.now()): void {
+    const ins = this.db.prepare("INSERT OR REPLACE INTO memo (kind, key, value, at) VALUES (?, ?, ?, ?)");
+    this.db.transaction(() => {
+      for (const [k, v] of entries) ins.run(kind, k.toLowerCase(), JSON.stringify(v), now);
+    })();
   }
 
   close(): void {

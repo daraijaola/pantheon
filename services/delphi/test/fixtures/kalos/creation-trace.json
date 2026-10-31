@@ -1,0 +1,110 @@
+{
+ "note": "debug_traceBlockByNumber(17390203, callTracer) on Elysium testnet, recorded 2026-10-31, trimmed to type/from/to: the block in which a factory created the ANEMOS token (0x141a\u20268a9f)",
+ "block": 17390203,
+ "trace": [
+  {
+   "txHash": "0x4d48775ec91c91ef0a00ca0b4c3ea1c75be2cac950589b43633f73fac4bcbc03",
+   "result": {
+    "type": "CALL",
+    "from": "0x00000000000000000000000000000000000a4b05",
+    "to": "0x00000000000000000000000000000000000a4b05",
+    "calls": [
+     {
+      "type": "CALL",
+      "from": "0xfffffffffffffffffffffffffffffffffffffffe",
+      "to": "0x0000f90827f1c53a10cb7a02335b175320002935",
+      "calls": [
+       {
+        "type": "STATICCALL",
+        "from": "0x0000f90827f1c53a10cb7a02335b175320002935",
+        "to": "0x0000000000000000000000000000000000000064"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "txHash": "0x07433249d597dadd429778d6dac9bee63c4599d93aebc135f35b9df7e2b81338",
+   "result": {
+    "type": "CALL",
+    "from": "0xf2cb6f16267d00118c9d3e850270a5c8af3f136b",
+    "to": "0x3b505d4d4b88a6ea03bc4209a241d6636f62e41b",
+    "calls": [
+     {
+      "type": "CREATE",
+      "from": "0x3b505d4d4b88a6ea03bc4209a241d6636f62e41b",
+      "to": "0xe5b521c171ba9f2dfe7d76947a01d3fd59697c17"
+     },
+     {
+      "type": "STATICCALL",
+      "from": "0x3b505d4d4b88a6ea03bc4209a241d6636f62e41b",
+      "to": "0x34cec9fbdfd8778d4d9b93e1cc597fd24fa69836"
+     },
+     {
+      "type": "STATICCALL",
+      "from": "0x3b505d4d4b88a6ea03bc4209a241d6636f62e41b",
+      "to": "0x34cec9fbdfd8778d4d9b93e1cc597fd24fa69836"
+     },
+     {
+      "type": "CREATE",
+      "from": "0x3b505d4d4b88a6ea03bc4209a241d6636f62e41b",
+      "to": "0x141a784764d69ec29d9afa8a75b6ffd92fba8a9f"
+     },
+     {
+      "type": "CALL",
+      "from": "0x3b505d4d4b88a6ea03bc4209a241d6636f62e41b",
+      "to": "0xe5b521c171ba9f2dfe7d76947a01d3fd59697c17",
+      "calls": [
+       {
+        "type": "DELEGATECALL",
+        "from": "0xe5b521c171ba9f2dfe7d76947a01d3fd59697c17",
+        "to": "0xa3f62c0bad9da7bde26ad4756486688d77c674bd",
+        "calls": [
+         {
+          "type": "STATICCALL",
+          "from": "0xe5b521c171ba9f2dfe7d76947a01d3fd59697c17",
+          "to": "0x34cec9fbdfd8778d4d9b93e1cc597fd24fa69836"
+         },
+         {
+          "type": "STATICCALL",
+          "from": "0xe5b521c171ba9f2dfe7d76947a01d3fd59697c17",
+          "to": "0x34cec9fbdfd8778d4d9b93e1cc597fd24fa69836"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "type": "CALL",
+      "from": "0x3b505d4d4b88a6ea03bc4209a241d6636f62e41b",
+      "to": "0xe5b521c171ba9f2dfe7d76947a01d3fd59697c17",
+      "calls": [
+       {
+        "type": "DELEGATECALL",
+        "from": "0xe5b521c171ba9f2dfe7d76947a01d3fd59697c17",
+        "to": "0xa3f62c0bad9da7bde26ad4756486688d77c674bd"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "txHash": "0xee77395658595b6d16670b8213ff33cfc38c24541ed8173389752f8dcaefb6b4",
+   "result": {
+    "type": "CALL",
+    "from": "0x235f099bc2b7af265fea3261f3f008d485293538",
+    "to": "0xdf2a7be104d071a068f60d93bbda8b41da215cdb"
+   }
+  },
+  {
+   "txHash": "0xa0cdd3b6160e1e477d23a3843b27a5a88d00df0eb554dae60222e2fd994b6908",
+   "result": {
+    "type": "CALL",
+    "from": "0xc260d2e50137aa6724da5ef022bf721a738da34f",
+    "to": "0xa7531d7be19f29b991d97eaa17b034715a835e35"
+   }
+  }
+ ]
+}

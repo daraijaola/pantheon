@@ -51,7 +51,7 @@ export function decodeTransfer(l: RawLog): CoinTransfer {
  * the most tokens in that transaction; for a sell, the one that gave up the most. Falls back to the
  * sender (e.g. an arbitrage bot whose tokens only pass through contracts).
  */
-function holderOf(side: "buy" | "sell", txTransfers: TokenTransfer[], system: ReadonlySet<string>, fallback: Address): Address {
+export function holderOf(side: "buy" | "sell", txTransfers: TokenTransfer[], system: ReadonlySet<string>, fallback: Address): Address {
   const net = new Map<string, { a: Address; v: bigint }>();
   for (const t of txTransfers) {
     for (const [a, v] of [[t.from, -t.value], [t.to, t.value]] as const) {
