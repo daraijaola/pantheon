@@ -78,6 +78,12 @@ describe("politeFetch", () => {
     expect(waits).toEqual([2_000, 4_000]);
   });
 
+  it("asks again when a lagging node hasn't seen the latest block (seen live)", async () => {
+    const answers = [JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32000, message: "header not found" } }), JSON.stringify({ jsonrpc: "2.0", id: 1, result: "0x" })];
+    const f = politeFetch({ minGapMs: 0, fetch: async () => new Response(answers.shift()!), sleep: async () => {} });
+    expect(await (await f("https://rpc.test")).json()).toEqual({ jsonrpc: "2.0", id: 1, result: "0x" });
+  });
+
   it("spots a rate limit inside a batch, and on HTTP 429", async () => {
     const answers = [
       new Response(JSON.stringify([{ id: 1, result: "0x1" }, { id: 2, error: { code: -32005, message: "limit" } }])),

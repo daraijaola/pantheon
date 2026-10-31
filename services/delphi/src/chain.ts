@@ -58,7 +58,9 @@ function isRateLimited(status: number, body: string): boolean {
     const parsed: unknown = JSON.parse(body);
     return (Array.isArray(parsed) ? parsed : [parsed]).some((m) => {
       const e = (m as { error?: { code?: unknown; message?: unknown } } | null)?.error;
-      return !!e && (RATE_LIMIT_CODES.has(e.code as number) || /rate limit/i.test(String(e.message)));
+      // "header not found": a node behind the load balancer that hasn't seen the latest block yet (seen
+      // live on Elysium's public RPC). Asking again a moment later reaches one that has.
+      return !!e && (RATE_LIMIT_CODES.has(e.code as number) || /rate limit|header not found/i.test(String(e.message)));
     });
   } catch {
     return false;
