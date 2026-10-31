@@ -148,13 +148,20 @@ export function roundTrips(d: CoinData): Map<Trade, bigint> {
   return matched;
 }
 
-/** Token balances of non-system wallets, replayed from Transfer events. */
-export function balances(d: CoinData): Map<string, bigint> {
-  const bal = new Map<string, bigint>();
+/** Every address's balance: read from the token when the coin has `holdings`, else replayed from Transfer events. */
+function allBalances(d: CoinData): Map<string, bigint> {
+  if (d.holdings) return new Map(d.holdings);
+  const all = new Map<string, bigint>();
   for (const t of d.transfers) {
-    bal.set(lc(t.from), (bal.get(lc(t.from)) ?? 0n) - t.value);
-    bal.set(lc(t.to), (bal.get(lc(t.to)) ?? 0n) + t.value);
+    all.set(lc(t.from), (all.get(lc(t.from)) ?? 0n) - t.value);
+    all.set(lc(t.to), (all.get(lc(t.to)) ?? 0n) + t.value);
   }
+  return all;
+}
+
+/** Token balances of non-system wallets. */
+export function balances(d: CoinData): Map<string, bigint> {
+  const bal = allBalances(d);
   for (const k of [...bal.keys()]) if (isSystem(d, k) || bal.get(k)! <= 0n) bal.delete(k);
   return bal;
 }
@@ -165,11 +172,7 @@ export function balances(d: CoinData): Map<string, bigint> {
  */
 export function contractHoldings(d: CoinData): { share: number; top: Array<{ contract: string; pct: number }> } | null {
   if (!d.contracts?.size) return null;
-  const all = new Map<string, bigint>();
-  for (const t of d.transfers) {
-    all.set(lc(t.from), (all.get(lc(t.from)) ?? 0n) - t.value);
-    all.set(lc(t.to), (all.get(lc(t.to)) ?? 0n) + t.value);
-  }
+  const all = allBalances(d);
   const held = [...d.contracts].map((c) => ({ c, v: all.get(c) ?? 0n })).filter((x) => x.v > 0n).sort((a, b) => (b.v > a.v ? 1 : b.v < a.v ? -1 : 0));
   const inContracts = held.reduce((s, x) => s + x.v, 0n);
   const outside = inContracts + [...balances(d).values()].reduce((s, v) => s + v, 0n);

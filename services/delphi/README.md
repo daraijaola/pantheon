@@ -79,6 +79,45 @@ The key is read from `/var/lib/delphi/keys/anthropic.key` (owner `ayinde`, mode 
 
 All settings have working testnet defaults (see `.env.example`). `better-sqlite3` ships prebuilt binaries, so its install script is denied in `package.json` (`allowScripts`).
 
+## Kalos: the same checks on every coin of Elysium's biggest DEX (v2, in progress)
+
+```sh
+node scripts/kalos.ts                  # every Kalos coin: a table, then each coin's pools and LPs
+node scripts/kalos.ts --only KALOS     # one coin (symbol or address); the read still covers every pool
+node scripts/kalos.ts --check 3        # also re-read 3 random trades from the node's receipts
+node scripts/kalos.ts --recent 785000  # the recent window for busy coins, in blocks (default ≈ 24 h)
+```
+
+Its cache is `DB_PATH` (default `data/kalos-dev.db`; it refuses `data/delphi.db`). The checks run unlinked for now:
+funding and links join when this is merged into the main scan.
+
+- **A coin** is any token in a Kalos pool except WHYPE, USDC and mUSDC. Its launch is the first liquidity added
+  to any of its pools; its creator is whoever deployed the token. An Ascend coin is not made a Kalos coin: its
+  Kalos trades come back separately, as outside trades for its Ascend report.
+- **Pools come from the factory's PoolCreated events**, not from Kalos's API (it is only cross-checked; it matched
+  all 39 pools on Oct 31).
+- **Busy coins are read in two windows**: their launch and the last 24 hours, with balances read from the token
+  for everyone seen in them. A coin is busy if its life would hold more than 100,000 transfers (estimated from 5
+  samples; KALOS ≈ 1.9 million). The report says so in plain words.
+- **LP positions** are replayed from the pools' Mints and Burns and the position manager's NFTs, and valued at the
+  current price. Removals of 20% or more of a pool's liquidity are listed with their transactions.
+
+What the live chain showed (2026-10-31):
+
+- **The sign is the other way round from Ascend.** A V3 Swap reports the pool's side: positive means the pool
+  received it, so a positive coin amount is a sell. A test pins this against the coin's own Transfer in or out of
+  the pool, and `--check` re-reads random trades the same way.
+- **Liquidity units mislead.** KALOS's creator holds 99.94% of its main pool's liquidity units, but a narrow range:
+  by value at the current price it is 29.75%. Positions valued with V3's tick maths add up to 97-99.99% of most
+  pools' balances (the rest is fees not yet collected).
+- **Most coins are made by factories.** For 11 of 19, the explorer's creation lookup names no sender, so DELPHI
+  finds who sent the creating transaction in that block's call trace.
+- **ELYS existed months before Kalos** (block 213,745, 140,000 transfers) and its token contract holds 99.88% of its
+  own supply. stKALOS has 24 decimals; checks use shares of supply, so they are unaffected.
+- **The explorer's node refuses more than 10,000 logs per query**, with the same code (-32005) as "slow down".
+  `BatchRpc` now returns that at once instead of waiting. The node answers the calls of a batch side by side, so
+  busy streams are read several ranges at a time, and lookups go six requests at a time.
+
 ## The Trials: from DELPHI's scan to a basket proposal
 
 ```sh
@@ -151,6 +190,11 @@ the round file.
 | `src/explorer.ts` | Blockscout v2: funding history and tx counts, schema-checked, budget-aware |
 | `src/store.ts` | SQLite cache: raw logs with a cursor per stream, remembered lookups |
 | `src/ingest.ts` | Raw data → one `CoinData` per coin (`assemble` is pure; `collect` fetches) |
+| `src/rpc.ts` | Batched JSON-RPC for the explorer's own node (100 calls a request) |
+| `src/reads.ts` | Heavy reads over that node: many log streams at once, tx senders, address kinds, view calls, who deployed a contract |
+| `src/kalos.ts` | Kalos (Uniswap V3) events → DELPHI's shape: coins, trades, LP positions, liquidity reports (all pure) |
+| `src/kalos-collect.ts` | `collectKalos`: fetches every Kalos pool and coin, busy coins in two windows, cached |
+| `scripts/kalos.ts` | A standalone look at every Kalos coin, checks run unlinked (run by hand) |
 | `src/graph.ts` | Hubs, links, clusters (union-find) |
 | `src/detect.ts` | The three detectors: pure functions, exact integer maths |
 | `src/report.ts` | Verdicts, JSON and markdown reports, index |

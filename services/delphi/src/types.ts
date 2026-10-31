@@ -94,6 +94,13 @@ export type CoinData = {
    * never holders and never link wallets; this list lets a report say how much they hold.
    */
   contracts?: ReadonlySet<string>;
+  /**
+   * Token balances read from the token itself (balanceOf, address lowercase → amount), for a coin whose
+   * transfers were read only in windows (see Coin.windowFrom): balances can't be replayed from part of
+   * the history. Covers the addresses seen in those windows plus the creator, deployer and LP owners.
+   * Unset: balances are replayed from `transfers`.
+   */
+  holdings?: ReadonlyMap<string, bigint>;
 };
 
 export type Severity = "info" | "watch" | "flag";
