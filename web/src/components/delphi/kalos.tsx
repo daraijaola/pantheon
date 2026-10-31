@@ -52,7 +52,9 @@ function found(c: KalosRow): string[] {
 export function KalosIndex({ data }: { data: Delphi }) {
   const kalos = data.kalos!;
   const risky = kalos.coins.filter((c) => (c.safety?.risks ?? []).some((r) => r !== "verified")).length;
-  const worth = kalos.coins.filter((c) => found(c).length > 0);
+  // Every coin with something to say: what's wrong first, then the context that explains the rest.
+  const context = (c: KalosRow) => c.notes.filter((n) => !/^(Too busy to read|\d+ decimals|Supply changed|Contracts hold)/.test(n));
+  const worth = kalos.coins.filter((c) => found(c).length > 0 || context(c).length > 0);
   const published = kalos.coins.filter((c) => c.safety?.checks.verified.state === "ok").length;
   return (
     <main className={s.page}>
@@ -96,7 +98,7 @@ export function KalosIndex({ data }: { data: Delphi }) {
 
           {worth.length > 0 && (
             <section className={s.cell}>
-              <p className={s.label}>What the checks found</p>
+              <p className={s.label}>What DELPHI saw</p>
               <ul className={d.list}>
                 {worth.map((c) => (
                   <li key={c.token} className={d.item}>
@@ -108,6 +110,11 @@ export function KalosIndex({ data }: { data: Delphi }) {
                       <div className={k.lines}>
                         {found(c).map((line) => (
                           <p key={line} className={d.headline}>
+                            {line}
+                          </p>
+                        ))}
+                        {context(c).map((line) => (
+                          <p key={line} className={found(c).length ? k.quiet : d.headline}>
                             {line}
                           </p>
                         ))}

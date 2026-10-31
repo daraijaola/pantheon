@@ -75,6 +75,8 @@ export type Safety = {
 
 export type KalosRow = CoinRow & {
   findings: Array<{ detector: Check; severity: "watch" | "flag"; summary: string }>;
+  /** Context the checks saw that is not cheating: who a big wallet is, a crowd farming, how the coin was read. */
+  notes: string[];
   /** Shares of the total supply. */
   creatorPct: number;
   top5Pct: number;

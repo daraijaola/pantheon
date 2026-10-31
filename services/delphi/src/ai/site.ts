@@ -87,6 +87,8 @@ export function siteBundle(input: {
             coins: sort(onKalos).map((r) => ({
               ...row(r),
               findings: r.findings.map((f) => ({ detector: f.detector, severity: f.severity, summary: f.summary })),
+              // What the checks saw that is context, not cheating (rules v0.5): who a big wallet is, a crowd farming.
+              notes: r.notes,
               ...(input.kalos?.get(r.coin.token.toLowerCase()) ?? {}),
             })),
           },
