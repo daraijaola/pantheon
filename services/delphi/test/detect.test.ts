@@ -156,6 +156,19 @@ describe("wash trading", () => {
     expect(t.notes?.[0]).toContain("from mainnet this is a flag");
   });
 
+  it("on testnet, says a ring run by a platform's own wallet is the platform testing its coin (PerpMe, Omnia, Nov 1)", () => {
+    const platform = addr(0xc0);
+    const s = honest(scenario({ creator: platform }), 100_000);
+    const bots = wallets(0x200, 3);
+    bots.forEach((w) => s.fund(w, platform));
+    for (let k = 0; k < 4; k++) bots.forEach((w, i) => s.buy(w, 10, 3_600 * (k + 1) + i * 10).sell(w, 10, 3_600 * (k + 1) + i * 10 + 60));
+    const roles = new Map([[platform.toLowerCase(), { kind: "project" as const, says: "owns PerpMe's launch factory: it is PerpMe's own wallet" }]]);
+    const t = detectWash({ ...s.build(), network: "testnet", roles });
+    expect(t.finding).toBeNull();
+    expect(t.notes?.[0]).toMatch(/tied to a wallet that owns PerpMe's launch factory: it is PerpMe's own wallet\. On testnet, most likely the platform testing its own coin: from mainnet this is a flag\.$/);
+    expect(detectWash({ ...s.build(), roles }).finding?.severity).toBe("flag");
+  });
+
   it("watches one unlinked wallet churning on mainnet, and only notes it on testnet (rules v0.5)", () => {
     const w = addr(0x200);
     const s = honest(scenario(), 100_000);

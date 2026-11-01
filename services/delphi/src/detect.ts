@@ -124,6 +124,22 @@ export function detectWash(d: CoinData): DetectorResult {
   // On testnet, makers often test buying and selling their own coin: the creator alone is WATCH there.
   const creatorAlone = washers.size === 1 && [...washers].every((w) => team.has(w));
   const graded = grade(ringShare, RULES.wash);
+  // A ring run by a platform's own wallet (a launchpad's or a DEX's operator) is, on testnet, the platform
+  // testing its own coin: said plainly, flagged only from mainnet (seen Nov 1: PerpMe's own wallet funded
+  // the 4 wallets churning 72% of Omnia, a coin it launched itself).
+  // The wallets in the ring, and whoever funded them (a shared funder, or a wallet that paid one of them).
+  const behind = new Set([...washers, ...d.links.filter((l) => washers.has(lc(l.a)) || washers.has(lc(l.b))).flatMap((l) => (l.via ? [lc(l.via)] : l.reason === "funded-by" ? [lc(l.a)] : []))]);
+  const platform = [...behind].map((w) => d.roles?.get(w)).find((r) => r?.kind === "project");
+  if (graded && testnet && platform) {
+    return {
+      enough: true,
+      finding: null,
+      notes: [
+        `${ringShare}% of trading volume is fast round trips by ${washers.size} linked wallets tied to a wallet that ${platform.says}. ` +
+          "On testnet, most likely the platform testing its own coin: from mainnet this is a flag.",
+      ],
+    };
+  }
   const ringSeverity = graded && testnet && creatorAlone ? "watch" : graded;
   if (ringSeverity) {
     const withCreator = [...washers].some((w) => team.has(w));

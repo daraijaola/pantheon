@@ -20,6 +20,7 @@ import { ExplorerBudgetError, type RawFunding } from "./explorer.ts";
 import type { FundingSource } from "./funding.ts";
 import { collectKalos, type KalosCollected } from "./kalos-collect.ts";
 import { collectPerpme, type PerpmeCollected } from "./perpme-collect.ts";
+import { PERPME } from "./perpme.ts";
 import type { LiquidityReport } from "./kalos.ts";
 import type { BatchRpc } from "./rpc.ts";
 import { balances } from "./detect.ts";
@@ -469,6 +470,10 @@ export async function collect(deps: {
   if (kalos) {
     const owner = await client.readContract({ address: KALOS.factory, abi: OWNER_ABI, functionName: "owner" }).catch(() => null);
     if (owner) projects.set(lc(owner), "owns Kalos's factory: it is Kalos's own wallet");
+  }
+  if (perpme) {
+    const owner = await client.readContract({ address: PERPME.launchFactory, abi: OWNER_ABI, functionName: "owner" }).catch(() => null);
+    if (owner) projects.set(lc(owner), "owns PerpMe's launch factory: it is PerpMe's own wallet");
   }
   const withRoles = assignRoles(coins, projects, system);
   if (!explorer) notes.push("explorer skipped: funding links use cached data only");
