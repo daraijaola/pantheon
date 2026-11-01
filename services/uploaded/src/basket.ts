@@ -3,6 +3,7 @@
 // claim right now comes from the staking contract, which is the only place that knows it. If the indexer
 // is down the claimable part still answers and `complete` turns false, because "claimed" can't be read as 0.
 import { erc20Abi, formatUnits, parseAbi, type Address, type PublicClient } from "viem";
+import { requestFailed } from "./chain.ts";
 import { z } from "zod";
 import { NotReady } from "./holdings.ts";
 import { Remembered } from "./remembered.ts";
@@ -112,6 +113,7 @@ export function chainRewards(client: Pick<PublicClient, "multicall">, staking: s
     earned: async (wallet, tokens) => {
       const contracts = tokens.map((t) => ({ address, abi: rewardsAbi, functionName: "earned" as const, args: [t as Address, wallet as Address] as const }));
       const got = await client.multicall({ contracts, allowFailure: true, batchSize: 0 });
+      if (got.some((r) => r.status !== "success" && requestFailed(r.error))) throw new Error("the node didn't answer");
       return got.map((r) => (r.status === "success" ? r.result : null));
     },
     meta: async (tokens) => {

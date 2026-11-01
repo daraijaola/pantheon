@@ -44,6 +44,18 @@ export function politeFetch(opts: { minGapMs?: number; retries?: number; fetch?:
  * `batch`: gather reads made together into one request, for the explorer's node (the public one refuses
  * batches). That node has no burst limit to respect here: each request waits for the last, so no gap.
  */
+/**
+ * True if a failed read in a bundle means the request itself failed (the node is down, slow, or refused),
+ * not that one coin reverted. With allowFailure, viem reports a failed request as every call in the bundle
+ * failing, so it looks the same as a coin that can't be read unless you look at the cause.
+ */
+export function requestFailed(error: unknown): boolean {
+  for (let e = error as { name?: string; cause?: unknown } | undefined; e; e = e.cause as typeof e) {
+    if (e.name === "HttpRequestError" || e.name === "RpcRequestError" || e.name === "TimeoutError") return true;
+  }
+  return false;
+}
+
 export function makeClient(rpc: string, opts: { batch?: boolean } = {}): PublicClient {
   const chain = defineChain({
     id: 99_801,

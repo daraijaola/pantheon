@@ -204,6 +204,11 @@ describe("the chain reads", () => {
     await expect(chainRewards(client([{ status: "failure" }, { status: "failure" }]) as never, PACT).tokens()).rejects.toThrow("couldn't be read");
   });
 
+  it("fails out loud when the request itself failed, not one coin", async () => {
+    const down = { status: "failure", error: { name: "X", cause: { name: "HttpRequestError" } } };
+    await expect(chainRewards(client([down, down]) as never, PACT).earned(WALLET, [PACT, USDC])).rejects.toThrow("didn't answer");
+  });
+
   it("turns one coin's failure into null", async () => {
     expect(await chainRewards(client([ok(5n), { status: "failure" }]) as never, PACT).earned(WALLET, [PACT, USDC])).toEqual([5n, null]);
     expect(await chainRewards(client([ok("PACT"), ok(18), { status: "failure" }, ok(6)]) as never, PACT).meta([PACT, USDC])).toEqual([{ symbol: "PACT", decimals: 18 }, null]);

@@ -4,6 +4,7 @@
 // fails out loud: an empty list always means we read every coin and the wallet holds none of them.
 // Coins DELPHI hasn't read aren't checked, and PNTH that's staked sits in the staking contract, not here.
 import { erc20Abi, formatUnits, type Address, type PublicClient } from "viem";
+import { requestFailed } from "./chain.ts";
 import { Remembered } from "./remembered.ts";
 import type { Coin } from "./verdicts.ts";
 
@@ -37,7 +38,7 @@ export type BalanceCalls = {
 };
 
 export function chainBalances(client: Pick<PublicClient, "multicall">): BalanceCalls {
-  /** One after the other, to go easy on the public node. A whole request failing throws. */
+  /** One after the other, to go easy on the public node. A request failing throws; one coin failing is null. */
   async function inChunks<T>(tokens: readonly string[], functionName: "balanceOf" | "decimals", args: readonly [Address] | undefined): Promise<Array<T | null>> {
     const out: Array<T | null> = [];
     for (let i = 0; i < tokens.length; i += CHUNK) {
@@ -45,7 +46,10 @@ export function chainBalances(client: Pick<PublicClient, "multicall">): BalanceC
       // batchSize 0: one bundle is one request. By default viem splits it into many small ones at once,
       // and the public node refuses some, which marks coins it could have read as failed.
       const got = await client.multicall({ contracts: contracts as never[], allowFailure: true, batchSize: 0 });
-      for (const r of got as Array<{ status: string; result?: unknown }>) out.push(r.status === "success" ? (r.result as T) : null);
+      for (const r of got as Array<{ status: string; result?: unknown; error?: unknown }>) {
+        if (r.status !== "success" && requestFailed(r.error)) throw new Error("the node didn't answer", { cause: r.error });
+        out.push(r.status === "success" ? (r.result as T) : null);
+      }
     }
     return out;
   }

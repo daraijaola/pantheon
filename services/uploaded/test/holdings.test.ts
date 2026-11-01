@@ -1,6 +1,7 @@
 // The holdings reader, with stand-ins for the chain: no network.
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../src/api.ts";
+import { makeClient, requestFailed } from "../src/chain.ts";
 import { chainBalances, HoldingsReader, NotReady, type BalanceCalls } from "../src/holdings.ts";
 import { Verdicts, type Coin } from "../src/verdicts.ts";
 
@@ -164,6 +165,25 @@ describe("the bundled chain reads", () => {
   it("lets a failed request throw, so it can't look like an empty wallet", async () => {
     const client = { multicall: () => Promise.reject(new Error("node down")) };
     await expect(chainBalances(client as never).balances(WALLET, [A.token])).rejects.toThrow("node down");
+  });
+
+  it("fails out loud on a dead node with the real client, which reports it as every coin failing", async () => {
+    const real = makeClient("http://127.0.0.1:1");
+    await expect(chainBalances(real).balances(WALLET, [A.token, K.token])).rejects.toThrow("didn't answer");
+    await expect(chainBalances(real).decimals([A.token])).rejects.toThrow("didn't answer");
+  });
+
+  it("still treats one coin that reverts as unread, not as the node failing", async () => {
+    const reverted = Object.assign(new Error("reverted"), { name: "ContractFunctionExecutionError", cause: { name: "ContractFunctionRevertedError" } });
+    const client = { multicall: async () => [{ status: "failure", error: reverted }, { status: "success", result: 5n }] };
+    expect(await chainBalances(client as never).balances(WALLET, [A.token, K.token])).toEqual([null, 5n]);
+  });
+
+  it("knows a request failure by its cause, however deep", () => {
+    const wrap = (name: string) => ({ name: "ContractFunctionExecutionError", cause: { name: "CallExecutionError", cause: { name } } });
+    for (const n of ["HttpRequestError", "RpcRequestError", "TimeoutError"]) expect(requestFailed(wrap(n)), n).toBe(true);
+    expect(requestFailed(wrap("ContractFunctionRevertedError"))).toBe(false);
+    expect(requestFailed(undefined)).toBe(false);
   });
 });
 
