@@ -1,6 +1,7 @@
 // Entry point: node --env-file-if-exists=.env src/server.ts   (npm start)
 // Loads DELPHI's latest verdicts, then looks for a new scan every REFRESH_SEC.
 import { buildApp } from "./api.ts";
+import { BagReader } from "./bag.ts";
 import { makeClient } from "./chain.ts";
 import { loadConfig } from "./config.ts";
 import { FreshChecks, runDelphi } from "./fresh.ts";
@@ -15,7 +16,8 @@ const fresh = cfg.freshReads
   : undefined;
 const holdings = new HoldingsReader(() => verdicts.coins(), chainBalances(makeClient(cfg.rpc)));
 const history = new HistoryReader(verdicts, chainHistory(makeClient(cfg.archiveRpc, { batch: true })));
-const app = buildApp(verdicts, { logger: true, holdings, history, ...(fresh ? { fresh } : {}) });
+const bag = new BagReader(holdings, verdicts, fresh);
+const app = buildApp(verdicts, { logger: true, holdings, history, bag, ...(fresh ? { fresh } : {}) });
 
 let lastSaid: string | null = null;
 function refresh() {

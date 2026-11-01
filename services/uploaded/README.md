@@ -4,7 +4,7 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup, the server, "check any coin", the holdings reader and wallet history are done. It listens on this machine only
+Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history and the bag are done. It listens on this machine only
 (`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
@@ -61,6 +61,19 @@ bundled request. The explorer's API has been behind a bot check since Oct 25, so
 - **What it doesn't see:** coins DELPHI hasn't read, and PNTH that's staked (it sits in the staking contract).
 - **One wallet at a time,** to go easy on the public node. A busy launch day will need a paid node.
 - **Private on purpose:** this route must not go public before sign-in is decided.
+
+## The bag (`src/bag.ts`)
+
+`GET /wallets/{address}/bag` joins holdings and verdicts, worst first: FLAG, WATCH, UNKNOWN, NOT_ENOUGH_DATA, CLEAN.
+It answers `{wallet, network, readAt, coins, counts, unread, complete, checking}`. Each coin has its amount, verdict,
+one-line `reason`, `findings` with their transactions, `notes`, `reportUrl`, `disputeUrl`, `scannedAt` and `stale`.
+
+- **`counts`** are plain coin counts for each verdict. Unread and too-new coins are never counted as clean. Holdings
+  are remembered for 30 s, but verdicts aren't, so a verdict is always the latest.
+- **`complete`** is false if any coin couldn't be read, so an Integrity figure shouldn't be shown as final.
+- **`checking`** is true while a fresh read is running that may change a verdict here.
+- **Integrity isn't worked out here.** The brief says it's "the % of the bag", and that could mean by coin count or
+  by value. By value needs prices. That's Micheal's call.
 
 ## Wallet history (`src/history.ts`)
 

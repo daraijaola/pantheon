@@ -2,6 +2,7 @@
 // checks who is asking yet. Holdings are meant to be private, so this must not go public before sign-in.
 import Fastify from "fastify";
 import { z } from "zod";
+import type { BagReader } from "./bag.ts";
 import type { FreshChecks } from "./fresh.ts";
 import type { HistoryReader } from "./history.ts";
 import { NotReady, type HoldingsReader } from "./holdings.ts";
@@ -12,7 +13,7 @@ export const PER_MINUTE = 120;
 
 const Address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 
-export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read"> } = {}) {
+export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read"> } = {}) {
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: "127.0.0.1", bodyLimit: 1024 });
   const now = opts.now ?? Date.now;
   const hits = new Map<string, { n: number; since: number }>();
@@ -56,6 +57,7 @@ export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { log
     });
   if (opts.holdings) walletRoute("holdings", opts.holdings);
   if (opts.history) walletRoute("history", opts.history);
+  if (opts.bag) walletRoute("bag", opts.bag);
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: "NOT_FOUND" }));
   app.setErrorHandler((err, req, reply) => {
