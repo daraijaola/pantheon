@@ -124,7 +124,8 @@ function caseFile(d: CoinData, verdict: string, findings: string[], allCoins: Co
 
 try {
   const client = makeClient(cfg.elysiumRpc);
-  const { coins } = await collect({ client, store, cfg, explorer: null, kalos: { rpc: new BatchRpc() }, log });
+  const rpc = new BatchRpc();
+  const { coins } = await collect({ client, store, cfg, explorer: null, kalos: { rpc }, perpme: { rpc }, log });
   const now = new Date();
   const dir = join(cfg.outDir, "review");
   mkdirSync(dir, { recursive: true });
