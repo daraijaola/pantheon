@@ -4,7 +4,7 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, stake data, basket data, standing facts, Guard and the Trials round are done. It listens on this machine only
+Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, stake data, basket data, standing facts, Guard, the Trials round and the voting record are done. It listens on this machine only
 (`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
@@ -81,6 +81,26 @@ DELPHI's `verdict` now, `verdictAtOpen`, `verdictChanged`, `reason`, `reportUrl`
   remembered for 15 s, but the clock and the verdicts are live.
 - On Nov 1, round 5's votes matched a recount from the raw ballots on all 20 candidates. No round was open then, so the
   open and upcoming states are covered by tests, not a real round.
+
+## Ballot and voting record (`src/record.ts`)
+
+The vote itself stays where it is: the page signs a ballot and posts it to `/api/trials/vote`, as it does today. That
+service already refuses more picks than the round has seats.
+
+`GET /wallets/{address}/ballot` says whether this wallet can vote now: `{round, canVote, whyNot, votes, maxPicks, picks,
+closesAt}`. `whyNot` is `NO_ROUND`, `NOT_OPEN`, `CLOSED`, `NO_VOTES`, or `UNKNOWN` when the chain didn't answer.
+
+`GET /wallets/{address}/record` is its voting record, newest round first: `{rounds, totals, complete}`. Each pick has
+`wonSeat`, `inBasketNow`, `verdictNow` and `changePct`. Both answer 503 `TRIALS_UNAVAILABLE` if that service is down.
+
+- **`wonSeat` is the vote; `inBasketNow` is what's in the basket today.** They can differ.
+- **`changePct`** is the price change since the round closed, in test money on testnet. It's null with no fresh read
+  yet, for a coin with no trade by then, and while a round is open. It uses the last traded price, which can be old on a
+  quiet coin, and fresh reads cover Ascend only.
+- **Only this wallet's own ballot is shown.** The Trials service publishes every ballot, so anyone can read them there.
+- On Nov 1 all 43 real voters were right on rounds and all 131 picks, against the raw ballots. Price changes were
+  within 5 points of the basket's own buy prices on all 9 pairs that could be compared. No round was open, so voting
+  while a round is open wasn't tried for real.
 
 ## Guard (`src/guard.ts`)
 

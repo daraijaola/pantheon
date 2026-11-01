@@ -42,6 +42,8 @@ const Scan = z.object({
   reports: z.array(Report),
   /** Sales by creators' groups. Fresh reads have these; the scan doesn't. */
   creatorSells: z.array(z.object({ token: z.string(), wallet: z.string(), ppm: z.number(), tx: z.string(), url: z.string(), time: z.number() })).optional(),
+  /** Each coin's last price of each UTC day: [day number, price]. Fresh reads have these too. */
+  dailyPrices: z.record(z.string(), z.array(z.tuple([z.number(), z.number()]))).optional(),
 });
 type Report = z.infer<typeof Report>;
 
@@ -87,7 +89,7 @@ export function reasonOf(r: Pick<Report, "verdict" | "findings" | "notes" | "sta
   return r.notes[0] ?? "See DELPHI's report on this coin.";
 }
 
-type Loaded = { network: "testnet" | "mainnet"; scannedAt: string; scannedMs: number; coins: Map<string, Report>; sales: Sale[] };
+type Loaded = { network: "testnet" | "mainnet"; scannedAt: string; scannedMs: number; coins: Map<string, Report>; sales: Sale[]; prices: Record<string, Array<[number, number]>> };
 
 function parse(json: string): Loaded {
   const scan = Scan.parse(JSON.parse(json));
@@ -97,6 +99,7 @@ function parse(json: string): Loaded {
     scannedMs: Date.parse(scan.generatedAt),
     coins: new Map(scan.reports.map((r) => [r.coin.token.toLowerCase(), r])),
     sales: scan.creatorSells ?? [],
+    prices: scan.dailyPrices ?? {},
   };
 }
 
@@ -195,6 +198,20 @@ export class Verdicts {
       reportUrl: c.reportUrl,
       disputeUrl: c.disputeUrl,
     };
+  }
+
+  /**
+   * How a coin's price moved since a moment, in percent, one decimal, from the latest fresh read. Null if
+   * it's unknown: no fresh read yet, or no trade by that moment to compare with. Days with no trade carry
+   * the last price forward, so this is a change in the last traded price, which can be old on a quiet coin.
+   */
+  priceChange(token: string, sinceSec: number): number | null {
+    const days = this.#fresh?.prices[token.toLowerCase()];
+    if (!days?.length) return null;
+    const day = Math.floor(sinceSec / 86_400);
+    const before = days.filter(([d]) => d <= day).at(-1);
+    if (!before || before[1] <= 0) return null;
+    return Math.round((days.at(-1)![1] / before[1] - 1) * 1_000) / 10;
   }
 
   /** Sales by creators' groups, from the latest fresh read. */

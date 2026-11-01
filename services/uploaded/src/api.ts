@@ -6,6 +6,7 @@ import type { BagReader } from "./bag.ts";
 import type { BasketReader } from "./basket.ts";
 import type { FreshChecks } from "./fresh.ts";
 import type { HistoryReader } from "./history.ts";
+import type { RecordReader } from "./record.ts";
 import type { GuardReader } from "./guard.ts";
 import { NotReady, type HoldingsReader } from "./holdings.ts";
 import type { StageEvent } from "./scan.ts";
@@ -19,7 +20,7 @@ export const PER_MINUTE = 120;
 
 const Address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 
-export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent>; stake?: Pick<StakeReader, "read" | "preview">; basket?: Pick<BasketReader, "read" | "basket">; standing?: Pick<StandingReader, "read">; guard?: Pick<GuardReader, "read">; round?: Pick<RoundReader, "read"> } = {}) {
+export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent>; stake?: Pick<StakeReader, "read" | "preview">; basket?: Pick<BasketReader, "read" | "basket">; standing?: Pick<StandingReader, "read">; guard?: Pick<GuardReader, "read">; round?: Pick<RoundReader, "read">; record?: Pick<RecordReader, "read" | "ballot"> } = {}) {
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: "127.0.0.1", bodyLimit: 1024 });
   const now = opts.now ?? Date.now;
   const hits = new Map<string, { n: number; since: number }>();
@@ -65,6 +66,24 @@ export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { log
   if (opts.history) walletRoute("history", opts.history);
   if (opts.bag) walletRoute("bag", opts.bag);
   if (opts.standing) walletRoute("standing", opts.standing);
+
+  // Both lean on the Trials service, so a failure here says that, not that the chain is down.
+  const { record } = opts;
+  if (record) {
+    const trialsRoute = (path: string, read: (wallet: string) => Promise<unknown>) =>
+      app.get<{ Params: { address: string } }>(`/wallets/:address/${path}`, async (req, reply) => {
+        const wallet = Address.safeParse(req.params.address);
+        if (!wallet.success) return reply.code(400).send({ error: "INVALID_ADDRESS" });
+        try {
+          return await reply.header("cache-control", "no-store").send(await read(wallet.data));
+        } catch (err) {
+          req.log.warn({ error: (err as Error).message.split("\n")[0] }, `couldn't read a wallet's ${path}`);
+          return reply.code(503).send({ error: "TRIALS_UNAVAILABLE" });
+        }
+      });
+    trialsRoute("record", (w) => record.read(w));
+    trialsRoute("ballot", (w) => record.ballot(w));
+  }
 
   const { round } = opts;
   if (round) {

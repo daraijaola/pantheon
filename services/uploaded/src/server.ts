@@ -11,6 +11,7 @@ import { chainHistory, HistoryReader } from "./history.ts";
 import { chainBalances, HoldingsReader } from "./holdings.ts";
 import { scanStages } from "./scan.ts";
 import { chainStake, StakeReader } from "./stake.ts";
+import { RecordReader, roundsCalls } from "./record.ts";
 import { roundVoters, StandingReader } from "./standing.ts";
 import { RoundReader, trialsCalls } from "./trials.ts";
 import { Verdicts } from "./verdicts.ts";
@@ -33,10 +34,12 @@ const history = new HistoryReader(verdicts, chainHistory(makeClient(cfg.archiveR
 const stake = new StakeReader(() => verdicts.health().network, chainStake(chain, { staking: cfg.deployment.staking, passport: cfg.deployment.passportRegistry }));
 const bag = new BagReader(holdings, verdicts, fresh);
 const indexer = indexerCalls(cfg.indexerUrl);
-const standing = new StandingReader({ history, stake, indexer, voters: roundVoters(cfg.trialsUrl) });
+const rounds = roundsCalls(cfg.trialsUrl);
+const standing = new StandingReader({ history, stake, indexer, voters: roundVoters(rounds.rounds) });
 const scan = (wallet: string) => scanStages(wallet, { history, holdings, standing, bag: (h) => bag.fromHoldings(h), log: (msg) => app.log.warn(msg) });
 const basket = new BasketReader({ verdicts, stake, indexer, rewards: chainRewards(chain, cfg.deployment.staking), usdc: cfg.deployment.usdc });
-const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, stake, basket, standing, guard: new GuardReader(guard, holdings), round: new RoundReader(verdicts, trialsCalls(cfg.trialsUrl)), ...(fresh ? { fresh } : {}) });
+const record = new RecordReader(verdicts, rounds, async () => new Set((await basket.basket()).coins.map((c) => c.token)));
+const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, stake, basket, standing, guard: new GuardReader(guard, holdings), round: new RoundReader(verdicts, trialsCalls(cfg.trialsUrl)), record, ...(fresh ? { fresh } : {}) });
 
 let lastSaid: string | null = null;
 function refresh() {

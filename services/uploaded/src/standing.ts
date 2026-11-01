@@ -3,9 +3,9 @@
 // Creator, Pillar, Genesis) is Micheal's to decide, so no role is named here. These are facts only, and
 // the rules can sit on top of them later. A part that can't be read is null, never 0 or "none", and
 // `complete` turns false: "never voted" has to be something we actually checked.
-import { z } from "zod";
 import type { IndexerCalls } from "./basket.ts";
 import type { FirstSeen, HistoryReader, WalletNow } from "./history.ts";
+import type { RoundsCalls } from "./record.ts";
 import { Remembered } from "./remembered.ts";
 import type { Amount, StakeInfo, StakeReader } from "./stake.ts";
 
@@ -31,39 +31,9 @@ export type StandingFacts = {
   complete: boolean;
 };
 
-const RoundView = z.object({
-  round: z.number(),
-  status: z.string(),
-  ballotList: z.array(z.object({ voter: z.string() })),
-});
-type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
-
-/** Who voted in each round. A closed round never changes, so it's read once. */
-export function roundVoters(base: string, doFetch: Fetch = globalThis.fetch) {
-  const closed = new Map<number, Set<string>>();
-  async function get<T>(path: string, schema: z.ZodType<T>): Promise<T | null> {
-    const res = await doFetch(`${base}${path}`, { signal: AbortSignal.timeout(5_000) });
-    if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`trials answered ${res.status}`);
-    return schema.parse(await res.json());
-  }
-  return async (): Promise<Map<number, Set<string>>> => {
-    const health = await get("/health", z.object({ round: z.number().nullable() }));
-    const out = new Map<number, Set<string>>();
-    for (let n = 1; n <= (health?.round ?? 0); n++) {
-      const known = closed.get(n);
-      if (known) {
-        out.set(n, known);
-        continue;
-      }
-      const r = await get(`/trials/rounds/${n}`, RoundView);
-      if (!r) continue; // rounds before the vote went live have no ballots
-      const voters = new Set(r.ballotList.map((b) => b.voter.toLowerCase()));
-      out.set(n, voters);
-      if (r.status === "closed") closed.set(n, voters);
-    }
-    return out;
-  };
+/** Who voted in each round. */
+export function roundVoters(rounds: RoundsCalls["rounds"]) {
+  return async (): Promise<Map<number, Set<string>>> => new Map((await rounds()).map((r) => [r.round, new Set(r.ballotList.map((b) => b.voter.toLowerCase()))]));
 }
 
 export type StandingDeps = {

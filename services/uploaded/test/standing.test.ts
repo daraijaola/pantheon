@@ -89,44 +89,13 @@ describe("a wallet's facts", () => {
 });
 
 describe("reading who voted", () => {
-  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
-  const round = (round: number, status: string, voters: string[]) => ({ round, status, ballotList: voters.map((voter) => ({ voter })) });
+  const round = (n: number, voters: string[]) => ({ round: n, status: "closed", closesAt: 1, seats: 3, leaders: [], candidates: [], ballotList: voters.map((voter) => ({ voter, coins: [], weight: 1, receivedAt: 1 })) });
 
-  it("reads every round, skips ones with no ballots, and keeps addresses lowercase", async () => {
-    const pages: Record<string, Response | undefined> = {};
-    const f = async (u: string) => {
-      const p = new URL(u).pathname;
-      if (p === "/health") return json({ round: 3 });
-      if (p === "/trials/rounds/1") return json({ error: "NO_ROUND" }, 404);
-      return pages[p] ?? json(round(Number(p.at(-1)), "closed", [WALLET.toUpperCase().replace("0X", "0x")]));
-    };
-    const got = await roundVoters("http://t", f)();
-    expect([...got.keys()]).toEqual([2, 3]);
+  it("keeps each round's voters, addresses lowercase", async () => {
+    const got = await roundVoters(async () => [round(3, [WALLET.toUpperCase().replace("0X", "0x")]), round(4, [])])();
+    expect([...got.keys()]).toEqual([3, 4]);
     expect(got.get(3)!.has(WALLET)).toBe(true);
-  });
-
-  it("reads a closed round once, and an open one every time", async () => {
-    const asked: string[] = [];
-    const f = async (u: string) => {
-      const p = new URL(u).pathname;
-      asked.push(p);
-      if (p === "/health") return json({ round: 2 });
-      return json(round(Number(p.at(-1)), p.endsWith("2") ? "open" : "closed", []));
-    };
-    const read = roundVoters("http://t", f);
-    await read();
-    await read();
-    expect(asked.filter((p) => p.endsWith("/rounds/1"))).toHaveLength(1);
-    expect(asked.filter((p) => p.endsWith("/rounds/2"))).toHaveLength(2);
-  });
-
-  it("fails on an error, or an answer in the wrong shape", async () => {
-    await expect(roundVoters("http://t", async () => json({}, 500))()).rejects.toThrow("500");
-    await expect(roundVoters("http://t", async (u) => (u.endsWith("/health") ? json({ round: 1 }) : json({ nope: 1 })))()).rejects.toThrow();
-  });
-
-  it("copes with no rounds at all", async () => {
-    expect((await roundVoters("http://t", async () => json({ round: null }))()).size).toBe(0);
+    expect(got.get(4)!.size).toBe(0);
   });
 });
 
