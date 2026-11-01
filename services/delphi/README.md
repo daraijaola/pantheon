@@ -125,6 +125,7 @@ What the live chain showed (2026-10-31):
 node scripts/perpme.ts                  # every PerpMe coin that isn't an xStock: a table
 node scripts/perpme.ts --only SHRF      # one coin (symbol or address); the read still covers every launch
 node scripts/perpme-check.ts            # 20 random coins against balanceOf and PerpMe's own API
+node scripts/perpme-fixtures.ts         # re-record test/fixtures/perpme/ (live)
 ```
 
 Its cache is `DB_PATH` (default `data/perpme-dev.db`; it refuses `data/delphi.db`). The checks run unlinked for
@@ -254,7 +255,7 @@ storage slot behind it and the raw facts. Every read and dry run is pinned to on
 | Owner | `owner()`, `getOwner()`, `admin()`, `pendingOwner()`, `minter()`, AccessControl roles, who deployed it (and through which factory) | Someone still in control can use a power, or anyone can |
 | Powers | Mint, take or burn others' tokens, blacklists, pause, fees and taxes, trade limits, trading switch, fee exemptions, pulling funds out, router and pair, upgrades: from the verified ABI, else from the bytecode's dispatcher | A power is present and someone (or anyone) can still use it |
 | Transfer | A real holder sends some to a fresh wallet, which passes it on (eth_simulateV1) | Refused, taxed, or the new holder is stuck |
-| Sell | On Kalos: the holder sells, and a fresh wallet buys with HYPE and sells it all back, each compared with Kalos's QuoterV2 | A sale fails, or a trade comes up short of the quote |
+| Sell | On Kalos: the holder sells, and a fresh wallet buys with HYPE and sells it all back, each compared with Kalos's QuoterV2. On PerpMe: the same in the coin's PerpMe pool, through PerpMe's router and QuoterV2, priced in PerpMe's WHYPE; inside its launch window a buy of just over the 2% cap is tried too | A sale fails, or a trade comes up short of the quote (inside PerpMe's launch window a refusal is "restricted", never a risk) |
 | Fake ticker | Its symbol or name against Kalos's approved tokens, WHYPE, USDC, KALOS, stKALOS, PNTH, HYPE and KNTQ, after undoing case, spaces, `$`, invisible characters, accents and Cyrillic, Greek, 0/O and 1/l/I look-alikes | It copies one at another address |
 
 ```sh
@@ -294,9 +295,19 @@ supply is in the pool), the transfer is tested from the fresh wallet right after
   `eth_getLogs` at 10,000 logs, so the holder search walks back in windows that grow from 2,000 blocks.
 - WHYPE and Kalos's USDC can be upgraded by Elysium's UpgradeExecutor (the chain owner's contract).
 
+**PerpMe coins** are found from who made them: when PerpMe's coin deployer created the token, its launch
+(TokenLaunched in that block) names the pool. PerpMe's router and QuoterV2 are the same code as Kalos's, so
+the same dry runs run there. While launch protection is on (the coin's `restrictionsActive()`), the fresh
+wallet's buy stays under half the cap, a second fresh wallet asks for just over it (PerpMe's pool then reverts
+"TF"), and a refused test trade is called restricted, not a honeypot. A coin priced in USDC or KALOS gets the
+holder's sale only: a fresh wallet has no way to pay without HYPE.
+
 **Limits.** Ascend coins trade through Ascend's own router (Infinity-style pools): for them DELPHI tests
-a transfer, not a sale. Role holders are listed only when the contract can enumerate them; otherwise
-DELPHI asks about the deployer and the owner only. The holder found is the biggest wallet among recent
+a transfer, not a sale. A sale there is not a small adapter: the router is PancakeSwap Infinity's
+UniversalRouter (`execute(commands, inputs)` with encoded actions and a full pool key), it pulls tokens through
+Permit2 (whose address it doesn't expose), there is no known quoter for its pools to measure a tax against, and
+the coins are priced in USDC, which a fresh wallet can't pay with. Role holders are listed only when the
+contract can enumerate them; otherwise DELPHI asks about the deployer and the owner only. The holder found is the biggest wallet among recent
 recipients: it may be exempt from a tax that hits others (the fresh wallets' tests cover that case on
 Kalos). Powers hidden behind functions with no known name in unverified code are counted, not named.
 
@@ -327,7 +338,7 @@ Kalos). Powers hidden behind functions with no known name in unverified code are
 | `src/perpme.ts` | PerpMe launches → DELPHI's shape: launch decoding, xStocks, coins and trades, launch protection, the liquidity summary (all pure) |
 | `src/perpme-collect.ts` | `collectPerpme`: fetches every PerpMe launch, its pool's events, LP owner and reserves, cached |
 | `src/perpme-api.ts` | PerpMe's dex-sync API and indexer, for cross-checks only |
-| `scripts/perpme.ts`, `scripts/perpme-check.ts` | The PerpMe table and the live cross-check (run by hand) |
+| `scripts/perpme.ts`, `scripts/perpme-check.ts`, `scripts/perpme-fixtures.ts` | The PerpMe table, the live cross-check, re-recording its fixtures (run by hand) |
 | `src/graph.ts` | Hubs, links, clusters (union-find) |
 | `src/detect.ts` | The three detectors: pure functions, exact integer maths |
 | `src/report.ts` | Verdicts, JSON and markdown reports, index |
