@@ -5,6 +5,7 @@ import { buildBag } from "../src/bag.ts";
 import { NotReady, type Holdings } from "../src/holdings.ts";
 import type { FirstSeen, WalletNow } from "../src/history.ts";
 import { scanStages, type ScanDeps, type StageEvent } from "../src/scan.ts";
+import type { StandingFacts } from "../src/standing.ts";
 import { Verdicts } from "../src/verdicts.ts";
 
 const FIXTURE = new URL("./fixtures/scan.json", import.meta.url).pathname;
@@ -22,11 +23,23 @@ const HOLDINGS: Holdings = {
   holdings: [{ token: PACT, symbol: "PACT", name: "TestPact", venue: "ascend", balance: "1", decimals: 18, amount: "0.000000000000000001" }],
   unread: [],
 };
+const STANDING: StandingFacts = {
+  wallet: WALLET,
+  network: "testnet",
+  readAt: "2026-11-01T00:00:00.000Z",
+  firstSeen: FIRST_DAY,
+  staking: { now: { raw: "0", amount: "0" }, bonusSince: null, firstStaked: null },
+  roundsVoted: [],
+  coinsLaunched: { total: 0, byVerdict: {} },
+  passport: { tier: 0, boost: 1 },
+  complete: true,
+};
 const verdicts = new Verdicts(FIXTURE);
 verdicts.refresh();
 const deps = (over: Partial<ScanDeps> = {}): ScanDeps => ({
   history: reads(),
   holdings: { read: async () => HOLDINGS },
+  standing: { read: async () => STANDING },
   bag: (h) => buildBag(h, (t) => verdicts.get(t)),
   ...over,
 });
@@ -46,8 +59,14 @@ describe("the stages", () => {
     expect(stages[2]).toMatchObject({ stage: "verdicts", ok: true, data: { coins: [{ token: PACT, verdict: "CLEAN" }] } });
   });
 
-  it("says standing isn't built yet, instead of faking it", async () => {
-    expect((await all(deps())).at(-1)).toEqual({ stage: "standing", ok: false, error: "NOT_BUILT_YET" });
+  it("ends with the wallet's standing facts", async () => {
+    expect((await all(deps())).at(-1)).toEqual({ stage: "standing", ok: true, data: STANDING });
+  });
+
+  it("still finishes if standing fails, and says so", async () => {
+    const stages = await all(deps({ standing: { read: () => Promise.reject(new Error("down")) } }));
+    expect(stages.at(-1)).toEqual({ stage: "standing", ok: false, error: "CHAIN_UNAVAILABLE" });
+    expect(stages.slice(0, 4).every((s) => s.ok)).toBe(true);
   });
 
   it("sends the first stage before the slower ones are done", async () => {
@@ -143,7 +162,7 @@ describe("the stream", () => {
 
   it("says at the end which stages failed", async () => {
     const res = await app(deps({ holdings: { read: () => Promise.reject(new Error("rpc detail")) } })).inject({ url: `/wallets/${WALLET}/scan` });
-    expect(parse(res.body).at(-1)).toEqual({ event: "done", data: { failed: ["holdings", "verdicts", "standing"] } });
+    expect(parse(res.body).at(-1)).toEqual({ event: "done", data: { failed: ["holdings", "verdicts"] } });
     expect(res.body).not.toContain("rpc detail");
   });
 

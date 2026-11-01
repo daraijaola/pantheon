@@ -35,6 +35,7 @@ function indexer(over: Partial<IndexerCalls> = {}): IndexerCalls {
     }),
     buys: async () => [{ tx: "0xb", url: "https://x/b", at: 1_800_000_000, coin: amt(3n * E, PACT), usdcIn: amt(100_000_000n, USDC, "USDC", 6) }],
     claims: async () => ({ claims: [claim(PACT, 2n * E), claim(PACT, 3n * E)], whole: true }),
+    stakes: async () => ({ times: [], whole: true }),
     ...over,
   };
 }
@@ -165,6 +166,11 @@ describe("calling the indexer", () => {
     expect(got.claims).toHaveLength(2);
     expect(urls[1]).toContain("&before=5-1");
     expect(urls[0]).toContain(`kind=claim&account=${WALLET}`);
+  });
+
+  it("reads when a wallet staked, leaving out any without a time", async () => {
+    const got = await indexerCalls("http://i", async () => json({ items: [{ tx: "0x1", url: "u", at: 500 }, { tx: "0x2", url: "u", at: null }], next: null })).stakes(WALLET);
+    expect(got).toEqual({ times: [500], whole: true });
   });
 
   it("stops after 25 pages and says it did", async () => {

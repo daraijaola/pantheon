@@ -23,7 +23,7 @@ const stakingAbi = parseAbi([
   "function accounts(address) view returns (uint256 staked, uint256 cooling, uint256 working, uint64 coolEnd, uint64 stakeStart)",
   "function workingOf(address) view returns (uint256)",
 ]);
-const passportAbi = parseAbi(["function multiplierOf(address) view returns (uint256)"]);
+const passportAbi = parseAbi(["function multiplierOf(address) view returns (uint256)", "function tierOf(address) view returns (uint8)"]);
 const clockAbi = parseAbi(["function getCurrentBlockTimestamp() view returns (uint256)"]);
 const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11";
 
@@ -39,6 +39,8 @@ export type StakeState = {
   stakeStart: bigint;
   /** The Passport multiplier, 1e18 = 1.0×, capped as the contract caps it. */
   passport: bigint;
+  /** The Passport tier, 0 to 3. */
+  tier: number;
   /** The block's time, in seconds. */
   now: bigint;
 };
@@ -52,7 +54,7 @@ export function chainStake(client: Pick<PublicClient, "multicall">, addresses: {
       const account = wallet as Address;
       // One bundle, so everything comes from the same block. A Passport that can't be read counts as no
       // boost, as the contract treats it. batchSize 0 keeps the bundle one request (see holdings.ts).
-      const [acct, workingNow, passport, clock] = await client.multicall({
+      const [acct, workingNow, passport, clock, tier] = await client.multicall({
         allowFailure: true,
         batchSize: 0,
         multicallAddress: MULTICALL3,
@@ -61,12 +63,13 @@ export function chainStake(client: Pick<PublicClient, "multicall">, addresses: {
           { address: staking, abi: stakingAbi, functionName: "workingOf", args: [account] },
           { address: addresses.passport as Address, abi: passportAbi, functionName: "multiplierOf", args: [account] },
           { address: MULTICALL3, abi: clockAbi, functionName: "getCurrentBlockTimestamp" },
+          { address: addresses.passport as Address, abi: passportAbi, functionName: "tierOf", args: [account] },
         ],
       });
       if (acct.status !== "success" || workingNow.status !== "success" || clock.status !== "success") throw new Error("staking contract couldn't be read");
       const [staked, cooling, working, coolEnd, stakeStart] = acct.result;
       const m = passport.status === "success" ? passport.result : ONE;
-      return { staked, cooling, working, workingNow: workingNow.result, coolEnd: BigInt(coolEnd), stakeStart: BigInt(stakeStart), passport: m < ONE ? ONE : m > MAX_PASSPORT ? MAX_PASSPORT : m, now: clock.result };
+      return { staked, cooling, working, workingNow: workingNow.result, coolEnd: BigInt(coolEnd), stakeStart: BigInt(stakeStart), passport: m < ONE ? ONE : m > MAX_PASSPORT ? MAX_PASSPORT : m, tier: tier.status === "success" ? tier.result : 0, now: clock.result };
     },
   };
 }
@@ -108,6 +111,7 @@ export type StakeInfo = {
     fullAt: string | null;
   };
   passportBoost: number;
+  passportTier: number;
   /** What the whole stake is earning at, and what it would earn at if refreshed. */
   multiplier: { earning: number; ifRefreshed: number };
   /** True when a refresh (`poke`) would raise what this wallet earns. Anyone can do it. */
@@ -133,6 +137,7 @@ export function describeStake(wallet: string, network: StakeInfo["network"], s: 
       fullAt: active ? iso(s.stakeStart + AGE_RAMP) : null,
     },
     passportBoost: rate(s.passport),
+    passportTier: s.tier,
     multiplier: { earning: rate(s.working, s.staked), ifRefreshed: rate(s.workingNow, s.staked) },
     needsRefresh: s.workingNow > s.working,
   };

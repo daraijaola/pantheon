@@ -17,7 +17,7 @@ function state(over: Partial<StakeState> & { days?: bigint } = {}): StakeState {
   const staked = rest.staked ?? 1_000n * E;
   const passport = rest.passport ?? E;
   const w = workingFor(staked, days * DAY, passport);
-  return { staked, cooling: 0n, working: w, workingNow: w, coolEnd: 0n, stakeStart: NOW - days * DAY, passport, now: NOW, ...rest };
+  return { staked, cooling: 0n, working: w, workingNow: w, coolEnd: 0n, stakeStart: NOW - days * DAY, passport, tier: 0, now: NOW, ...rest };
 }
 
 describe("the contract's sums", () => {
@@ -140,22 +140,23 @@ describe("reading the chain", () => {
   const addresses = { staking: "0x" + "a".repeat(40), passport: "0x" + "b".repeat(40) };
 
   it("reads everything from one moment, in one request", async () => {
-    const got = await chainStake(client([ok([10n, 2n, 11n, 99n, 50n]), ok(12n), ok(E), ok(NOW)]) as never, addresses).read(WALLET);
-    expect(got).toEqual({ staked: 10n, cooling: 2n, working: 11n, workingNow: 12n, coolEnd: 99n, stakeStart: 50n, passport: E, now: NOW });
+    const got = await chainStake(client([ok([10n, 2n, 11n, 99n, 50n]), ok(12n), ok(E), ok(NOW), ok(2)]) as never, addresses).read(WALLET);
+    expect(got).toEqual({ staked: 10n, cooling: 2n, working: 11n, workingNow: 12n, coolEnd: 99n, stakeStart: 50n, passport: E, tier: 2, now: NOW });
   });
 
   it("treats an unreadable Passport as no boost, and caps it, as the contract does", async () => {
     const stake = [10n, 0n, 10n, 0n, 50n];
-    const none = await chainStake(client([ok(stake), ok(10n), { status: "failure" }, ok(NOW)]) as never, addresses).read(WALLET);
+    const none = await chainStake(client([ok(stake), ok(10n), { status: "failure" }, ok(NOW), { status: "failure" }]) as never, addresses).read(WALLET);
     expect(none.passport).toBe(E);
-    const huge = await chainStake(client([ok(stake), ok(10n), ok(5n * E), ok(NOW)]) as never, addresses).read(WALLET);
+    expect(none.tier).toBe(0);
+    const huge = await chainStake(client([ok(stake), ok(10n), ok(5n * E), ok(NOW), ok(3)]) as never, addresses).read(WALLET);
     expect(huge.passport).toBe((E * 125n) / 100n);
-    const low = await chainStake(client([ok(stake), ok(10n), ok(1n), ok(NOW)]) as never, addresses).read(WALLET);
+    const low = await chainStake(client([ok(stake), ok(10n), ok(1n), ok(NOW), ok(0)]) as never, addresses).read(WALLET);
     expect(low.passport).toBe(E);
   });
 
   it("fails out loud if the stake itself can't be read", async () => {
-    await expect(chainStake(client([{ status: "failure" }, ok(1n), ok(E), ok(NOW)]) as never, addresses).read(WALLET)).rejects.toThrow("couldn't be read");
+    await expect(chainStake(client([{ status: "failure" }, ok(1n), ok(E), ok(NOW), ok(0)]) as never, addresses).read(WALLET)).rejects.toThrow("couldn't be read");
   });
 });
 

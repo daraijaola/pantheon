@@ -8,6 +8,7 @@ import type { FreshChecks } from "./fresh.ts";
 import type { HistoryReader } from "./history.ts";
 import { NotReady, type HoldingsReader } from "./holdings.ts";
 import type { StageEvent } from "./scan.ts";
+import type { StandingReader } from "./standing.ts";
 import { UnstakeError, type StakeReader } from "./stake.ts";
 import type { Verdicts } from "./verdicts.ts";
 
@@ -16,7 +17,7 @@ export const PER_MINUTE = 120;
 
 const Address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 
-export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent>; stake?: Pick<StakeReader, "read" | "preview">; basket?: Pick<BasketReader, "read" | "basket"> } = {}) {
+export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent>; stake?: Pick<StakeReader, "read" | "preview">; basket?: Pick<BasketReader, "read" | "basket">; standing?: Pick<StandingReader, "read"> } = {}) {
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: "127.0.0.1", bodyLimit: 1024 });
   const now = opts.now ?? Date.now;
   const hits = new Map<string, { n: number; since: number }>();
@@ -61,6 +62,7 @@ export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { log
   if (opts.holdings) walletRoute("holdings", opts.holdings);
   if (opts.history) walletRoute("history", opts.history);
   if (opts.bag) walletRoute("bag", opts.bag);
+  if (opts.standing) walletRoute("standing", opts.standing);
 
   const { basket } = opts;
   if (basket) {

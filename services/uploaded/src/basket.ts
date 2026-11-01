@@ -41,6 +41,8 @@ export type IndexerCalls = {
   buys(limit: number): Promise<Buy[]>;
   /** Every claim by this wallet, newest first. `whole` is false if there were too many to read. */
   claims(wallet: string): Promise<{ claims: Claim[]; whole: boolean }>;
+  /** When this wallet staked, in seconds. `whole` as above. */
+  stakes(wallet: string): Promise<{ times: number[]; whole: boolean }>;
 };
 
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
@@ -51,19 +53,28 @@ export function indexerCalls(base: string, doFetch: Fetch = globalThis.fetch): I
     if (!res.ok) throw new Error(`indexer answered ${res.status}`);
     return schema.parse(await res.json());
   }
+  /** Every receipt of one kind for a wallet, page by page. */
+  async function all<T>(kind: string, wallet: string, item: z.ZodType<T>): Promise<{ items: T[]; whole: boolean }> {
+    const items: T[] = [];
+    let before: string | null = null;
+    for (let i = 0; i < MAX_PAGES; i++) {
+      const got: { items: T[]; next: string | null } = await get(`/receipts?kind=${kind}&account=${wallet}&limit=200${before ? `&before=${before}` : ""}`, page(item));
+      items.push(...got.items);
+      before = got.next;
+      if (!before) return { items, whole: true };
+    }
+    return { items, whole: false };
+  }
   return {
     basket: () => get("/basket", IndexerBasket),
     buys: async (limit) => (await get(`/receipts?kind=buy&limit=${limit}`, page(Buy))).items,
     claims: async (wallet) => {
-      const claims: Claim[] = [];
-      let before: string | null = null;
-      for (let i = 0; i < MAX_PAGES; i++) {
-        const got: { items: Claim[]; next: string | null } = await get(`/receipts?kind=claim&account=${wallet}&limit=200${before ? `&before=${before}` : ""}`, page(Claim));
-        claims.push(...got.items);
-        before = got.next;
-        if (!before) return { claims, whole: true };
-      }
-      return { claims, whole: false };
+      const { items, whole } = await all("claim", wallet, Claim);
+      return { claims: items, whole };
+    },
+    stakes: async (wallet) => {
+      const { items, whole } = await all("stake", wallet, Link);
+      return { times: items.flatMap((s) => (s.at === null ? [] : [s.at])), whole };
     },
   };
 }

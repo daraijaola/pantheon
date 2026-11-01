@@ -15,6 +15,8 @@ const EnvSchema = z.object({
   /** A node that keeps old blocks and takes batches: the explorer's, as DELPHI uses for heavy reads. */
   ARCHIVE_RPC: z.url({ protocol: /^https?$/ }).default("https://test-explorer.elysium.kinetiq.xyz/rpc"),
   DEPLOYMENT_FILE: z.string().min(1).default("../../deployments/elysium-testnet.json"),
+  /** The Trials service on this machine: who voted in each round. */
+  TRIALS_URL: z.url({ protocol: /^https?$/ }).default("http://127.0.0.1:8790"),
   /** The indexer on this machine: the basket's buys and every claim. */
   INDEXER_URL: z.url({ protocol: /^https?$/ }).default("http://127.0.0.1:8789"),
   /** DELPHI's latest results. Only ever read. */
@@ -35,6 +37,7 @@ export type Config = Readonly<{
   archiveRpc: string;
   deployment: z.infer<typeof DeploymentSchema>;
   indexerUrl: string;
+  trialsUrl: string;
   scanFile: string;
   refreshSec: number;
   delphiDir: string;
@@ -57,5 +60,5 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   } catch (err) {
     throw new ConfigError(`can't use ${e.DEPLOYMENT_FILE}: ${(err as Error).message.split("\n")[0]}`);
   }
-  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, deployment, indexerUrl: e.INDEXER_URL, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", freshGapSec: e.FRESH_GAP_SEC });
+  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, deployment, indexerUrl: e.INDEXER_URL, trialsUrl: e.TRIALS_URL, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", freshGapSec: e.FRESH_GAP_SEC });
 }

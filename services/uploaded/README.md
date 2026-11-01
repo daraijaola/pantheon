@@ -4,7 +4,7 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, stake data and basket data are done. It listens on this machine only
+Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, stake data, basket data and standing facts are done. It listens on this machine only
 (`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
@@ -21,7 +21,8 @@ npm start        # settings below; run it from this folder
 | `ELYSIUM_RPC` | the public testnet node | Where balances are read. |
 | `ARCHIVE_RPC` | the explorer's node | Where wallet history is read: it needs old blocks and batches. |
 | `DEPLOYMENT_FILE` | `../../deployments/elysium-testnet.json` | The contract addresses, from the file the site reads. |
-| `INDEXER_URL` | `http://127.0.0.1:8789` | The indexer: the basket's buys and every claim. |
+| `INDEXER_URL` | `http://127.0.0.1:8789` | The indexer: the basket's buys, every claim and every stake. |
+| `TRIALS_URL` | `http://127.0.0.1:8790` | The Trials service: who voted in each round. |
 | `SCAN_FILE` | `../delphi/out/scan.json` | DELPHI's latest results. Only ever read. |
 | `REFRESH_SEC` | `60` | How often to look for a new scan. |
 | `DELPHI_DIR` | `../delphi` | Where DELPHI's code and cache are. Fresh reads run there. |
@@ -63,6 +64,22 @@ bundled request. The explorer's API has been behind a bot check since Oct 25, so
 - **What it doesn't see:** coins DELPHI hasn't read, and PNTH that's staked (it sits in the staking contract).
 - **One wallet at a time,** to go easy on the public node. A busy launch day will need a paid node.
 - **Private on purpose:** this route must not go public before sign-in is decided.
+
+## Standing facts (`src/standing.ts`)
+
+`GET /wallets/{address}/standing` answers `{firstSeen, staking, roundsVoted, coinsLaunched, passport, complete}`. These
+are facts only. What earns each role (Staker, Councillor, Creator, Pillar, Genesis) is Micheal's to decide, so no role
+is named here, and the rules can sit on top of these later.
+
+- `staking`: `now`, `bonusSince` (when the current bonus started) and `firstStaked` (the first stake ever).
+- `roundsVoted`: the Trials rounds this wallet voted in, oldest first. Closed rounds are read once.
+- `coinsLaunched`: `total` and `byVerdict`. Covenant launches don't credit a person yet (see Wallet history).
+- `passport`: `tier` and `boost`.
+- **A part that can't be read is null, never 0 or an empty list,** and `complete` is false. If the indexer or Trials
+  is down, `firstStaked` or `roundsVoted` is null. "Never voted" always means it was checked.
+
+On Nov 1 this matched 41 of 41 real wallets on rounds voted, on first stake (against the chain's own events) and on
+coins launched, and all 6 real Passports on tier and boost.
 
 ## Basket and rewards (`src/basket.ts`)
 
@@ -109,10 +126,10 @@ wallet not read in the last minute. A wallet read recently answers in millisecon
 | `holdings` | 2 s | The same as `/holdings` |
 | `verdicts` | right after holdings | The same as `/bag` |
 | `firstDay` | 3 s | `{firstSeen}`: `{block, time}`, or null if the wallet has never been active |
-| `standing` | | Not built yet: always `{ok: false, error: "NOT_BUILT_YET"}` |
+| `standing` | 3 to 5 s, with the first day | The same as `/standing` |
 
 They always come in that order. Each is `{stage, ok: true, data}` or `{stage, ok: false, error}`, where `error` is
-`CHAIN_UNAVAILABLE`, `NOT_READY`, `TIMEOUT` (a stage gives up after 30 s) or `NOT_BUILT_YET`. A failed stage never
+`CHAIN_UNAVAILABLE`, `NOT_READY` or `TIMEOUT` (a stage gives up after 30 s). A failed stage never
 stops the others. `verdicts` fails if `holdings` did. `done` is `{failed: [stage names]}`.
 
 ```js

@@ -10,6 +10,7 @@ import { chainHistory, HistoryReader } from "./history.ts";
 import { chainBalances, HoldingsReader } from "./holdings.ts";
 import { scanStages } from "./scan.ts";
 import { chainStake, StakeReader } from "./stake.ts";
+import { roundVoters, StandingReader } from "./standing.ts";
 import { Verdicts } from "./verdicts.ts";
 
 const cfg = loadConfig();
@@ -22,9 +23,11 @@ const holdings = new HoldingsReader(() => verdicts.coins(), chainBalances(chain)
 const history = new HistoryReader(verdicts, chainHistory(makeClient(cfg.archiveRpc, { batch: true })));
 const stake = new StakeReader(() => verdicts.health().network, chainStake(chain, { staking: cfg.deployment.staking, passport: cfg.deployment.passportRegistry }));
 const bag = new BagReader(holdings, verdicts, fresh);
-const scan = (wallet: string) => scanStages(wallet, { history, holdings, bag: (h) => bag.fromHoldings(h), log: (msg) => app.log.warn(msg) });
-const basket = new BasketReader({ verdicts, stake, indexer: indexerCalls(cfg.indexerUrl), rewards: chainRewards(chain, cfg.deployment.staking), usdc: cfg.deployment.usdc });
-const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, stake, basket, ...(fresh ? { fresh } : {}) });
+const indexer = indexerCalls(cfg.indexerUrl);
+const standing = new StandingReader({ history, stake, indexer, voters: roundVoters(cfg.trialsUrl) });
+const scan = (wallet: string) => scanStages(wallet, { history, holdings, standing, bag: (h) => bag.fromHoldings(h), log: (msg) => app.log.warn(msg) });
+const basket = new BasketReader({ verdicts, stake, indexer, rewards: chainRewards(chain, cfg.deployment.staking), usdc: cfg.deployment.usdc });
+const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, stake, basket, standing, ...(fresh ? { fresh } : {}) });
 
 let lastSaid: string | null = null;
 function refresh() {
