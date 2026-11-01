@@ -1,7 +1,8 @@
 // Explains DELPHI's verdicts in plain English with Claude: one short report per coin, every point
 // linked to its transactions. Works from DELPHI's cache (run scripts/scan.ts first for fresh data):
 // the only network calls are read-only RPC reads and the Claude API. Live, so run it by hand:
-//   node scripts/explain.ts               coins with a finding or a CLEAN verdict, and any with 5+ trades
+//   node scripts/explain.ts               Ascend coins with a finding or a CLEAN verdict, and any with 5+ trades
+//   node scripts/explain.ts --all-markets  the same for Kalos and PerpMe coins too
 //   node scripts/explain.ts --only 0x…    one coin
 //   node scripts/explain.ts --all         every coin
 //   node scripts/explain.ts --force       explain again even if the coin's data has not changed
@@ -58,7 +59,9 @@ try {
   const reports = coins.map((d) => analyze(d, { explorerWeb: cfg.explorerWeb, now }));
   const ws = await loadWorkspace({ client, store, cfg, coins, reports, hubs, liquidity });
 
-  const worth = (r: CoinReport) => r.verdict !== "NOT_ENOUGH_DATA" || r.stats.trades >= 5;
+  // Kalos and PerpMe coins are shown by their checks, not written up: Claude only explains Ascend coins
+  // unless asked (--all-markets), which keeps each run's cost where it was.
+  const worth = (r: CoinReport) => (r.coin.market === undefined || args.includes("--all-markets")) && (r.verdict !== "NOT_ENOUGH_DATA" || r.stats.trades >= 5);
   const targets = reports.filter((r) => (only ? r.coin.token === only : args.includes("--all") || worth(r)));
   if (only && targets.length === 0) throw new Error(`${only} is not a coin DELPHI reads`);
   const dir = join(cfg.outDir, "coins");

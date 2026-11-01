@@ -87,6 +87,10 @@ export type KalosRow = CoinRow & {
   lpOwners: number;
   bigRemovals: number;
   safety?: Safety;
+  /** Where it reaches Kalos's Sniper from: a Kalos pool, or a PerpMe launch. */
+  venue?: "kalos" | "perpme";
+  /** PerpMe: the launch's liquidity sits in PerpMe's locker and can never be pulled. */
+  lpLocked?: boolean;
 };
 
 /** The published scan, or null before DELPHI has published one. */

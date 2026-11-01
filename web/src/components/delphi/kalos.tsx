@@ -1,6 +1,7 @@
-// DELPHI on Kalos: every coin in Kalos's pools, with DELPHI's three wallet checks and the contract and
-// market checks a trader asks for before buying (who controls it, what they can still do, can you sell).
-// Server-rendered from DELPHI's published file; links out go to the explorer only.
+// DELPHI on Kalos: every coin that reaches Kalos, from PerpMe launches and from new Kalos pools, with
+// DELPHI's wallet checks and the contract and market checks a trader asks for before buying (who
+// controls it, what they can still do, can you sell). Server-rendered from DELPHI's published file;
+// links out go to the explorer only. Long lists open on request, so the page stays short.
 
 import Link from "next/link";
 import s from "@/components/app/app.module.css";
@@ -31,10 +32,13 @@ function contract(c: KalosRow): string {
 
 function pools(c: KalosRow): string {
   if (c.pools === 0) return "none";
-  if (c.tvlHype === null) return `${c.pools} pool${c.pools === 1 ? "" : "s"}`;
-  if (c.tvlHype < 0.01) return "under 0.01 HYPE";
-  return `${num(c.tvlHype)} HYPE`;
+  const value = c.tvlHype === null ? null : c.tvlHype < 0.01 ? "under 0.01 HYPE" : `${num(c.tvlHype)} HYPE`;
+  if (c.venue === "perpme") return c.lpLocked ? `Locked${value ? `, ${value}` : ""}` : (value ?? "1 pool");
+  return value ?? `${c.pools} pool${c.pools === 1 ? "" : "s"}`;
 }
+
+const WHERE = { perpme: "PerpMe", kalos: "Kalos pool" } as const;
+const SHOW = { saw: 10, rows: 30 };
 
 function sell(c: KalosRow): string {
   const st = c.safety?.checks.sell.state;
@@ -54,17 +58,80 @@ export function KalosIndex({ data }: { data: Delphi }) {
   const risky = kalos.coins.filter((c) => (c.safety?.risks ?? []).some((r) => r !== "verified")).length;
   // Every coin with something to say: what's wrong first, then the context that explains the rest.
   const context = (c: KalosRow) => (c.notes ?? []).filter((n) => !/^(Too busy to read|\d+ decimals|Supply changed|Contracts hold)/.test(n));
-  const worth = kalos.coins.filter((c) => found(c).length > 0 || context(c).length > 0);
+  // Findings and contract risks first, then coins with only context, busiest first within each.
+  const rank = (c: KalosRow) => (c.findings.length ? 0 : found(c).length ? 1 : 2);
+  const worth = kalos.coins
+    .filter((c) => found(c).length > 0 || context(c).length > 0)
+    .sort((a, b) => rank(a) - rank(b) || b.trades - a.trades);
   const published = kalos.coins.filter((c) => c.safety?.checks.verified.state === "ok").length;
+  const fromPerpme = kalos.coins.filter((c) => c.venue === "perpme").length;
+  const seen = (c: KalosRow) => (
+    <li key={c.token} className={d.item}>
+      <a href={`${data.explorer}/token/${c.token}`} {...out}>
+        <span className={d.coin}>
+          <span className={d.sym}>{c.symbol ?? shortHash(c.token)}</span>
+          <Pill v={c.verdict} />
+        </span>
+        <div className={k.lines}>
+          {found(c).map((line) => (
+            <p key={line} className={d.headline}>
+              {line}
+            </p>
+          ))}
+          {context(c).map((line) => (
+            <p key={line} className={found(c).length ? k.quiet : d.headline}>
+              {line}
+            </p>
+          ))}
+          {c.windowed && <p className={k.quiet}>Too busy to read in full: read at launch and over the last day.</p>}
+        </div>
+        <span className={d.go} aria-hidden>
+          ↗
+        </span>
+      </a>
+    </li>
+  );
+  const row = (c: KalosRow) => (
+    <tr key={c.token}>
+      <td>
+        <a href={`${data.explorer}/token/${c.token}`} {...out}>
+          {c.symbol ?? shortHash(c.token)}
+        </a>
+      </td>
+      <td className={k.nowrap}>{c.venue ? WHERE[c.venue] : "Kalos pool"}</td>
+      <td>
+        <Pill v={c.verdict} />
+      </td>
+      <td>{contract(c)}</td>
+      <td className={k.nowrap}>{sell(c)}</td>
+      <td className={d.n}>{num(c.creatorPct)}%</td>
+      <td className={`${d.n} ${k.nowrap}`}>{pools(c)}</td>
+      <td className={d.n}>{c.people ? num(c.people.people) : num(c.holders)}</td>
+    </tr>
+  );
+  const head = (
+    <thead>
+      <tr>
+        <th>Coin</th>
+        <th>From</th>
+        <th>Verdict</th>
+        <th>Contract</th>
+        <th>Can you sell?</th>
+        <th className={d.n}>Creator holds</th>
+        <th className={d.n}>Liquidity</th>
+        <th className={d.n}>People</th>
+      </tr>
+    </thead>
+  );
   return (
     <main className={s.page}>
       <header className={s.head}>
         <div>
           <p className={s.eyebrow}>DELPHI · Kalos · Elysium testnet</p>
-          <h1 className={s.h1}>Every coin on Kalos, checked</h1>
+          <h1 className={s.h1}>Every new coin on Kalos, checked</h1>
           <p className={s.sub}>
-            The same wallet checks DELPHI runs on every Ascend coin, plus the contract: who controls it, what they can still do to holders, and whether you can sell. Every claim
-            links to the chain, so you can check it yourself.
+            Coins reach Kalos two ways: launches on PerpMe, and new Kalos pools. DELPHI checks each one: are the first buyers one person, is the volume real, who controls
+            the contract and what they can still do, and whether you can sell. Every claim links to the chain, so you can check it yourself.
           </p>
         </div>
         {data.scannedAt && (
@@ -81,7 +148,9 @@ export function KalosIndex({ data }: { data: Delphi }) {
               <div className={s.stat}>
                 <span className={s.statK}>Coins checked</span>
                 <span className={s.statVStrong}>{kalos.counts.coins}</span>
-                <span className={s.statNote}>{kalos.counts.NOT_ENOUGH_DATA} too quiet to judge</span>
+                <span className={s.statNote}>
+                  {fromPerpme} from PerpMe, {kalos.counts.coins - fromPerpme} from Kalos pools. {kalos.counts.NOT_ENOUGH_DATA} too quiet to judge
+                </span>
               </div>
               <div className={s.stat}>
                 <span className={s.statK}>Flagged</span>
@@ -99,34 +168,13 @@ export function KalosIndex({ data }: { data: Delphi }) {
           {worth.length > 0 && (
             <section className={s.cell}>
               <p className={s.label}>What DELPHI saw</p>
-              <ul className={d.list}>
-                {worth.map((c) => (
-                  <li key={c.token} className={d.item}>
-                    <a href={`${data.explorer}/token/${c.token}`} {...out}>
-                      <span className={d.coin}>
-                        <span className={d.sym}>{c.symbol ?? shortHash(c.token)}</span>
-                        <Pill v={c.verdict} />
-                      </span>
-                      <div className={k.lines}>
-                        {found(c).map((line) => (
-                          <p key={line} className={d.headline}>
-                            {line}
-                          </p>
-                        ))}
-                        {context(c).map((line) => (
-                          <p key={line} className={found(c).length ? k.quiet : d.headline}>
-                            {line}
-                          </p>
-                        ))}
-                        {c.windowed && <p className={k.quiet}>Too busy to read in full: read at launch and over the last day.</p>}
-                      </div>
-                      <span className={d.go} aria-hidden>
-                        ↗
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
+              <ul className={d.list}>{worth.slice(0, SHOW.saw).map(seen)}</ul>
+              {worth.length > SHOW.saw && (
+                <details className={d.all}>
+                  <summary>{worth.length - SHOW.saw} more</summary>
+                  <ul className={d.list}>{worth.slice(SHOW.saw).map(seen)}</ul>
+                </details>
+              )}
             </section>
           )}
 
@@ -134,38 +182,21 @@ export function KalosIndex({ data }: { data: Delphi }) {
             <p className={s.label}>All {kalos.counts.coins} coins</p>
             <div className={d.tableWrap}>
               <table className={d.table}>
-                <thead>
-                  <tr>
-                    <th>Coin</th>
-                    <th>Verdict</th>
-                    <th>Contract</th>
-                    <th>Can you sell?</th>
-                    <th className={d.n}>Creator holds</th>
-                    <th className={d.n}>Pools</th>
-                    <th className={d.n}>People</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {kalos.coins.map((c) => (
-                    <tr key={c.token}>
-                      <td>
-                        <a href={`${data.explorer}/token/${c.token}`} {...out}>
-                          {c.symbol ?? shortHash(c.token)}
-                        </a>
-                      </td>
-                      <td>
-                        <Pill v={c.verdict} />
-                      </td>
-                      <td>{contract(c)}</td>
-                      <td className={k.nowrap}>{sell(c)}</td>
-                      <td className={d.n}>{num(c.creatorPct)}%</td>
-                      <td className={`${d.n} ${k.nowrap}`}>{pools(c)}</td>
-                      <td className={d.n}>{c.people ? num(c.people.people) : num(c.holders)}</td>
-                    </tr>
-                  ))}
-                </tbody>
+                {head}
+                <tbody>{kalos.coins.slice(0, SHOW.rows).map(row)}</tbody>
               </table>
             </div>
+            {kalos.coins.length > SHOW.rows && (
+              <details className={d.all}>
+                <summary>{kalos.coins.length - SHOW.rows} more coins</summary>
+                <div className={d.tableWrap}>
+                  <table className={d.table}>
+                    {head}
+                    <tbody>{kalos.coins.slice(SHOW.rows).map(row)}</tbody>
+                  </table>
+                </div>
+              </details>
+            )}
             <p className={k.note}>
               {published === 0
                 ? `None of these ${kalos.counts.coins} coins has published its code, so DELPHI read the raw code instead.`
@@ -186,16 +217,16 @@ export function KalosIndex({ data }: { data: Delphi }) {
               <dt>Contract</dt>
               <dd>Whether its code is published, who controls it, and powers that can hurt holders: minting, blacklists, pausing, fees.</dd>
               <dt>Selling</dt>
-              <dd>A dry run from a real holder and from a fresh wallet: a transfer, and a sale on Kalos. Nothing is sent: it is a simulation.</dd>
-              <dt>Pools</dt>
-              <dd>What each pool holds, who owns its liquidity, and big removals. Liquidity a wallet holds can be taken out by that wallet.</dd>
+              <dd>A dry run from a real holder and from a fresh wallet: a transfer, and a sale where the coin trades. Nothing is sent: it is a simulation.</dd>
+              <dt>Liquidity</dt>
+              <dd>What each pool holds and who owns its liquidity. A PerpMe launch locks it for good; liquidity a wallet holds in a Kalos pool can be taken out by that wallet.</dd>
             </dl>
           </section>
           <section className={s.cell}>
             <p className={s.label}>How it was read</p>
             <p className={d.para}>
-              From Kalos’s factory on the chain, not from any list. A coin’s launch is the first liquidity added to its first pool, and its creator is the wallet that deployed it.
-              The busiest coins are read at launch and over the last day.
+              From the chain, not from any list: PerpMe’s launch factory and Kalos’s pool factory. A PerpMe coin’s creator is the wallet that launched it; a Kalos pool coin’s is
+              the wallet that deployed it. The busiest coins are read at launch and over the last day.
             </p>
             <p className={d.para}>On testnet, people farm with free test money, so many patterns here are farming, not cheating. DELPHI reports patterns, never intent.</p>
             <Link href="/delphi" className={d.more}>
