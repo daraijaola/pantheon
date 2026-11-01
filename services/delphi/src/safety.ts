@@ -327,9 +327,9 @@ export async function defaultKnownTokens(deps: { rpc: BatchRpc; fetch?: Fetch; k
   try {
     const kalos = deps.kalosApi ?? new KalosApi({ fetch: deps.fetch });
     for (const t of await kalos.tokens()) {
-      if (!t.approved && !t.wrappedNative) continue;
+      if ((!t.approved && !t.wrappedNative) || t.symbol === null) continue;
       if (out.some((k) => k.address === t.address)) continue;
-      out.push({ address: t.address, symbol: t.symbol, name: t.name, source: t.wrappedNative ? "Kalos's wrapped HYPE" : "Kalos's approved list" });
+      out.push({ address: t.address, symbol: t.symbol, name: t.name ?? t.symbol, source: t.wrappedNative ? "Kalos's wrapped HYPE" : "Kalos's approved list" });
     }
   } catch (err) {
     notes.push(`Kalos's token list could not be read (${errText(err)}); the fake-ticker check used the rest.`);

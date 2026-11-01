@@ -29,8 +29,9 @@ const Config = z.object({
 
 const Token = z.object({
   address,
-  symbol: z.string(),
-  name: z.string(),
+  /** Kalos lists tokens whose contract has no symbol or name (seen Nov 1): those are null. */
+  symbol: z.string().nullable(),
+  name: z.string().nullable(),
   decimals: z.number().int(),
   wrappedNative: z.boolean(),
   /** Kalos's own approval. */

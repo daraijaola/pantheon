@@ -50,6 +50,14 @@ describe("KalosApi", () => {
     expect(await new KalosApi({ fetch: s.fetch, sleep: quiet }).config()).toEqual({ chainId: 99801, contracts: KALOS_CONTRACTS });
   });
 
+  it("keeps a token whose contract has no symbol or name (seen Nov 1), instead of losing the whole list", async () => {
+    const odd = { ...recorded.rows[0]!, address: "0x00000000000000000000000000000000000000aa", symbol: null, name: null };
+    const s = server({ "/v2/dex/tokens": [{ rows: [...recorded.rows, odd], next: null }] });
+    const tokens = await new KalosApi({ fetch: s.fetch, sleep: quiet }).tokens();
+    expect(tokens).toHaveLength(23);
+    expect(tokens.at(-1)).toMatchObject({ symbol: null, name: null });
+  });
+
   it("refuses an answer that is not a token list", async () => {
     const s = server({ "/v2/dex/tokens": [{ rows: [{ address: "nope", symbol: "X" }] }] });
     await expect(new KalosApi({ fetch: s.fetch, sleep: quiet }).tokens()).rejects.toBeInstanceOf(HttpError);
