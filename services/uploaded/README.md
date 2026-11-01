@@ -4,7 +4,7 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup, the server and "check any coin" are done. It listens on this machine only
+Status: the verdict lookup, the server, "check any coin" and the holdings reader are done. It listens on this machine only
 (`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
@@ -18,6 +18,7 @@ npm start        # settings below; run it from this folder
 | Setting | Default | What it is |
 |---|---|---|
 | `PORT` | `8791` | Where it listens. Passport has 8787, the indexer 8789, Trials 8790 and the feed 3210. |
+| `ELYSIUM_RPC` | the public testnet node | Where balances are read. |
 | `SCAN_FILE` | `../delphi/out/scan.json` | DELPHI's latest results. Only ever read. |
 | `REFRESH_SEC` | `60` | How often to look for a new scan. |
 | `DELPHI_DIR` | `../delphi` | Where DELPHI's code and cache are. Fresh reads run there. |
@@ -44,6 +45,21 @@ Holds what DELPHI last said about every coin in memory, so a lookup never touche
   The last good copy keeps answering, and `health()` reports the error.
 - **Old verdicts say so.** `stale` turns true when the scan is over 14 hours old.
 - **The written explanations in `out/site.json` are not used.** They can be older than the current verdict.
+
+## Holdings (`src/holdings.ts`)
+
+`GET /wallets/{address}/holdings` asks the chain what a wallet holds of every coin DELPHI has read, in one
+bundled request. The explorer's API has been behind a bot check since Oct 25, so it isn't used. It answers
+`{wallet, network, readAt, coinsChecked, holdings, unread}`; each holding has its `amount`, raw `balance`,
+`decimals` and `venue`. About 2 s the first time, then remembered for 30 s.
+
+- **Unread is not "not held".** A coin that can't be read goes in `unread`. A read that fails altogether is a 503
+  (`CHAIN_UNAVAILABLE`, or `NOT_READY` before DELPHI's coins load). An empty list always means every coin was read.
+- **One bundle, one request.** `batchSize: 0` matters: by default viem splits a bundle into many small requests at
+  once, and the public node refuses some of them.
+- **What it doesn't see:** coins DELPHI hasn't read, and PNTH that's staked (it sits in the staking contract).
+- **One wallet at a time,** to go easy on the public node. A busy launch day will need a paid node.
+- **Private on purpose:** this route must not go public before sign-in is decided.
 
 ## Fresh reads (`src/fresh.ts`)
 

@@ -7,7 +7,7 @@ describe("settings", () => {
   });
 
   it("has safe defaults", () => {
-    expect(loadConfig({})).toEqual({ port: 8791, scanFile: "../delphi/out/scan.json", refreshSec: 60, delphiDir: "../delphi", freshReads: true, freshGapSec: 300 });
+    expect(loadConfig({})).toEqual({ port: 8791, rpc: "https://testnet-rpc.elysium.kinetiq.xyz", scanFile: "../delphi/out/scan.json", refreshSec: 60, delphiDir: "../delphi", freshReads: true, freshGapSec: 300 });
   });
 
   it("treats an empty value as not set", () => {

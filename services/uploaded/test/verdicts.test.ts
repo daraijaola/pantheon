@@ -182,3 +182,25 @@ describe("reading DELPHI's file", () => {
     expect(v.health()).toMatchObject({ ready: true, coins: 7, network: "testnet" });
   });
 });
+
+describe("the list of coins", () => {
+  it("is empty-handed until a scan is loaded, then gives every coin and its market", () => {
+    expect(new Verdicts(FIXTURE).coins()).toBeNull();
+    const list = loaded().coins()!;
+    expect(list.network).toBe("testnet");
+    expect(list.coins).toHaveLength(7);
+    expect(list.coins.find((c) => c.token === KALOS.toLowerCase())).toMatchObject({ symbol: "KALOS", venue: "kalos" });
+  });
+
+  it("adds a coin only a fresh read has seen", () => {
+    const v = loaded();
+    const scan = JSON.parse(readFileSync(FIXTURE, "utf8"));
+    const added = "0x2222222222222222222222222222222222222222";
+    scan.generatedAt = new Date(SCANNED + 1000).toISOString();
+    scan.reports = [{ ...scan.reports[0], coin: { ...scan.reports[0].coin, token: added } }];
+    expect(v.applyFresh(JSON.stringify(scan))).toBe(true);
+    const list = v.coins()!;
+    expect(list.coins).toHaveLength(8);
+    expect(list.coins.some((c) => c.token === added)).toBe(true);
+  });
+});

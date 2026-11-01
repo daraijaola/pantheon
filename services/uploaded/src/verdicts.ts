@@ -41,6 +41,7 @@ const Scan = z.object({
 type Report = z.infer<typeof Report>;
 
 export type Venue = "ascend" | "kalos" | "perpme";
+export type Coin = { token: string; symbol: string | null; name: string | null; venue: Venue };
 
 export type CoinVerdict = {
   known: true;
@@ -161,6 +162,14 @@ export class Verdicts {
       scannedAt: from.scannedAt,
       stale: this.#stale(from),
     };
+  }
+
+  /** Every coin DELPHI has read, and which network they're on. Null until the first scan is loaded. */
+  coins(): { network: "testnet" | "mainnet"; coins: Coin[] } | null {
+    if (!this.#loaded) return null;
+    const all = new Map(this.#loaded.coins);
+    for (const [k, r] of this.#fresh?.coins ?? []) all.set(k, r);
+    return { network: this.#loaded.network, coins: [...all].map(([token, r]) => ({ token, symbol: r.coin.symbol, name: r.coin.name, venue: r.coin.market ?? "ascend" })) };
   }
 
   health() {
