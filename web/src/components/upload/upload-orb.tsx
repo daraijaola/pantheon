@@ -18,6 +18,8 @@ type Props = {
   signed: boolean;
   /** The wallet is showing the message. */
   signing: boolean;
+  /** While signing in a phone wallet app, Sign stays tappable to open the app again. */
+  reopen?: boolean;
   signError: string | null;
   onSign: () => void;
   onOtherWallet: () => void;
@@ -55,7 +57,7 @@ function Chip({ address }: { address: string }) {
   );
 }
 
-export function UploadOrb({ address, signed, signing, signError, onSign, onOtherWallet, onContinue }: Props) {
+export function UploadOrb({ address, signed, signing, reopen = false, signError, onSign, onOtherWallet, onContinue }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const label = useRef<HTMLDivElement>(null);
@@ -315,7 +317,7 @@ export function UploadOrb({ address, signed, signing, signError, onSign, onOther
       </div>
 
       <div ref={signBox} className={s.sign}>
-        <button type="button" className={s.signBtn} onClick={onSign} disabled={signing || signed} aria-busy={signing}>
+        <button type="button" className={s.signBtn} onClick={onSign} disabled={(signing && !reopen) || signed} aria-busy={signing}>
           {signing ? "Check your wallet…" : "Sign message"}
         </button>
         {signError && (
