@@ -5,9 +5,14 @@
 // opens the wallet app. "Use a phone wallet" (computers only) goes to WalletConnect's QR code.
 // With two or more wallets in this browser (say Rabby and MetaMask), Connect lists them to pick from.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useConnect, useConnectors, type Connector } from "wagmi";
 import { reason } from "@/components/app/shared";
+
+/** How long WalletConnect gets to show its QR code (or hand off to the wallet app) before we say it can't. */
+const QR_WAIT_MS = 12_000;
+const NO_RELAY = "Phone wallets can’t reach WalletConnect from this network. Try mobile data or another network, or a browser wallet.";
+type WalletConnectProvider = { modal?: { close?: () => void } };
 
 /** The one browser wallet if exactly one announced itself (EIP-6963), else whichever answers as window.ethereum. */
 const announcedWallets = (connectors: readonly Connector[]) => connectors.filter((c) => c.type === "injected" && c.id !== "injected");
@@ -32,10 +37,46 @@ export function useConnectWallet() {
   const [choosing, setChoosing] = useState(false);
   const phone = connectors.find((c) => c.type === "walletConnect");
   const announced = announcedWallets(connectors);
+  const qrTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Done one way or another (connected, closed, refused): nothing left to wait for.
+  useEffect(() => {
+    if (connect.isPending || !qrTimer.current) return;
+    clearTimeout(qrTimer.current);
+    qrTimer.current = null;
+  }, [connect.isPending]);
+  useEffect(
+    () => () => {
+      if (qrTimer.current) clearTimeout(qrTimer.current);
+    },
+    [],
+  );
+
+  // WalletConnect shows its QR code (or opens the wallet app) once its relay answers. Some networks block
+  // the relay (a DNS filter, a VPN), and its window then stays blank for good: close it and say why.
+  const watchQr = (connector: Connector) => {
+    if (qrTimer.current) clearTimeout(qrTimer.current);
+    const ready = (m: { type: string }) => {
+      if (m.type !== "display_uri") return;
+      if (qrTimer.current) clearTimeout(qrTimer.current);
+      qrTimer.current = null;
+      connector.emitter.off("message", ready);
+    };
+    connector.emitter.on("message", ready);
+    qrTimer.current = setTimeout(() => {
+      qrTimer.current = null;
+      connector.emitter.off("message", ready);
+      setNotice(NO_RELAY);
+      connector
+        .getProvider()
+        .then((p) => (p as WalletConnectProvider | undefined)?.modal?.close?.())
+        .catch(() => {});
+    }, QR_WAIT_MS);
+  };
 
   const connectWith = (connector: Connector) => {
     setChoosing(false);
     setUsed(connector);
+    if (connector.type === "walletConnect") watchQr(connector);
     connect.mutate({ connector });
   };
 
