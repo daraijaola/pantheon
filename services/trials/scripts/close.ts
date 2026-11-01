@@ -12,9 +12,11 @@
 //       checks DELPHI's file holds exactly that list, adds the vote to it (every signed ballot, the count,
 //       the winners) and writes deployments/trials/round-3.json. Proposing it (script/Testnet.s.sol
 //       propose) stores keccak256 of that file on-chain, so the ballots are part of what was proposed.
+// It reads the ballots the service publishes once a vote closes: no stake or tier, just the weight each
+// ballot was counted with, which is all a recount needs.
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { Ballot } from "../src/ballot.ts";
+import type { PublicBallot } from "../src/ballot.ts";
 import { loadRounds } from "../src/round.ts";
 import { basketList, tally } from "../src/tally.ts";
 
@@ -32,7 +34,9 @@ if (Date.now() / 1000 < def.closesAt) throw new Error(`round ${n} is still open 
 
 const res = await fetch(`${API}/trials/rounds/${n}`);
 if (!res.ok) throw new Error(`the vote service answered ${res.status}`);
-const ballots = ((await res.json()) as { ballotList: Ballot[] }).ballotList.filter((b) => b.receivedAt < def.closesAt);
+const body = (await res.json()) as { ballotList?: PublicBallot[] };
+if (!body.ballotList) throw new Error(`the vote service still counts round ${n} as open, so it hasn't published the ballots: check its clock`);
+const ballots = body.ballotList.filter((b) => b.receivedAt < def.closesAt);
 
 // From round 6, the top coins by trading were in before the vote, and the vote picked its seats from the rest.
 const traded = def.tradingSeats !== undefined;

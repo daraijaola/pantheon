@@ -1,11 +1,11 @@
 // The vote's web API (the site forwards /api/trials/* here):
 //   GET  /trials/current[?voter=0x…]  the open round: candidates with live counts, and the voter's own ballot and votes
 //   POST /trials/vote                 a signed ballot
-//   GET  /trials/rounds/:n            a whole round, every signed ballot included, so anyone can recount it
+//   GET  /trials/rounds/:n            a whole round; once it closes, every signed ballot too, so anyone can recount it
 //   GET  /health
 import Fastify, { type FastifyServerOptions } from "fastify";
 import { getAddress, isAddress, type Address } from "viem";
-import { BallotInput, problem, signer, stakeVote, stakeVoteFrom, weightIn, type Ballot, type Standing } from "./ballot.ts";
+import { BallotInput, problem, publicBallot, signer, stakeVote, stakeVoteFrom, weightIn, type Ballot, type Standing } from "./ballot.ts";
 import { currentRound, statusOf, type RoundDef } from "./round.ts";
 import type { Ballots } from "./state.ts";
 import { inByTrading, tally, winners } from "./tally.ts";
@@ -102,7 +102,11 @@ export function buildApp(deps: Deps, opts: FastifyServerOptions = {}) {
     const r = deps.rounds().find((x) => String(x.round) === req.params.n);
     if (!r) return reply.code(404).send({ error: "NO_ROUND" });
     const all = deps.ballots.of(r.round).sort((a, b) => a.receivedAt - b.receivedAt);
-    return { ...view(r, all, now()), candidates: marked(r), tally: tally(r, all), ballotList: all };
+    const body = { ...view(r, all, now()), candidates: marked(r), tally: tally(r, all) };
+    // While the vote runs, only the counts: a ballot published early tells the next voter who to follow, and
+    // its stake and tier say whose wallet it is. Once it closes, every ballot, enough to recount.
+    if (body.status !== "closed") return body;
+    return { ...body, ballotList: all.map(publicBallot) };
   });
 
   app.post("/trials/vote", async (req, reply) => {

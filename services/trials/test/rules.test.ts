@@ -5,10 +5,11 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
-import { MIN_STAKE, problem, stakeVote, stakeVoteFrom, weightIn, weightOf, type Ballot, type BallotInput } from "../src/ballot.ts";
+import { MIN_STAKE, problem, publicBallot, stakeVote, stakeVoteFrom, weightIn, weightOf, type Ballot, type BallotInput } from "../src/ballot.ts";
 import { loadRounds, RoundDef } from "../src/round.ts";
+import { Ballots } from "../src/state.ts";
 import { basketList, inByTrading, tally, winners } from "../src/tally.ts";
-import { A, app, B, ballot, C, coin, DAY, k, ks, LONG_AGO, ranked, round, signed, standing, T0 } from "./fixtures.ts";
+import { A, app, B, ballot, C, coin, D, DAY, k, ks, LONG_AGO, ranked, round, signed, standing, T0 } from "./fixtures.ts";
 
 const pnth = (n: bigint) => n * 10n ** 18n;
 const voterOf = (key: `0x${string}`) => privateKeyToAccount(key).address;
@@ -26,6 +27,8 @@ describe("rounds 1 to 5 count as they always did", () => {
       expect(def.tradingSeats).toBeUndefined();
       expect(winners(def, vote.ballots)).toEqual(vote.winners);
       expect(tally(def, vote.ballots)).toEqual(vote.tally);
+      // the published form (no stake, no tier) recounts the same
+      expect(tally(def, vote.ballots.map(publicBallot))).toEqual(vote.tally);
     }
     // round 4's list: its 3 winners, then the most trading, 10 coins: exactly the coins proposed
     const file = JSON.parse(readFileSync(join(DEPLOYED, "round-4.json"), "utf8")) as { tokens: string[]; vote: { ballots: Ballot[] } };
@@ -252,5 +255,46 @@ describe("the API, from round 6", () => {
     const again = await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(second, ks(5)) });
     expect([again.statusCode, again.json()]).toEqual([403, { error: "NO_VOTES" }]);
     expect((await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(passport, ks(5)) })).json()).toMatchObject({ ok: true, ballot: { weight: 2 } });
+  });
+});
+
+describe("ballots stay private while the vote is open", () => {
+  const PUBLIC = ["coins", "receivedAt", "signature", "signedAt", "voter", "weight"];
+
+  it("publishes no ballot before or during the vote, only the counts", async () => {
+    expect((await app({}, T0 - 10).a.inject({ url: "/trials/rounds/3" })).json()).not.toHaveProperty("ballotList");
+    const key = generatePrivateKey();
+    const { a } = app({ [voterOf(key).toLowerCase()]: standing(MIN_STAKE, 2) });
+    await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(key, [B, D]) });
+    const full = (await a.inject({ url: "/trials/rounds/3" })).json();
+    expect(full).not.toHaveProperty("ballotList");
+    expect(full).toMatchObject({ status: "open", ballots: 1, leaders: [B, D] });
+    expect(full.tally.slice(0, 2)).toEqual([
+      { token: B, votes: 3, voters: 1, rank: 2 },
+      { token: D, votes: 3, voters: 1, rank: 4 },
+    ]);
+    // the voter still sees their own ballot, as before
+    const own = (await a.inject({ url: `/trials/current?voter=${voterOf(key)}` })).json().you.ballot;
+    expect(own).toMatchObject({ coins: [B, D], weight: 3, staked: MIN_STAKE.toString(), tier: 2 });
+  });
+
+  it("publishes every ballot once the vote closes, without the stake or tier, enough to recount", async () => {
+    const [one, two] = [generatePrivateKey(), generatePrivateKey()];
+    const open = app({ [voterOf(one).toLowerCase()]: standing(MIN_STAKE, 1), [voterOf(two).toLowerCase()]: standing(pnth(70n), 0) });
+    await open.a.inject({ method: "POST", url: "/trials/vote", payload: await signed(one, [C, A]) });
+    await open.a.inject({ method: "POST", url: "/trials/vote", payload: await signed(two, [B]) });
+
+    const closed = app({}, T0 + DAY, [round()], open.file).a;
+    const full = (await closed.inject({ url: "/trials/rounds/3" })).json();
+    expect(full.status).toBe("closed");
+    expect(full.ballotList).toHaveLength(2);
+    for (const b of full.ballotList) expect(Object.keys(b).sort()).toEqual(PUBLIC);
+    expect(full.ballotList[0]).toMatchObject({ voter: voterOf(one), coins: [C, A], weight: 2 });
+    expect(full.ballotList[0].signature).toMatch(/^0x[0-9a-f]{130}$/);
+    // anyone can recount from what's published
+    expect(winners(round(), full.ballotList)).toEqual(full.leaders);
+    expect(tally(round(), full.ballotList)).toEqual(full.tally);
+    // the file on the server keeps everything
+    expect(new Ballots(open.file).get(3, voterOf(one))).toMatchObject({ staked: MIN_STAKE.toString(), tier: 1 });
   });
 });

@@ -113,9 +113,13 @@ describe("the API", () => {
       [A, 2],
       [C, 2],
     ]);
+    // the whole round has the same count; its ballots are published when it closes (see rules.test.ts)
     const full = (await a.inject({ url: "/trials/rounds/3" })).json();
-    expect(full.ballotList).toHaveLength(1);
-    expect(full.ballotList[0].signature).toMatch(/^0x[0-9a-f]{130}$/);
+    expect(full).toMatchObject({ status: "open", ballots: 1, leaders: [A, C] });
+    expect(full.tally.slice(0, 2).map((c: { token: string; votes: number }) => [c.token, c.votes])).toEqual([
+      [A, 2],
+      [C, 2],
+    ]);
   });
 
   it("takes a staker with no Passport as 1 vote", async () => {

@@ -12,7 +12,7 @@ import type { RoundDef } from "./round.ts";
 
 export type Count = { token: Address; votes: number; voters: number; rank: number };
 
-/** What counting needs from a ballot. */
+/** What counting needs from a ballot. A published ballot (no stake or tier) has it too. */
 type Counted = Pick<Ballot, "coins" | "weight">;
 
 export function tally(r: RoundDef, ballots: readonly Counted[]): Count[] {

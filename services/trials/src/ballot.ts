@@ -77,6 +77,20 @@ export type Ballot = {
   receivedAt: number;
 };
 
+/** A ballot as it's published once the vote closes. The stake and the Passport tier stay on the server: the
+ * weight is enough to recount, and the signature proves the wallet chose those coins. */
+export type PublicBallot = Omit<Ballot, "staked" | "tier">;
+
+/** Named field by field, so a field added to Ballot later stays private until someone chooses to publish it. */
+export const publicBallot = (b: Ballot): PublicBallot => ({
+  voter: b.voter,
+  coins: b.coins,
+  weight: b.weight,
+  signedAt: b.signedAt,
+  signature: b.signature,
+  receivedAt: b.receivedAt,
+});
+
 /** A signature must be this fresh when it arrives, so an old one can't be replayed later. */
 export const MAX_SKEW_SEC = 600;
 
