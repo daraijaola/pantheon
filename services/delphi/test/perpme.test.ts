@@ -373,8 +373,9 @@ describe("base tokens are never PerpMe coins", () => {
     expect(pairTokens).toEqual(new Set([getAddress(PERPME.whype), USDC, KALOS_TOKEN]));
     for (const t of pairTokens) expect(PERPME_QUOTES).toContain(t);
     expect(launches.filter((l) => pairTokens.has(l.token))).toEqual([]);
-    // Kalos's rule (every non-base token in a pool) on the same pools would make PerpMe's WHYPE a coin, unless told it is a base.
-    expect(coinsOf(pools, new Set()).kalos).toContain(getAddress(PERPME.whype));
+    // Kalos's rule (every non-base token in a pool) would make PerpMe's WHYPE a coin, so it is one of Kalos's bases too.
+    expect(BASE_TOKENS).toContain(getAddress(PERPME.whype));
+    expect(coinsOf(pools, new Set()).kalos).not.toContain(getAddress(PERPME.whype));
     const withBase = coinsOf(pools, new Set(), [...BASE_TOKENS, ...PERPME_BASE_TOKENS]).kalos;
     expect(withBase).not.toContain(getAddress(PERPME.whype));
     expect(withBase).toContain(KALOS_TOKEN); // KALOS is a currency on PerpMe, but a coin on Kalos

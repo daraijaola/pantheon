@@ -44,7 +44,16 @@ const log = (m: string) => console.error(`[delphi-ai] ${m}`);
 try {
   const client = makeClient(cfg.elysiumRpc, (ms, what) => log(`RPC asked us to slow down (${what}): waiting ${ms / 1000} s`));
   // Funding for wallets not read yet comes from the chain (a handful since the scan; it costs nothing).
-  const { coins, head, hubs, liquidity } = await collect({ client, store, cfg, explorer: args.includes("--no-explorer") ? null : new ChainFunding(), kalos: args.includes("--no-kalos") ? null : { rpc: new BatchRpc() }, log });
+  const rpc = new BatchRpc();
+  const { coins, head, hubs, liquidity, perpme } = await collect({
+    client,
+    store,
+    cfg,
+    explorer: args.includes("--no-explorer") ? null : new ChainFunding(),
+    kalos: args.includes("--no-kalos") ? null : { rpc },
+    perpme: args.includes("--no-perpme") ? null : { rpc },
+    log,
+  });
   const now = new Date();
   const reports = coins.map((d) => analyze(d, { explorerWeb: cfg.explorerWeb, now }));
   const ws = await loadWorkspace({ client, store, cfg, coins, reports, hubs, liquidity });
@@ -119,21 +128,23 @@ try {
   // Kalos coins: who holds them, their pools' liquidity, and the contract checks the scan saved.
   const kalos = new Map<string, KalosExtras>();
   for (const d of coins) {
-    if (d.coin.market !== "kalos") continue;
+    if (d.coin.market !== "kalos" && d.coin.market !== "perpme") continue;
     const t = d.coin.token.toLowerCase();
     const supply = supplyOf(d.coin);
     const held = [...balances(d)].sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0));
     const liq = liquidity.get(t);
-    const tvl = liq?.pools.reduce((s, p) => (p.tvlHype === null ? s : s + p.tvlHype), 0n) ?? 0n;
+    const pm = perpme?.liquidity.get(t);
+    const tvl = pm ? (pm.tvlHype ?? 0n) : (liq?.pools.reduce((s, p) => (p.tvlHype === null ? s : s + p.tvlHype), 0n) ?? 0n);
     const safe = store.recall<SafetyReport>("safety", t);
     kalos.set(t, {
       creatorPct: pct(held.find(([w]) => w === d.coin.creator.toLowerCase())?.[1] ?? 0n, supply),
       top5Pct: pct(held.slice(0, 5).reduce((s, [, v]) => s + v, 0n), supply),
       windowed: d.coin.windowFrom !== undefined,
-      pools: liq?.pools.length ?? 0,
-      tvlHype: liq?.pools.some((p) => p.tvlHype !== null) ? Number(tvl / 10n ** 14n) / 1e4 : null,
-      lpOwners: liq?.lpOwners ?? 0,
+      pools: pm ? 1 : (liq?.pools.length ?? 0),
+      tvlHype: (pm ? pm.tvlHype !== null : liq?.pools.some((p) => p.tvlHype !== null)) ? Number(tvl / 10n ** 14n) / 1e4 : null,
+      lpOwners: pm ? 1 + pm.unlocked.length : (liq?.lpOwners ?? 0),
       bigRemovals: liq?.pools.reduce((s, p) => s + p.bigRemovals.length, 0) ?? 0,
+      ...(pm ? { venue: "perpme" as const, lpLocked: pm.locked } : { venue: "kalos" as const }),
       ...(safe ? { safety: summarize(safe) } : {}),
     });
   }

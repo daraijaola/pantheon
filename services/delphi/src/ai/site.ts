@@ -21,6 +21,10 @@ export type KalosExtras = {
   bigRemovals: number;
   /** Set when the contract and market checks ran (src/safety.ts). */
   safety?: unknown;
+  /** Where the coin comes from in Kalos's Sniper: a Kalos pool, or a PerpMe launch. */
+  venue?: "kalos" | "perpme";
+  /** PerpMe: the launch's liquidity sits in PerpMe's locker and can never be pulled. */
+  lpLocked?: boolean;
 };
 
 /** What explain.ts saves per coin. Older files carry no report: their key tells whether today's report is the same data. */
@@ -48,8 +52,9 @@ export function siteBundle(input: {
     const report = now && explanationKey(now) === x.key ? now : x.report;
     if (report) explained.set(x.token.toLowerCase(), { report, x });
   }
-  const ascend = input.reports.filter((r) => r.coin.market !== "kalos");
-  const onKalos = input.reports.filter((r) => r.coin.market === "kalos");
+  // Kalos's Sniper lists coins from its own pools and from PerpMe: both go in the Kalos section.
+  const ascend = input.reports.filter((r) => r.coin.market === undefined);
+  const onKalos = input.reports.filter((r) => r.coin.market === "kalos" || r.coin.market === "perpme");
   const sort = (rs: CoinReport[]) => [...rs].sort((a, b) => ORDER[a.verdict] - ORDER[b.verdict] || b.stats.trades - a.stats.trades);
   const sorted = sort(ascend);
   const countIn = (rs: CoinReport[]) => {

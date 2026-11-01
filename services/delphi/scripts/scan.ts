@@ -3,7 +3,8 @@
 //   node scripts/scan.ts                  everything (first run fills the cache: a few minutes)
 //   node scripts/scan.ts --no-explorer    cached funding data only (no new funding lookups)
 //   node scripts/scan.ts --only 0x…       one coin's report (the scan itself still covers all coins)
-//   node scripts/scan.ts --no-kalos       Ascend coins only (skip every coin on Kalos)
+//   node scripts/scan.ts --no-kalos       skip every coin on Kalos
+//   node scripts/scan.ts --no-perpme      skip every coin launched on PerpMe
 //   node scripts/scan.ts --no-safety      skip the contract and market checks (src/safety.ts)
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -34,20 +35,25 @@ const bigints = (_k: string, v: unknown) => (typeof v === "bigint" ? v.toString(
 
 try {
   const started = Date.now();
-  const kalos = args.includes("--no-kalos") ? null : { rpc: new BatchRpc() };
-  const { coins, head, notes, liquidity } = await collect({ client: makeClient(cfg.elysiumRpc, (ms, what) => log(`RPC asked us to slow down (${what}): waiting ${ms / 1000} s`)), store, cfg, explorer, kalos, log });
+  const rpc = new BatchRpc();
+  const kalos = args.includes("--no-kalos") ? null : { rpc };
+  const perpmeRead = args.includes("--no-perpme") ? null : { rpc };
+  const { coins, head, notes, liquidity, perpme } = await collect({ client: makeClient(cfg.elysiumRpc, (ms, what) => log(`RPC asked us to slow down (${what}): waiting ${ms / 1000} s`)), store, cfg, explorer, kalos, perpme: perpmeRead, log });
   const now = new Date();
   const reports = coins
     .filter((d) => !only || d.coin.token === only)
     .map((d) => analyze(d, { explorerWeb: cfg.explorerWeb, now }));
   if (only && reports.length === 0) throw new Error(`${only} is not a coin DELPHI reads (Ascend launches${kalos ? " and Kalos pools" : ""})`);
   // A Kalos coin's own notes (decimals, supply changes, how it was read) go with its report.
-  for (const r of reports) for (const n of liquidity.get(r.coin.token.toLowerCase())?.notes ?? []) if (!r.notes.includes(n)) r.notes.push(n);
+  for (const r of reports) {
+    const t = r.coin.token.toLowerCase();
+    for (const n of [...(liquidity.get(t)?.notes ?? []), ...(perpme?.liquidity.get(t)?.notes ?? [])]) if (!r.notes.includes(n)) r.notes.push(n);
+  }
 
   // File names come from the token address only, never from the coin's self-chosen name.
   // Contract and market checks for every Kalos coin and every Ascend coin with some trading, kept a day.
   const worth = reports.filter((r) => r.coin.market !== undefined || r.stats.trades >= 5).map((r) => getAddress(r.coin.token));
-  const safety = args.includes("--no-safety") ? new Map() : await safetyFor({ rpc: kalos?.rpc ?? new BatchRpc(), store, log }, worth);
+  const safety = args.includes("--no-safety") ? new Map() : await safetyFor({ rpc, store, log }, worth);
 
   const dir = join(cfg.outDir, "coins");
   mkdirSync(dir, { recursive: true });
@@ -55,7 +61,7 @@ try {
   for (const r of reports) {
     writeFileSync(join(dir, `${r.coin.token}.json`), `${JSON.stringify(r, null, 2)}\n`);
     writeFileSync(join(dir, `${r.coin.token}.md`), toMarkdown(r));
-    const liq = liquidity.get(r.coin.token.toLowerCase());
+    const liq = liquidity.get(r.coin.token.toLowerCase()) ?? perpme?.liquidity.get(r.coin.token.toLowerCase());
     if (liq) writeFileSync(join(dir, `${r.coin.token}.liquidity.json`), `${JSON.stringify(liq, bigints, 2)}\n`);
     const safe = safety.get(r.coin.token.toLowerCase());
     if (safe) writeFileSync(join(dir, `${r.coin.token}.safety.json`), `${JSON.stringify(safe, null, 2)}\n`);
@@ -70,7 +76,8 @@ try {
   log(`done in ${Math.round((Date.now() - started) / 1000)} s, up to block ${head}`);
   log(`rules ${RULES.version}, ${cfg.network} profile`);
   const kalosCount = reports.filter((r) => r.coin.market === "kalos").length;
-  if (kalosCount) log(`${kalosCount} of them on Kalos`);
+  const perpmeCount = reports.filter((r) => r.coin.market === "perpme").length;
+  if (kalosCount || perpmeCount) log(`${kalosCount} of them on Kalos, ${perpmeCount} on PerpMe`);
   log(`${reports.length} coins: ${count("FLAG")} FLAG, ${count("WATCH")} WATCH, ${count("CLEAN")} CLEAN, ${count("NOT_ENOUGH_DATA")} NOT ENOUGH DATA`);
   for (const n of notes) log(`note: ${n}`);
   log(`reports in ${cfg.outDir}/`);

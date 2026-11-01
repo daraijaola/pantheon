@@ -45,6 +45,7 @@ export const BASE_TOKENS: readonly Address[] = [
   "0xCD57F65c2B0e5881CFC2E609F7CD53b746E1F234", // WHYPE
   "0x7D29d8047B905000459c0E80c34a26CeedcB47b2", // USDC
   "0x306eB30576814505df6cb0B35e4F4bfbACEeD54c", // mUSDC
+  "0x757a34dd7b411546C6dd8f510B52e4381102f9B0", // PerpMe's own WHYPE: a Kalos pool holding it doesn't make it a coin
 ];
 
 /** Addresses whose tokens or positions are gone for good. */

@@ -19,6 +19,7 @@ import { KNOWN_HUBS, RULES, STATIC_SYSTEM, supplyOf, type Config } from "./confi
 import { ExplorerBudgetError, type RawFunding } from "./explorer.ts";
 import type { FundingSource } from "./funding.ts";
 import { collectKalos, type KalosCollected } from "./kalos-collect.ts";
+import { collectPerpme, type PerpmeCollected } from "./perpme-collect.ts";
 import type { LiquidityReport } from "./kalos.ts";
 import type { BatchRpc } from "./rpc.ts";
 import { balances } from "./detect.ts";
@@ -161,7 +162,16 @@ const TXCOUNT_MAX_AGE = 7 * 86_400;
 const toStored = (f: RawFunding): StoredFunding => ({ from: f.from, via: f.via, value: f.value.toString(), tx: f.tx, time: f.time });
 
 /** `hubs`: the funders treated as public this run (they link no one). `liquidity`: Kalos coins' pools. */
-export type Collected = { coins: CoinData[]; head: bigint; notes: string[]; hubs: ReadonlySet<string>; liquidity: ReadonlyMap<string, LiquidityReport>; kalos: KalosCollected | null };
+export type Collected = {
+  coins: CoinData[];
+  head: bigint;
+  notes: string[];
+  hubs: ReadonlySet<string>;
+  liquidity: ReadonlyMap<string, LiquidityReport>;
+  kalos: KalosCollected | null;
+  /** PerpMe's read: its coins' locked pools are in `perpme.liquidity`. */
+  perpme: PerpmeCollected | null;
+};
 
 /**
  * Kalos coins can have tens of thousands of traders (KALOS: 28,000 in its windows). Funding is read for
@@ -208,6 +218,8 @@ export async function collect(deps: {
    * an earlier read (the X bot re-reads Kalos less often than Ascend). Unset: Ascend coins only.
    */
   kalos?: { rpc: BatchRpc; recentBlocks?: bigint } | { reuse: KalosCollected } | null;
+  /** Also read every coin launched on PerpMe (the Sniper's main source), or reuse an earlier read. */
+  perpme?: { rpc: BatchRpc } | { reuse: PerpmeCollected } | null;
   log?: (msg: string) => void;
 }): Promise<Collected> {
   const { client, store, cfg, explorer } = deps;
@@ -284,11 +296,25 @@ export async function collect(deps: {
       if (extra?.length) s.trades = [...s.trades, ...extra].sort((a, b) => Number(a.block - b.block) || a.logIndex - b.logIndex);
     }
   }
-  const kalosCoins: Skeleton[] = (kalos?.skeletons ?? []).map((s) => {
+  // PerpMe: its launches are coins of their own (market "perpme"), with PerpMe's contracts as infrastructure.
+  let perpme: PerpmeCollected | null = null;
+  if (deps.perpme && "reuse" in deps.perpme) perpme = deps.perpme.reuse;
+  else if (deps.perpme) perpme = await collectPerpme({ client, rpc: deps.perpme.rpc, store, log: (m) => log(`perpme: ${m}`) });
+  if (perpme) {
+    for (const a of perpme.system) system.add(lc(a));
+    for (const a of perpme.contracts) {
+      system.add(lc(a));
+      contracts.add(lc(a));
+    }
+    notes.push(...perpme.notes);
+  }
+  const perpmeTokens = new Set((perpme?.skeletons ?? []).map((s) => lc(s.coin.token)));
+  const perpmeCoins: Skeleton[] = (perpme?.skeletons ?? []).map((s) => ({ ...s, system }));
+  const kalosCoins: Skeleton[] = (kalos?.skeletons ?? []).filter((s) => !perpmeTokens.has(lc(s.coin.token))).map((s) => {
     const decimals = kalos!.liquidity.get(lc(s.coin.token))?.decimals;
     return { ...s, coin: { ...s.coin, ...(decimals != null && decimals !== 18 ? { decimals } : {}) }, system };
   });
-  const skeletons = [...ascend, ...kalosCoins];
+  const skeletons = [...ascend, ...kalosCoins, ...perpmeCoins];
   const coinActors = skeletons.map((s) => actorsOf(s.trades, s.transfers, system));
   const targets = skeletons.map((s, i) => (offAscend(s.coin) ? kalosFundingTargets(s, system, RULES.bundle.windowSec) : new Set([...coinActors[i]!].map(lc))));
   for (const [i, s] of skeletons.entries()) if (offAscend(s.coin)) for (const w of targets[i]!) kalosWallets.add(w);
@@ -446,7 +472,7 @@ export async function collect(deps: {
   }
   const withRoles = assignRoles(coins, projects, system);
   if (!explorer) notes.push("explorer skipped: funding links use cached data only");
-  return { coins: withRoles, head, notes, hubs, liquidity: kalos?.liquidity ?? new Map(), kalos };
+  return { coins: withRoles, head, notes, hubs, liquidity: kalos?.liquidity ?? new Map(), kalos, perpme };
 }
 
 const OWNER_ABI = parseAbi(["function owner() view returns (address)"]);
