@@ -8,11 +8,12 @@ import s from "./get-uploaded.module.css";
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const voice = (t: number) => clamp(0.5 + 0.32 * Math.sin(t * 2.1) * Math.sin(t * 0.73 + 1) + 0.22 * Math.sin(t * 5.3 + 0.4) * Math.sin(t * 1.7) + 0.12 * Math.sin(t * 9.1), 0, 1);
 
-/** DELPHI's orb (the same one as /delphi/chat), drifting inside the button's small window. It only
+/** DELPHI's orb (the same one as /delphi/chat), drifting inside the button's dark glass window. It only
  * draws while the button is on screen; with no WebGL, a still glass bead sits in its place. */
-function TileOrb({ pulseAt }: { pulseAt: React.RefObject<number> }) {
+function TileOrb({ pulseAt, hot }: { pulseAt: React.RefObject<number>; hot: React.RefObject<boolean> }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const bead = useRef<HTMLSpanElement>(null);
+  const glow = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const cv = canvas.current;
@@ -28,6 +29,8 @@ function TileOrb({ pulseAt }: { pulseAt: React.RefObject<number> }) {
     let on = true;
     let lx = 0;
     let ly = 0;
+    let heat = 0;
+    let last = performance.now();
     const frame = () => {
       raf = 0;
       if (!on || document.hidden || orb.lost) return;
@@ -35,10 +38,14 @@ function TileOrb({ pulseAt }: { pulseAt: React.RefObject<number> }) {
       const H = cv.clientHeight;
       const now = performance.now();
       const t = reduced ? 6 : (now - t0) / 1000;
-      const r = Math.min(H * 0.32, 16);
-      // A slow figure of eight across the window, stretched a little along the way it moves.
-      const x = W / 2 + (W / 2 - r - 8) * Math.sin(t * 0.55);
-      const y = H / 2 + 3.5 * Math.sin(t * 1.1 + 0.6);
+      const dt = Math.min((now - last) / 1000, 0.1);
+      last = now;
+      // Pointer on the button: she leans in, a little bigger and brighter.
+      heat += ((hot.current ? 1 : 0) - heat) * Math.min(1, dt * 7);
+      const r = Math.min(H * 0.4, 20) * (1 + 0.06 * heat);
+      // A slow drift across the window, stretched a little along the way it moves.
+      const x = W / 2 + (W / 2 - r - 5) * Math.sin(t * 0.5) * (1 - 0.35 * heat);
+      const y = H / 2 + 1.5 * Math.sin(t * 1.1 + 0.6);
       const vx = (x - lx) * 60;
       const vy = (y - ly) * 60;
       lx = x;
@@ -51,7 +58,7 @@ function TileOrb({ pulseAt }: { pulseAt: React.RefObject<number> }) {
           y,
           r,
           think: 0,
-          energy: 0.22 + 0.2 * voice(t) + 0.35 * pulse,
+          energy: 0.26 + 0.2 * voice(t) + 0.25 * heat + 0.35 * pulse,
           pulse,
           stretch: reduced ? 0 : clamp(Math.hypot(vx, vy) / 900, 0, 0.1),
           angle: Math.atan2(vy, vx),
@@ -62,6 +69,11 @@ function TileOrb({ pulseAt }: { pulseAt: React.RefObject<number> }) {
         H,
         Math.min(window.devicePixelRatio || 1, 2),
       );
+      // Her coloured light, pooled on the glass under her, follows her across the window.
+      if (glow.current) {
+        glow.current.style.transform = `translate(${(x - W / 2).toFixed(2)}px, ${(y - H / 2).toFixed(2)}px)`;
+        glow.current.style.opacity = (0.55 + 0.25 * voice(t) + 0.3 * heat + 0.4 * pulse).toFixed(3);
+      }
       if (!reduced) raf = requestAnimationFrame(frame);
     };
     const start = () => {
@@ -83,32 +95,38 @@ function TileOrb({ pulseAt }: { pulseAt: React.RefObject<number> }) {
       document.removeEventListener("visibilitychange", onVis);
       cv.removeEventListener("webglcontextlost", onLost);
     };
-  }, [pulseAt]);
+  }, [pulseAt, hot]);
 
   return (
     <>
+      <span ref={glow} className={s.glow} />
       <canvas ref={canvas} className={s.orb} />
       <span ref={bead} className={s.bead} />
     </>
   );
 }
 
-/** The hero's main call to action: DELPHI's orb, moving in a small window. Not open yet: a click
+/** The hero's main call to action: DELPHI's orb, moving in a small dark glass window. Not open yet: a click
  * says so in place instead of leading anywhere, and the orb answers with one soft pulse. */
 export function GetUploaded({ className }: { className?: string }) {
   const { soon, show } = useSoon();
   const pulseAt = useRef(-1e9);
+  const hot = useRef(false);
   return (
     <button
       type="button"
       className={`${s.btn} ${soon ? s.isSoon : ""} ${className ?? ""}`}
+      onPointerEnter={() => (hot.current = true)}
+      onPointerLeave={() => (hot.current = false)}
+      onFocus={() => (hot.current = true)}
+      onBlur={() => (hot.current = false)}
       onClick={() => {
         pulseAt.current = performance.now();
         show();
       }}
     >
       <span className={s.tile} aria-hidden="true">
-        <TileOrb pulseAt={pulseAt} />
+        <TileOrb pulseAt={pulseAt} hot={hot} />
       </span>
       <span className={s.label} aria-live="polite">
         {soon ? "Opening soon" : "Get uploaded"}
