@@ -11,6 +11,7 @@ import { GlitchIcon } from "./glitch-icon";
 import type { IconName } from "./icons";
 import A from "next/link";
 import { MiniTemple } from "./mini-temple";
+import { GetUploadedText } from "@/components/upload/get-uploaded";
 import m from "./menu.module.css";
 
 const OUT = {
@@ -126,9 +127,7 @@ export function SiteHeader({ code }: { code: string }) {
         <a href={OUT.github} className={m.ghost} {...external(OUT.github)}>
           GitHub
         </a>
-        <A href="/upload" className={m.wallet}>
-          Get uploaded
-        </A>
+        <GetUploadedText className={m.wallet} />
         <button type="button" className={m.burger} aria-expanded={open} aria-controls="site-menu" aria-label={open ? "Close menu" : "Open menu"} onClick={() => setOpen((v) => !v)}>
           <span />
           <span />
@@ -173,9 +172,7 @@ export function SiteHeader({ code }: { code: string }) {
               <A href="/get" className={m.btnInk} onClick={close}>
                 Get $PNTH
               </A>
-              <A href="/stake" className={m.btnGhost} onClick={close}>
-                Open app
-              </A>
+              <GetUploadedText className={m.btnGhost} />
             </div>
           </nav>
         </>
