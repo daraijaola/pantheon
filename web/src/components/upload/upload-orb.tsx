@@ -67,6 +67,36 @@ function sequence(tl: Timeline, hint: string, from: number): Line[] {
   return seq;
 }
 
+/** The steps' button that focus was last on, and whether the keyboard took it there. */
+type Focused = { el: Element; keys: boolean };
+
+/** The browser rings this button's focus: the keyboard took it there, not a click or a tap. */
+function byKeys(el: Element) {
+  try {
+    return el.matches(":focus-visible");
+  } catch {
+    return true; // Too old a browser to say.
+  }
+}
+
+/** A button the keyboard can't use any more: gone, disabled, or in a step that's hidden. */
+function dropped(el: Element) {
+  if (!el.isConnected || (el as HTMLButtonElement).disabled) return true;
+  const css = getComputedStyle(el);
+  return css.visibility === "hidden" || css.display === "none";
+}
+
+/**
+ * A step hid the button the keyboard was on: focus goes on to the next step's main action, without
+ * scrolling. Only if it was lost (on nothing, or still on that button); anywhere else it stays. Never
+ * after a click or a tap, so the orb's lean and hover only ever answer the user.
+ */
+function handOn(from: Focused | null, to: HTMLElement | null | undefined) {
+  const at = document.activeElement;
+  if (!from?.keys || !to || to === at) return;
+  if (!at || at === document.body || (at === from.el && dropped(at))) to.focus({ preventScroll: true });
+}
+
 function Chip({ address }: { address: string }) {
   return (
     <div className={s.chip}>
@@ -121,6 +151,8 @@ export function UploadOrb({
     discAt: null as number | null,
     /** The pointer is on Connect wallet: DELPHI leans in. */
     lean: false,
+    /** Where the keyboard was, so a step that hides it can hand focus on (handOn). */
+    focused: null as Focused | null,
   });
   useEffect(() => {
     live.current.address = address ?? "";
@@ -154,6 +186,10 @@ export function UploadOrb({
     let lastMeta = "";
     let lastStatus: Status = "connect";
     let continued = false;
+    // Which steps' buttons are showing, to see one come in.
+    let connectOn = false;
+    let signOn = false;
+    let hitsOn = false;
     let raf = 0;
 
     const ro = new ResizeObserver(() => {
@@ -292,12 +328,17 @@ export function UploadOrb({
         label.current.style.opacity = labelOpacity.toFixed(3);
       }
 
+      // The main action of a step whose buttons come in on this frame.
+      let focusTo: HTMLElement | null = null;
       const box = signBox.current;
       if (box) {
         const show = conn === null ? 0 : tl.read === null ? (reduced ? 1 : clamp((t - conn - 0.3) / 0.4, 0, 1)) : clamp(1 - (t - tl.read) / 0.3, 0, 1);
         box.style.top = `${(lo.cy + lo.r0 + 42 + 64).toFixed(1)}px`;
         box.style.opacity = show.toFixed(3);
-        box.style.visibility = show > 0.01 ? "visible" : "hidden";
+        const on = show > 0.01;
+        box.style.visibility = on ? "visible" : "hidden";
+        if (on && !signOn) focusTo = box.querySelector("button");
+        signOn = on;
       }
 
       // ---------------------------------------------------------------- connect, before any wallet
@@ -311,7 +352,10 @@ export function UploadOrb({
         cbox.style.top = `${(lo.cy + lo.r0 + 36).toFixed(1)}px`;
         cbox.style.opacity = show.toFixed(3);
         cbox.style.transform = `translateY(${(rise * 10).toFixed(2)}px)`;
-        cbox.style.visibility = show > 0.01 ? "visible" : "hidden";
+        const on = show > 0.01;
+        cbox.style.visibility = on ? "visible" : "hidden";
+        if (on && !connectOn) focusTo = cbox.querySelector("button");
+        connectOn = on;
       }
 
       // ---------------------------------------------------------------- the bubbles' hit areas
@@ -329,6 +373,10 @@ export function UploadOrb({
           h.style.display = "none";
         }
       });
+      if (pickable && !hitsOn) focusTo = hits.current[0];
+      hitsOn = pickable;
+      // Now this frame's steps are shown or hidden: focus a step dropped goes to the new one's main action.
+      if (focusTo) handOn(L.focused, focusTo);
 
       const st: Status = split ? "done" : reading ? "read" : conn === null ? "connect" : "sign";
       if (st !== lastStatus) {
@@ -376,6 +424,19 @@ export function UploadOrb({
     L.tl = { read, split: read + READ };
   }, [signed, address]);
 
+  // Connect wallet turns into the list of wallets, and back: the keyboard goes along to its first button.
+  const picking = !!wallets;
+  useEffect(() => {
+    handOn(live.current.focused, connectBox.current?.querySelector("button"));
+  }, [picking]);
+
+  // Without WebGL the bubbles' place is one Continue button: the keyboard goes there once it's in.
+  const goBtn = useRef<HTMLButtonElement>(null);
+  const stillDone = !!still && status === "done";
+  useEffect(() => {
+    if (stillDone) handOn(live.current.focused, goBtn.current);
+  }, [stillDone]);
+
   // `at` is the click's own timestamp, on the same clock as the animation.
   const pick = (i: number, at: number) => {
     const L = live.current;
@@ -391,7 +452,14 @@ export function UploadOrb({
   };
 
   return (
-    <div ref={root} className={s.root}>
+    <div
+      ref={root}
+      className={s.root}
+      onFocus={(e) => {
+        // Buttons only: they're the steps' controls (the links up top aren't).
+        if (e.target instanceof HTMLButtonElement) live.current.focused = { el: e.target, keys: byKeys(e.target) };
+      }}
+    >
       <canvas ref={canvas} className={s.canvas} aria-hidden="true" />
       {still && <div className={s.still} style={{ left: still.x - still.d / 2, top: still.y - still.d / 2, width: still.d, height: still.d }} aria-hidden="true" />}
       <Link href="/" aria-label="PANTHEON home" className={s.logo}>
@@ -513,7 +581,7 @@ export function UploadOrb({
 
       {still && status === "done" && (
         <div className={s.go}>
-          <button type="button" className={s.signBtn} onClick={() => onContinue({ index: 0, design: BUBBLES[0].design })}>
+          <button ref={goBtn} type="button" className={s.signBtn} onClick={() => onContinue({ index: 0, design: BUBBLES[0].design })}>
             Continue
           </button>
         </div>
@@ -524,11 +592,18 @@ export function UploadOrb({
 
 /** Where a picked bubble leads. Your space isn't built yet, so for now this page says so. */
 export function UploadNext({ address }: { address: string }) {
+  // This page takes the orb's place, and the bubble that was picked goes with it: focus starts here.
+  const title = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    title.current?.focus({ preventScroll: true });
+  }, []);
   return (
     <div className={s.root}>
       <Chip address={address} />
       <div className={s.next}>
-        <p className={s.nextTitle}>Your space opens here soon.</p>
+        <h1 ref={title} tabIndex={-1} className={s.nextTitle}>
+          Your space opens here soon.
+        </h1>
         <p className={s.nextSub}>Signed. DELPHI reads this wallet when your space opens. There’s nothing more to sign.</p>
         <Link href="/" className={s.ghost}>
           Back to site
