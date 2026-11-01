@@ -5,10 +5,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
-import { problem, type Ballot, type BallotInput } from "../src/ballot.ts";
+import { MIN_STAKE, problem, stakeVote, stakeVoteFrom, weightIn, weightOf, type Ballot, type BallotInput } from "../src/ballot.ts";
 import { loadRounds, RoundDef } from "../src/round.ts";
 import { basketList, inByTrading, tally, winners } from "../src/tally.ts";
-import { A, app, B, ballot, C, coin, k, ks, ranked, round, signed, T0 } from "./fixtures.ts";
+import { A, app, B, ballot, C, coin, DAY, k, ks, LONG_AGO, ranked, round, signed, standing, T0 } from "./fixtures.ts";
 
 const pnth = (n: bigint) => n * 10n ** 18n;
 const voterOf = (key: `0x${string}`) => privateKeyToAccount(key).address;
@@ -59,16 +59,35 @@ describe("rounds 1 to 5 count as they always did", () => {
     expect(basketList(r4, all, 10)).toEqual({ inByTrading: [], winners: ks(1, 2, 3), byTrading: ks(4, 5, 6, 7, 8, 9, 10) });
   });
 
+  it("weighs every wallet exactly as weightOf, however new its stake", () => {
+    const r = round();
+    for (const s of [
+      standing(0n, 0, 0),
+      standing(MIN_STAKE - 1n, 0),
+      standing(MIN_STAKE, 0, T0 + 500), // staked during the vote: counted in rounds 1 to 5
+      standing(pnth(10_000n), 2, T0 + 80_000),
+      standing(0n, 3, 0),
+    ]) {
+      expect(weightIn(r, s)).toBe(weightOf(s));
+    }
+    expect(stakeVote(r, standing(MIN_STAKE, 0, T0 + 500))).toBe("ok");
+    expect(stakeVoteFrom(r, standing(MIN_STAKE, 0, T0 + 500))).toBeNull();
+  });
+
   it("lets a ballot pick any candidate, the best trading included", () => {
     expect(inByTrading(round())).toEqual([]);
     expect(problem(round(), pickOf({ coins: [A, B, C] }), T0 + 100)).toBeNull();
   });
 
   it("shows an old round as before, with every coin marked not in by trading", async () => {
-    const { a } = app();
-    const cur = (await a.inject({ url: "/trials/current" })).json();
+    const key = generatePrivateKey();
+    const { a } = app({ [voterOf(key).toLowerCase()]: standing(MIN_STAKE, 0, T0 + 50) });
+    const cur = (await a.inject({ url: `/trials/current?voter=${voterOf(key)}` })).json();
     expect(cur).not.toHaveProperty("tradingSeats");
+    expect(cur).not.toHaveProperty("minStake");
+    expect(cur).not.toHaveProperty("minHoldSec");
     expect(cur.candidates.map((c: { inByTrading: boolean }) => c.inByTrading)).toEqual([false, false, false, false]);
+    expect(cur.you).toMatchObject({ weight: 1, stakeStart: T0 + 50, stakeVote: "ok", stakeVoteFrom: null });
     const full = (await a.inject({ url: "/trials/rounds/3" })).json();
     expect(full.candidates.map((c: { inByTrading: boolean }) => c.inByTrading)).toEqual([false, false, false, false]);
   });
@@ -137,14 +156,57 @@ describe("seats in by trading", () => {
   });
 });
 
+describe("who a stake gives a vote", () => {
+  // From round 6: at least 100 PNTH, staked 3 days or more before the round opens at T0
+  const r = round({ minStake: 100, minHoldSec: 3 * DAY });
+  const edge = T0 - 3 * DAY;
+
+  it("needs the round's least stake", () => {
+    expect(stakeVote(r, standing(0n))).toBe("none");
+    expect(stakeVote(r, standing(pnth(100n) - 1n))).toBe("below_min");
+    expect(stakeVote(r, standing(pnth(100n)))).toBe("ok");
+    expect(weightIn(r, standing(pnth(99n)))).toBe(0);
+    expect(weightIn(r, standing(pnth(100n)))).toBe(1);
+  });
+
+  it("needs the stake in place minHoldSec before the round opens", () => {
+    expect(stakeVote(r, standing(pnth(100n), 0, edge))).toBe("ok");
+    expect(stakeVote(r, standing(pnth(100n), 0, edge + 1))).toBe("too_new");
+    expect(stakeVoteFrom(r, standing(pnth(100n), 0, edge + 1))).toBe(T0 + 1); // a round opening a second later would count it
+    expect(stakeVoteFrom(r, standing(pnth(100n), 0, edge))).toBeNull();
+    // a stake moved to a new wallet during the vote starts again there
+    expect(stakeVote(r, standing(pnth(100n), 0, T0 + DAY / 2))).toBe("too_new");
+    expect(stakeVoteFrom(r, standing(pnth(100n), 0, T0 + DAY / 2))).toBe(T0 + DAY / 2 + 3 * DAY);
+    // too little is the first thing to fix, so it's the reason given
+    expect(stakeVote(r, standing(pnth(1n), 0, T0))).toBe("below_min");
+    expect(stakeVoteFrom(r, standing(pnth(1n), 0, T0))).toBeNull();
+  });
+
+  it("keeps the Passport's votes whatever the stake", () => {
+    expect(weightIn(r, standing(pnth(100n), 2, T0))).toBe(2);
+    expect(weightIn(r, standing(0n, 3, 0))).toBe(3);
+    expect(weightIn(r, standing(pnth(100n), 3))).toBe(4);
+  });
+
+  it("uses each field on its own", () => {
+    const holdOnly = round({ minHoldSec: DAY });
+    expect(stakeVote(holdOnly, standing(MIN_STAKE, 0, T0 - DAY))).toBe("ok");
+    expect(stakeVote(holdOnly, standing(MIN_STAKE, 0, T0))).toBe("too_new");
+    expect(stakeVote(holdOnly, standing(MIN_STAKE - 1n))).toBe("below_min"); // 1 PNTH, as in rounds 1 to 5
+    const minOnly = round({ minStake: 5 });
+    expect(stakeVote(minOnly, standing(pnth(5n), 0, T0 + 100))).toBe("ok"); // no hold rule
+    expect(stakeVote(minOnly, standing(pnth(4n)))).toBe("below_min");
+  });
+});
+
 describe("the API, from round 6", () => {
-  const r = round({ tradingSeats: 4, candidates: ranked(10) });
+  const r = round({ tradingSeats: 4, minStake: 100, minHoldSec: 3 * DAY, candidates: ranked(10) });
 
   it("marks the coins in by trading, refuses votes for them and leads with the rest", async () => {
     const key = generatePrivateKey();
-    const { a } = app({ [voterOf(key).toLowerCase()]: { staked: pnth(100n), tier: 0 } }, T0 + 100, [r]);
+    const { a } = app({ [voterOf(key).toLowerCase()]: standing(pnth(100n)) }, T0 + 100, [r]);
     const cur = (await a.inject({ url: "/trials/current" })).json();
-    expect(cur).toMatchObject({ tradingSeats: 4, leaders: [] });
+    expect(cur).toMatchObject({ tradingSeats: 4, minStake: 100, minHoldSec: 3 * DAY, leaders: [] });
     const marked = cur.candidates.filter((c: { inByTrading: boolean }) => c.inByTrading).map((c: { token: string }) => c.token);
     expect(marked).toEqual(ks(1, 2, 3, 4));
 
@@ -154,5 +216,41 @@ describe("the API, from round 6", () => {
     expect((await a.inject({ url: "/trials/current" })).json().leaders).toEqual(ks(6, 8));
     const full = (await a.inject({ url: "/trials/rounds/3" })).json();
     expect(full.candidates.filter((c: { inByTrading: boolean }) => c.inByTrading).map((c: { token: string }) => c.token)).toEqual(ks(1, 2, 3, 4));
+  });
+
+  it("says why a wallet's stake has no vote, and from when a new stake counts", async () => {
+    const [ok, none, small, fresh] = [coin(0x51), coin(0x52), coin(0x53), coin(0x54)];
+    const { a } = app(
+      {
+        [ok.toLowerCase()]: standing(pnth(100n), 1),
+        [small.toLowerCase()]: standing(pnth(99n)),
+        [fresh.toLowerCase()]: standing(pnth(5_000n), 0, T0 - DAY),
+      },
+      T0 + 100,
+      [r],
+    );
+    const you = async (v: string) => (await a.inject({ url: `/trials/current?voter=${v}` })).json().you;
+    expect(await you(ok)).toMatchObject({ weight: 2, stakeVote: "ok", stakeVoteFrom: null, stakeStart: LONG_AGO });
+    expect(await you(none)).toMatchObject({ weight: 0, staked: "0", stakeVote: "none", stakeVoteFrom: null });
+    expect(await you(small)).toMatchObject({ weight: 0, stakeVote: "below_min", stakeVoteFrom: null });
+    expect(await you(fresh)).toMatchObject({ weight: 0, stakeVote: "too_new", stakeStart: T0 - DAY, stakeVoteFrom: T0 + 2 * DAY });
+  });
+
+  it("gives a stake moved to a new wallet during the vote no second vote, but keeps a Passport's", async () => {
+    const [first, second, passport] = [generatePrivateKey(), generatePrivateKey(), generatePrivateKey()];
+    const { a } = app(
+      {
+        [voterOf(first).toLowerCase()]: standing(pnth(100n)),
+        // the same PNTH, unstaked by the first wallet and staked again here during the vote
+        [voterOf(second).toLowerCase()]: standing(pnth(100n), 0, T0 + 50),
+        [voterOf(passport).toLowerCase()]: standing(pnth(100n), 2, T0 + 50),
+      },
+      T0 + 100,
+      [r],
+    );
+    expect((await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(first, ks(5)) })).json()).toMatchObject({ ok: true, ballot: { weight: 1 } });
+    const again = await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(second, ks(5)) });
+    expect([again.statusCode, again.json()]).toEqual([403, { error: "NO_VOTES" }]);
+    expect((await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(passport, ks(5)) })).json()).toMatchObject({ ok: true, ballot: { weight: 2 } });
   });
 });

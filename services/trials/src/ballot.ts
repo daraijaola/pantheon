@@ -30,14 +30,39 @@ export const BallotInput = z.object({
 });
 export type BallotInput = z.infer<typeof BallotInput>;
 
-/** What a wallet has on-chain when it votes: PNTH staked (18 decimals) and its Passport tier (0 to 3). */
-export type Standing = { staked: bigint; tier: number };
+/** What a wallet has on-chain when it votes: PNTH staked (18 decimals), its Passport tier (0 to 3), and when
+ * its stake started (unix seconds), as the staking contract counts it: an amount added later moves the start
+ * on in proportion, and asking to unstake any amount restarts it. */
+export type Standing = { staked: bigint; tier: number; stakeStart: number };
 
 /** Staking at least this much PNTH gives a wallet 1 vote. Tokens that are unlocking don't count. */
 export const MIN_STAKE = 10n ** 18n;
 
 /** How many votes a wallet puts on each coin it picks: 1 for staking, plus its Passport tier. */
-export const weightOf = (s: Standing): number => (s.staked >= MIN_STAKE ? 1 : 0) + s.tier;
+export const weightOf = (s: Pick<Standing, "staked" | "tier">): number => (s.staked >= MIN_STAKE ? 1 : 0) + s.tier;
+
+/** Whether a wallet's stake gives it its 1 vote in a round, and if not, why: nothing staked, less than the
+ * round's minimum, or staked too late (it has to be in place `minHoldSec` before the round opens). */
+export type StakeVote = "ok" | "none" | "below_min" | "too_new";
+
+/** The least PNTH (18 decimals) a stake needs to vote in this round. */
+export const minStakeIn = (r: RoundDef): bigint => (r.minStake === undefined ? MIN_STAKE : BigInt(r.minStake) * 10n ** 18n);
+
+export function stakeVote(r: RoundDef, s: Standing): StakeVote {
+  if (s.staked === 0n) return "none";
+  if (s.staked < minStakeIn(r)) return "below_min";
+  if (r.minHoldSec !== undefined && s.stakeStart > r.opensAt - r.minHoldSec) return "too_new";
+  return "ok";
+}
+
+/** For a stake that's too new: from when it counts. A round that opens at this time (unix seconds) or later
+ * counts it, if the stake isn't changed. Null for any other stake. */
+export const stakeVoteFrom = (r: RoundDef, s: Standing): number | null =>
+  r.minHoldSec !== undefined && stakeVote(r, s) === "too_new" ? s.stakeStart + r.minHoldSec : null;
+
+/** How many votes a wallet puts on each coin it picks in this round: 1 if its stake counts under the round's
+ * rules, plus its Passport tier. The same as weightOf for a round without `minStake` and `minHoldSec`. */
+export const weightIn = (r: RoundDef, s: Standing): number => (stakeVote(r, s) === "ok" ? 1 : 0) + s.tier;
 
 export type Ballot = {
   voter: Address;

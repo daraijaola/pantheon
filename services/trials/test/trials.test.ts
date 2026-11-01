@@ -7,7 +7,7 @@ import { MIN_STAKE, problem, signer, weightOf, type BallotInput } from "../src/b
 import { loadRounds, statusOf } from "../src/round.ts";
 import { Ballots } from "../src/state.ts";
 import { tally, winners } from "../src/tally.ts";
-import { A, app, B, ballot, C, CHAIN, coin, D, round, signed, T0 } from "./fixtures.ts";
+import { A, app, B, ballot, C, CHAIN, coin, D, round, signed, standing, T0 } from "./fixtures.ts";
 
 describe("round files", () => {
   it("loads rounds oldest first and refuses a file that doesn't match its name or lists a coin twice", () => {
@@ -102,7 +102,7 @@ describe("the API", () => {
   it("takes a signed ballot from a staker with a Passport and counts it", async () => {
     const key = generatePrivateKey();
     const voter = privateKeyToAccount(key).address;
-    const { a } = app({ [voter.toLowerCase()]: { staked: MIN_STAKE, tier: 1 } });
+    const { a } = app({ [voter.toLowerCase()]: standing(MIN_STAKE, 1) });
     const res = await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(key, [C, A]) });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ ok: true, result: "added", ballot: { weight: 2, staked: MIN_STAKE.toString(), tier: 1, coins: [C, A] } });
@@ -121,7 +121,7 @@ describe("the API", () => {
   it("takes a staker with no Passport as 1 vote", async () => {
     const key = generatePrivateKey();
     const voter = privateKeyToAccount(key).address;
-    const { a } = app({ [voter.toLowerCase()]: { staked: MIN_STAKE, tier: 0 } });
+    const { a } = app({ [voter.toLowerCase()]: standing(MIN_STAKE, 0) });
     expect((await a.inject({ url: `/trials/current?voter=${voter}` })).json().you).toMatchObject({ weight: 1, staked: MIN_STAKE.toString(), tier: 0, ballot: null });
     expect((await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(key, [B]) })).json()).toMatchObject({ ok: true, ballot: { weight: 1 } });
     expect((await a.inject({ url: "/trials/current" })).json().leaders).toEqual([B]);
@@ -129,7 +129,7 @@ describe("the API", () => {
 
   it("refuses wallets with nothing staked and no Passport, forged signatures and closed rounds", async () => {
     const key = generatePrivateKey();
-    const { a } = app({ [privateKeyToAccount(key).address.toLowerCase()]: { staked: MIN_STAKE - 1n, tier: 0 } });
+    const { a } = app({ [privateKeyToAccount(key).address.toLowerCase()]: standing(MIN_STAKE - 1n, 0) });
     const none = await a.inject({ method: "POST", url: "/trials/vote", payload: await signed(key, [A]) });
     expect([none.statusCode, none.json()]).toEqual([403, { error: "NO_VOTES" }]);
 

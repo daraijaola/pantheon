@@ -5,12 +5,12 @@
 //   GET  /health
 import Fastify, { type FastifyServerOptions } from "fastify";
 import { getAddress, isAddress, type Address } from "viem";
-import { BallotInput, problem, signer, weightOf, type Ballot, type Standing } from "./ballot.ts";
+import { BallotInput, problem, signer, stakeVote, stakeVoteFrom, weightIn, type Ballot, type Standing } from "./ballot.ts";
 import { currentRound, statusOf, type RoundDef } from "./round.ts";
 import type { Ballots } from "./state.ts";
 import { inByTrading, tally, winners } from "./tally.ts";
 
-/** A wallet's PNTH stake and Passport tier right now, read from the chain. */
+/** A wallet's PNTH stake, when that stake started, and its Passport tier right now, read from the chain. */
 export type StandingOf = (voter: Address) => Promise<Standing>;
 
 export type Deps = {
@@ -37,8 +37,10 @@ function view(r: RoundDef, all: Ballot[], nowSec: number) {
     opensAt: r.opensAt,
     closesAt: r.closesAt,
     seats: r.seats,
-    // Only in rounds that have it; JSON leaves out a field that's undefined.
+    // Only in rounds that have them; JSON leaves out a field that's undefined.
     tradingSeats: r.tradingSeats,
+    minStake: r.minStake,
+    minHoldSec: r.minHoldSec,
     method: r.method,
     source: r.source,
     candidates: marked(r)
@@ -78,8 +80,21 @@ export function buildApp(deps: Deps, opts: FastifyServerOptions = {}) {
     if (!isAddress(v, { strict: false })) return reply.code(400).send({ error: "INVALID_ADDRESS" });
     const voter = getAddress(v);
     // If the chain doesn't answer, the votes are null and the site says so instead of guessing.
+    // stakeVote says whether the stake gives its 1 vote in this round, and if not, why; stakeVoteFrom is when
+    // a stake that's too new starts to count.
     const st = await cachedStanding(voter).catch(() => null);
-    const you = st ? { weight: weightOf(st), staked: st.staked.toString(), tier: st.tier } : { weight: null, staked: null, tier: null };
+    const you = st
+      ? {
+          weight: weightIn(r, st),
+          staked: st.staked.toString(),
+          tier: st.tier,
+          stakeStart: st.stakeStart,
+          stakeVote: stakeVote(r, st),
+          stakeVoteFrom: stakeVoteFrom(r, st),
+        }
+      : { weight: null, staked: null, tier: null, stakeStart: null, stakeVote: null, stakeVoteFrom: null };
+    // The voter's own ballot, stake and tier included, as before. Anyone can ask for any address, so keeping
+    // a ballot private during the vote needs sign-in first.
     return { ...body, you: { voter, ...you, ballot: deps.ballots.get(r.round, voter) ?? null } };
   });
 
@@ -120,7 +135,7 @@ export function buildApp(deps: Deps, opts: FastifyServerOptions = {}) {
       return reply.code(503).send({ error: "CHAIN_UNAVAILABLE" });
     }
     cache.set(b.voter.toLowerCase(), { standing: st, at: Date.now() });
-    const weight = weightOf(st);
+    const weight = weightIn(r, st);
     if (weight < 1) return reply.code(403).send({ error: "NO_VOTES" });
 
     const ballot: Ballot = {

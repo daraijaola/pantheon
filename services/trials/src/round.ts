@@ -39,6 +39,11 @@ export const RoundDef = z
      * vote's `seats` then go to the most-voted coins among the rest. Without it, the vote's seats go to the
      * most-voted coins of all (rounds 1 to 5). */
     tradingSeats: z.number().int().min(0).optional(),
+    /** The least PNTH a stake needs to give a vote, in whole PNTH. Without it, 1 PNTH (MIN_STAKE). */
+    minStake: z.number().int().min(1).optional(),
+    /** A stake gives a vote only if it started at least this many seconds before the round opened, so it
+     * can't be moved to a new wallet to vote again. Without it, any stake counts, however new. */
+    minHoldSec: z.number().int().min(0).optional(),
     method: z.string(),
     source: z.object({ delphiRound: z.number().int(), scannedAt: z.string() }),
     candidates: z.array(Candidate).min(1).max(60),

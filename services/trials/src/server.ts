@@ -27,7 +27,8 @@ const app = buildApp(
         client.readContract({ address: cfg.passportRegistry, abi: PASSPORT, functionName: "tierOf", args: [voter] }),
         client.readContract({ address: cfg.staking, abi: STAKING, functionName: "accounts", args: [voter] }),
       ]);
-      return { tier: Number(tier), staked: account[0] };
+      // staked leaves out tokens that are unlocking; stakeStart is when the stake started (unix seconds).
+      return { tier: Number(tier), staked: account[0], stakeStart: Number(account[4]) };
     },
     chainId: cfg.chainId,
   },

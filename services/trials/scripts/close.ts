@@ -102,6 +102,8 @@ if (!merge) {
       closesAt: def.closesAt,
       seats: def.seats,
       ...(traded ? { tradingSeats: def.tradingSeats, inByTrading: fixed } : {}),
+      ...(def.minStake !== undefined ? { minStake: def.minStake } : {}),
+      ...(def.minHoldSec !== undefined ? { minHoldSec: def.minHoldSec } : {}),
       winners: won,
       ...(named ? { rest, restWhy } : {}),
       tally: tally(def, ballots),

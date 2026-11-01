@@ -77,6 +77,10 @@ export async function signed(key: `0x${string}`, coins: Address[], over: Partial
   return { ...msg, signature };
 }
 
+/** A stake that started a month before T0, long enough for any round here. */
+export const LONG_AGO = T0 - 30 * DAY;
+export const standing = (staked: bigint, tier = 0, stakeStart = LONG_AGO): Standing => ({ staked, tier, stakeStart });
+
 /** The API on a fake chain (wallets not listed have nothing), with its clock stopped at `nowSec`. Pass the
  * ballot file of an earlier app to see the same ballots at another time. */
 export function app(
@@ -89,7 +93,7 @@ export function app(
   const a = buildApp({
     rounds: () => rounds,
     ballots: box,
-    standingOf: async (v) => wallets[v.toLowerCase()] ?? { staked: 0n, tier: 0 },
+    standingOf: async (v) => wallets[v.toLowerCase()] ?? standing(0n, 0, 0),
     chainId: CHAIN,
     now: () => nowSec,
   });
