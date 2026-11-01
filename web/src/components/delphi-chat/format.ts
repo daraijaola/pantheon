@@ -62,7 +62,8 @@ export function blocks(text: string): Block[] {
 
 function words(body: string, next: () => number): Piece[] {
   if (!body) return [];
-  return body.split(/\s+/).map((w): Piece => {
+  // Markdown emphasis isn't drawn: drop the marks rather than show them.
+  return body.replace(/\*\*|__|`/g, "").split(/\s+/).filter(Boolean).map((w): Piece => {
     if (HASH.test(w)) return { kind: "tx", hash: w.slice(0, 66), n: next() };
     if (ADDRESS.test(w)) return { kind: "address", address: w.slice(0, 42), n: next() };
     return { kind: "word", text: w, n: next() };

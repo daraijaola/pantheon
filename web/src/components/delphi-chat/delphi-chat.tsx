@@ -28,8 +28,10 @@ type Turn = {
   at: number;
 };
 
-const THINK_MIN = 0.9; // seconds she thinks, however fast the answer comes
-const R = { hero: 56, heroPhone: 46, think: 20, pen: 7.5, rest: 6 };
+const THINK_MIN = 1.4; // seconds she thinks, however fast the answer comes
+const CPS = 38; // characters a second she writes at; faster only when the answer is far ahead of her
+const LINE_EVERY = 2200; // ms each thinking line stays
+const R = { hero: 56, heroPhone: 46, think: 20, pen: 7.5, rest: 7 };
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const smooth = (a: number, b: number, v: number) => {
@@ -68,6 +70,8 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
   const heroSpot = useRef<HTMLDivElement>(null);
   const empty = useRef<HTMLDivElement>(null);
   const dock = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const page = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const spots = useRef(new Map<number, HTMLSpanElement | null>());
@@ -167,7 +171,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     L.pen.id = -1;
     setTurns([]);
     setDraft("");
-    window.scrollTo({ top: 0 });
+    scroller.current?.scrollTo({ top: 0 });
     field.current?.focus();
   };
 
@@ -228,23 +232,37 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
   const lastEnded = last && (last.status === "done" || last.status === "error") ? last.id : null;
   useEffect(() => {
     if (lastEnded == null || !live.current.stuck) return;
-    const id = setTimeout(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" }), 200);
+    const id = setTimeout(() => scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }), 350);
     return () => clearTimeout(id);
   }, [lastEnded]);
 
   // Follow the answer down unless you've scrolled up to read.
   useEffect(() => {
-    let last = window.scrollY;
+    const sc = scroller.current;
+    if (!sc) return;
+    let last = sc.scrollTop;
     const onScroll = () => {
-      const y = window.scrollY;
-      const atEnd = window.innerHeight + y >= document.documentElement.scrollHeight - 72;
+      const y = sc.scrollTop;
+      const atEnd = sc.clientHeight + y >= sc.scrollHeight - 72;
       if (y < last - 2 && !atEnd) live.current.stuck = false;
       if (atEnd) live.current.stuck = true;
       last = y;
       setStuck(live.current.stuck);
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    sc.addEventListener("scroll", onScroll, { passive: true });
+    return () => sc.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // The conversation leaves room for the composer under its last line, however tall the composer is.
+  useEffect(() => {
+    const d = dock.current;
+    const pg = page.current;
+    if (!d || !pg) return;
+    const set = () => pg.style.setProperty("--dock", `${Math.ceil(d.getBoundingClientRect().height)}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(d);
+    return () => ro.disconnect();
   }, []);
 
   // ------------------------------------------------------------------ the orb and the pen
@@ -259,7 +277,13 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     const sim = { x: 0, y: 0, r: 0, vx: 0, vy: 0, vr: 0, ready: false, last: 0, scroll: 0 };
     let raf = 0;
 
-    const rect = (el: Element | null | undefined) => el?.getBoundingClientRect() ?? null;
+    // Boxes relative to the canvas, which is where the orb is drawn.
+    const rect = (el: Element | null | undefined) => {
+      const r = el?.getBoundingClientRect();
+      if (!r) return null;
+      const off = cv.getBoundingClientRect();
+      return { left: r.left - off.left, right: r.right - off.left, top: r.top - off.top, width: r.width, height: r.height };
+    };
     const lastPieces = (id: number) => {
       const all = answers.current.get(id)?.querySelectorAll<HTMLElement>("[data-w]");
       if (!all?.length) return [null, null] as const;
@@ -280,7 +304,12 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
       const t = now - t0;
       const turns = L.turns;
       const cur = turns.at(-1);
-      const phone = window.innerWidth < 640;
+      // The canvas covers the page, which is the visible viewport (100dvh): draw in its size, not
+      // window.inner*, which on phones counts the browser bars differently.
+      const W = cv.clientWidth || window.innerWidth;
+      const H = cv.clientHeight || window.innerHeight;
+      const top = cv.getBoundingClientRect().top;
+      const phone = W < 640;
 
       // ---- the pen: give the next word when the last one is written
       if (cur && (cur.status === "thinking" || cur.status === "writing")) {
@@ -290,16 +319,23 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
         if (P.id !== cur.id) Object.assign(P, { id: cur.id, end: 0, start: 0, delay: 0, dur: 0, tail: 0 });
         // She thinks a moment however fast the answer comes, unless it ended with nothing to write.
         const thoughtEnough = (ended && !full.trim()) || now - cur.at / 1000 >= (reduced ? 0.2 : THINK_MIN);
-        if (now >= P.start + P.delay + P.dur + P.tail && thoughtEnough) {
+        const due = P.start + P.delay + P.dur + P.tail;
+        if (now >= due && thoughtEnough) {
           const w = nextWord(full, P.end, ended);
           if (w) {
-            // Faster when the stream is ahead of the page, so she never falls far behind.
-            const speed = 1 + (full.length - w.end) / 240;
+            // A steady pace, character by character: the stream arrives in uneven pieces, the page
+            // doesn't. She speeds up, gently (up to 1.6x), only when the answer is very far ahead of her.
+            const ahead = full.length - w.end;
+            const speed = 1 + clamp((ahead - 700) / 1400, 0, 0.6);
+            // A transaction or an address is drawn short (0x1234…abcd), so it takes the time of what shows.
+            const shown = /^0x[0-9a-fA-F]{40,64}/.test(w.word) ? 12 : w.word.length;
+            const chars = Math.max(1, shown + (w.end - P.end - w.word.length));
             P.end = w.end;
-            P.start = now;
-            P.delay = cur.status === "thinking" ? 0.22 : w.breaks ? 0.16 : 0;
-            P.dur = reduced ? 0.012 : clamp(0.028 + 0.0085 * w.word.length, 0.04, 0.16) / speed;
-            P.tail = reduced ? 0 : (/[.!?]$/.test(w.word) ? 0.16 : /[,:;]$/.test(w.word) ? 0.07 : 0) / Math.min(speed, 2);
+            // Start where the last word ended, not where this frame landed, so the pace never drifts.
+            P.start = cur.status === "thinking" ? now : Math.max(due, now - 0.05);
+            P.delay = cur.status === "thinking" ? 0.45 : w.breaks ? 0.28 : 0;
+            P.dur = reduced ? 0.012 : chars / (CPS * speed);
+            P.tail = reduced ? 0 : (/[.!?]$/.test(w.word) ? 0.24 : /[,:;]$/.test(w.word) ? 0.1 : 0) / Math.min(speed, 2);
             const text = full.slice(0, w.end);
             setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, text, status: "writing" } : x)));
           } else if (ended && now >= P.start + P.delay + P.dur + 0.05) {
@@ -310,8 +346,8 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
       }
 
       // ---- where the orb wants to be
-      let tx = window.innerWidth / 2;
-      let ty = window.innerHeight * 0.3;
+      let tx = W / 2;
+      let ty = H * 0.3;
       let tr = phone ? R.heroPhone : R.hero;
       let mode: "hero" | "think" | "pen" | "rest" = "hero";
       let ink = 0;
@@ -367,17 +403,18 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
       sim.last = now;
       // Scrolling carries the orb with the page, so it never trails what it sits on. A jump of more
       // than a screen (a new chat) isn't carried: the orb just glides to its new place.
-      const scrollY = window.scrollY;
-      if (sim.ready && Math.abs(scrollY - sim.scroll) < window.innerHeight) sim.y -= scrollY - sim.scroll;
+      const scrollY = scroller.current?.scrollTop ?? 0;
+      if (sim.ready && Math.abs(scrollY - sim.scroll) < H) sim.y -= scrollY - sim.scroll;
       sim.scroll = scrollY;
       if (!sim.ready || reduced) Object.assign(sim, { x: tx, y: ty, r: tr, vx: 0, vy: 0, vr: 0, ready: true });
       else {
         const steps = Math.max(1, Math.round(dt / (1 / 120)));
         const h = dt / steps;
         for (let i = 0; i < steps; i++) {
-          const wx = mode === "pen" ? 26 : 13;
-          const wy = mode === "pen" ? 36 : 13;
-          sim.vr += (121 * (tr - sim.r) - 22 * sim.vr) * h;
+          // Calm glides between places; tight only while it follows the pen.
+          const wx = mode === "pen" ? 26 : 8.5;
+          const wy = mode === "pen" ? 36 : 8.5;
+          sim.vr += (56 * (tr - sim.r) - 15 * sim.vr) * h;
           sim.r += sim.vr * h;
           if (mode === "pen" && Math.abs(ty - sim.y) < 1.5 && Math.abs(sim.vy) < 40) {
             sim.vx += ((tx - sim.x) / h - sim.vx) * 0.25;
@@ -395,9 +432,9 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
 
       // ---- keep the pen in view while she writes, unless you've scrolled up
       if (L.stuck && cur && (cur.status === "thinking" || cur.status === "writing")) {
-        const dockTop = dock.current?.getBoundingClientRect().top ?? window.innerHeight;
-        const over = ty + 40 - dockTop;
-        if (over > 0) window.scrollBy(0, Math.ceil(over * (reduced ? 1 : 0.22)));
+        const dockTop = (dock.current?.querySelector<HTMLElement>("[data-composer]")?.getBoundingClientRect().top ?? H + top) - top;
+        const over = ty + 48 - dockTop;
+        if (over > 0 && scroller.current) scroller.current.scrollTop += Math.ceil(over * (reduced ? 1 : 0.18));
       }
 
       // ---- how the light behaves
@@ -406,9 +443,9 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
       let pulse = 0;
       const kick = L.keys.reduce((k, at) => Math.max(k, Math.exp(-(now - at) * 7)), 0);
       if (mode === "think" && cur) {
-        think = smooth(cur.at / 1000, cur.at / 1000 + 0.6, now);
+        think = smooth(cur.at / 1000 + 0.15, cur.at / 1000 + 1.3, now);
         energy = 0.5 + 0.3 * voice(t);
-        pulse = Math.exp(-(((now - cur.at / 1000) % 1.2) * 4));
+        pulse = Math.exp(-(((now - cur.at / 1000) % 1.8) * 3));
       } else if (mode === "pen") {
         energy = 0.62 + 0.36 * voice(t * 1.6);
       } else if (mode === "rest") {
@@ -429,9 +466,9 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
         time: reduced ? 6 : t,
         fade: 1,
       };
-      if (orb && !orb.lost) orb.draw(state, window.innerWidth, window.innerHeight, Math.min(window.devicePixelRatio || 1, phone ? 1.5 : 2));
+      if (orb && !orb.lost) orb.draw(state, W, H, Math.min(window.devicePixelRatio || 1, phone ? 1.5 : 2));
       else if (bead.current) {
-        bead.current.style.transform = `translate(${(state.x - state.r).toFixed(1)}px, ${(state.y - state.r).toFixed(1)}px)`;
+        bead.current.style.transform = `translate(${(state.x - state.r).toFixed(1)}px, ${(state.y - state.r + top).toFixed(1)}px)`;
         bead.current.style.width = bead.current.style.height = `${(state.r * 2).toFixed(1)}px`;
       }
     };
@@ -447,7 +484,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
   const announce = !cur ? "" : cur.status === "thinking" || cur.status === "writing" ? "DELPHI is answering." : cur.status === "error" ? (cur.error ?? "") : plain(cur.text);
 
   return (
-    <div className={s.page} data-started={started || undefined}>
+    <div ref={page} className={s.page} data-started={started || undefined}>
       <canvas ref={canvas} className={s.orb} aria-hidden="true" />
       {noGL && <div ref={bead} className={s.bead} aria-hidden="true" />}
 
@@ -461,6 +498,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
         </button>
       </header>
 
+      <div ref={scroller} className={s.scroller}>
       <main className={s.main}>
         <div ref={empty} className={s.empty} aria-hidden={started}>
           <div ref={heroSpot} className={s.heroSpot} />
@@ -473,7 +511,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
             const lines = thinking(t.coins);
             const since = Math.max(0, clock - t.at);
             const secs = Math.floor(since / 1000);
-            const line = lines[Math.min(lines.length - 1, Math.floor(since / 1200))];
+            const line = lines[Math.min(lines.length - 1, Math.floor(since / LINE_EVERY))];
             const one = t.coins.length === 1 ? t.coins[0] : null;
             return (
               <li key={t.id} className={s.turn}>
@@ -543,15 +581,16 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
           })}
         </ol>
       </main>
+      </div>
 
       {started && !stuck && (
-        <button type="button" className={s.latest} onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" })} aria-label="Jump to the latest">
+        <button type="button" className={s.latest} onClick={() => scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" })} aria-label="Jump to the latest">
           <Pixels d={DOWN} size={12} />
         </button>
       )}
 
       <div ref={dock} className={s.dock} style={{ transform: lift ? `translateY(${-lift}px)` : undefined }}>
-        <div ref={box} className={s.composer}>
+        <div ref={box} className={s.composer} data-composer>
           <textarea
             ref={field}
             className={s.field}
