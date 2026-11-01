@@ -23,6 +23,8 @@ export class FeedStore {
         verdict TEXT NOT NULL, record TEXT NOT NULL, updated_ms INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS feed_new ON feed (venue, launch_block DESC);
+      -- The feed server's health check (newest update): without it, MAX(updated_ms) reads every record.
+      CREATE INDEX IF NOT EXISTS feed_updated ON feed (updated_ms);
       CREATE TABLE IF NOT EXISTS verdicts (
         token TEXT NOT NULL, at_ms INTEGER NOT NULL, verdict TEXT NOT NULL, rules TEXT NOT NULL, why TEXT NOT NULL
       );

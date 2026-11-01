@@ -311,6 +311,24 @@ contract can enumerate them; otherwise DELPHI asks about the deployer and the ow
 recipients: it may be exempt from a tax that hits others (the fresh wallets' tests cover that case on
 Kalos). Powers hidden behind functions with no known name in unverified code are counted, not named.
 
+## The live feed for apps (format v1)
+
+`scripts/feed.ts` serves the live feed store (`src/live/store.ts`, written by the watcher) as open JSON on
+`127.0.0.1:3210`, which Caddy puts on `pantheonindex.com/api/delphi/`. Kalos's Sniper is the first user. The
+endpoints, every field and a working Sniper adapter are in `docs/kalos-adapter.md`; the same is served at
+`/v1/format`. Records go out exactly as stored, in an envelope that adds `stale` and `servedAtMs`.
+
+```sh
+node scripts/feed.ts                    # serve FEED_DB (default data/feed.db) on 127.0.0.1:${PORT:-3210}
+node scripts/feed.ts --seed 500         # a scratch db of 500 fake records (local testing; never touches FEED_DB)
+node scripts/disputes.ts                # open disputes (all: every one); text people sent is printed escaped
+node scripts/disputes.ts answer 3 upheld "The two wallets share a funder: see the report."
+node scripts/feed-load.ts               # load: 5,000 records, batches of 50, 50 at a time, 30 s
+node scripts/feed-load.ts --soak        # soak: 10 minutes at a steady 100 requests a second, memory sampled
+```
+
+Deploying: `deploy/delphi-feed.service` (systemd) and `deploy/Caddyfile.delphi-feed` (the Caddy block).
+
 ## Commands
 
 | Command | What it does |
@@ -356,6 +374,11 @@ Kalos). Powers hidden behind functions with no known name in unverified code are
 | `src/conduit.ts`, `src/kalos-api.ts`, `src/http.ts` | Conduit's verifier and explorer API, Kalos's API, one careful JSON fetch |
 | `src/pinned.ts`, `src/tape.ts` | Pinned-block reads; recorded answers for tests |
 | `scripts/safety.ts`, `scripts/safety-fixtures.ts` | The safety report (run by hand); re-recording its fixtures |
+| `src/live/types.ts`, `src/live/store.ts` | The feed format v1 (zod) and its SQLite store: records, verdict history, disputes |
+| `src/live/server.ts` | The feed's HTTP server: endpoints, envelope, ETags, CORS, rate limits, timeouts, disputes |
+| `src/live/format.ts` | The feed's own description (`/v1/format`): every endpoint and field, with meanings |
+| `src/live/fake.ts` | Fake records for tests, `--seed` and the load test (marked `fake-seed`) |
+| `scripts/feed.ts`, `scripts/disputes.ts`, `scripts/feed-load.ts` | Run the feed; answer disputes; load and soak tests |
 | `test/` | Synthetic scenarios (`scenario.ts`) and real transactions (`fixtures/live-trades.json`) |
 
 ## Safety

@@ -1,0 +1,23 @@
+# DELPHI live feed: put this block inside the existing `pantheonindex.com { … }` site in /etc/caddy/Caddyfile,
+# above its `reverse_proxy 127.0.0.1:3000` line. Caddy runs handle_path before a bare reverse_proxy, so the
+# site keeps working; wrapping the old line in `handle { … }` makes the split explicit.
+#   sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+#
+# handle_path strips /api/delphi, so the feed sees /v1/…. Caddy writes the client's address as the last
+# X-Forwarded-For entry, which is the one the feed rate-limits by. Answers are compressed here (a batch of
+# 50 is about 200 KB of JSON). The feed's ETags are weak, so compression leaves them valid for 304s.
+
+	handle_path /api/delphi/* {
+		request_body {
+			max_size 8KB
+		}
+		encode zstd gzip
+		reverse_proxy 127.0.0.1:3210 {
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 5s
+				# Under the feed's 5 s keep-alive, so Caddy never reuses a connection the feed is closing.
+				keepalive 4s
+			}
+		}
+	}
