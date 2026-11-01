@@ -13,6 +13,8 @@ import { BUBBLES, LINES, READ, T, budReach, clamp, inOut, layout, mainOrb, readR
 import { OrbRenderer } from "./orb-renderer";
 import s from "./upload-orb.module.css";
 
+import type { WalletChoice } from "./use-connect-wallet";
+
 export type Picked = { index: number; design: BubbleDesign };
 
 type Props = {
@@ -26,6 +28,10 @@ type Props = {
   onConnect: () => void;
   /** Computers only: WalletConnect's QR code, for a wallet on a phone. Null when it isn't set up. */
   onPhoneWallet: (() => void) | null;
+  /** Two or more wallets in this browser, after Connect: the user picks one. Null otherwise. */
+  wallets?: WalletChoice[] | null;
+  onPickWallet?: (id: string) => void;
+  onCancelPick?: () => void;
   /** The signature is in: DELPHI starts reading. */
   signed: boolean;
   /** The wallet is showing the message. */
@@ -77,6 +83,9 @@ export function UploadOrb({
   connectError,
   onConnect,
   onPhoneWallet,
+  wallets = null,
+  onPickWallet,
+  onCancelPick,
   signed,
   signing,
   reopen = false,
@@ -412,19 +421,38 @@ export function UploadOrb({
       <div ref={connectBox} className={s.connect}>
         <h1 className={s.title}>Get uploaded.</h1>
         <p className={s.lede}>Connect your wallet. DELPHI reads&nbsp;it and builds a space that is yours.</p>
-        <button
-          type="button"
-          className={`${s.signBtn} ${s.connectBtn}`}
-          onClick={onConnect}
-          disabled={connecting || !!address}
-          aria-busy={connecting}
-          onPointerEnter={() => (live.current.lean = true)}
-          onPointerLeave={() => (live.current.lean = false)}
-          onFocus={() => (live.current.lean = true)}
-          onBlur={() => (live.current.lean = false)}
-        >
-          {connecting ? "Check your wallet…" : "Connect wallet"}
-        </button>
+        {wallets ? (
+          <div className={s.wallets} role="group" aria-label="Choose a wallet">
+            {wallets.map((w) => (
+              <button key={w.id} type="button" className={s.walletRow} onClick={() => onPickWallet?.(w.id)}>
+                {w.icon ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- the wallet's own data-URI icon
+                  <img src={w.icon} alt="" width={20} height={20} className={s.walletIcon} />
+                ) : (
+                  <span className={s.walletIcon} aria-hidden="true" />
+                )}
+                <span>{w.name}</span>
+              </button>
+            ))}
+            <button type="button" className={s.other} onClick={onCancelPick}>
+              Back
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className={`${s.signBtn} ${s.connectBtn}`}
+            onClick={onConnect}
+            disabled={connecting || !!address}
+            aria-busy={connecting}
+            onPointerEnter={() => (live.current.lean = true)}
+            onPointerLeave={() => (live.current.lean = false)}
+            onFocus={() => (live.current.lean = true)}
+            onBlur={() => (live.current.lean = false)}
+          >
+            {connecting ? "Check your wallet…" : "Connect wallet"}
+          </button>
+        )}
         {connectError && (
           <p className={s.error} role="alert">
             {connectError}
@@ -442,7 +470,9 @@ export function UploadOrb({
                 ? "Approve in your wallet app, then come back to this tab."
                 : "Scan the code with your phone’s wallet app."
               : "Approve the connection in your wallet."
-            : "Read-only · no fee · no seed phrase"}
+            : wallets
+              ? "Pick the wallet to connect with"
+              : "Read-only · no fee · no seed phrase"}
         </p>
       </div>
 

@@ -135,6 +135,9 @@ function Steps() {
       connectError={wallet.error}
       onConnect={() => wallet.open("wallet")}
       onPhoneWallet={wallet.hasPhone ? () => wallet.open("phone") : null}
+      wallets={wallet.choices}
+      onPickWallet={wallet.pick}
+      onCancelPick={wallet.cancelPick}
       signed={signed}
       signing={sign.isPending}
       reopen={viaApp && sign.isPending}
