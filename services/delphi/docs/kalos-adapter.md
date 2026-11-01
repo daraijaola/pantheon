@@ -4,7 +4,7 @@ DELPHI checks every new coin on Elysium (PerpMe launches, new Kalos pools and As
 
 - **Base URL:** `https://pantheonindex.com/api/delphi/v1`
 - **Open:** CORS `*`, no key, JSON only.
-- **Fast:** answers come from a local database, with no chain reads during a call. A batch of 50 takes well under 50 ms on the server.
+- **Fast:** answers come from a local database, with no chain reads during a call. The server prepares a batch of 50 in about half a millisecond.
 - **Strict:** within `v1`, fields are only ever added, never changed or removed. A breaking change becomes `/v2`, with overlap. Every answer and every record carries `v: 1`.
 - **Display only:** DELPHI reports patterns, not intent. It never holds or moves funds. If DELPHI is down, slow, or answers something you don't expect, **show nothing, never "clean"**.
 

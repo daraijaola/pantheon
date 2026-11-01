@@ -1,6 +1,6 @@
 // Load and soak tests for the feed server (src/live/server.ts), on this machine, with no extra tools.
 //   node scripts/feed-load.ts           load: 5,000 fake records; batches of 50 ids, 50 at a time, for 30 s
-//   node scripts/feed-load.ts --soak    soak: 10 minutes at a steady 100 requests a second, memory sampled
+//   node scripts/feed-load.ts --soak    soak: 10 minutes at a steady 100 requests a second, memory every 30 s
 // Options: --seconds N, --concurrency N (load), --rate N a second (soak), --records N, --writes N a second
 // (record updates while it runs, as the watcher would make; default 5), --json out/feed-load.json.
 //
@@ -33,7 +33,8 @@ const opt = (name: string, dflt: number) => {
 };
 
 type Mem = { rss: number; heapUsed: number; external: number; arrayBuffers: number };
-type ServerStats = { n: number; p50: number; p99: number; max: number; cpuMs: number; gc: { count: number; totalMs: number; maxMs: number; over10ms: number }; loopDelayMs: { p99: number; max: number } };
+type Stall = { atS: number; ms: number; what: string };
+type ServerStats = { n: number; p50: number; p99: number; max: number; cpuMs: number; gc: { count: number; totalMs: number; maxMs: number; over10ms: number }; loopDelayMs: { p99: number; max: number }; stalls: Stall[] };
 type FromChild = { port: number } | { mem: Mem } | { server: ServerStats };
 
 // ---------------------------------------------------------------------------------------------------
@@ -51,16 +52,29 @@ if (args[0] === "--serve") {
       gc.totalMs += e.duration;
       gc.maxMs = Math.max(gc.maxMs, e.duration);
       if (e.duration > 10) gc.over10ms++;
+      if (e.duration > 100) stall(e.duration, "garbage collection");
     }
   }).observe({ entryTypes: ["gc"] });
   const loop = monitorEventLoopDelay({ resolution: 5 });
   loop.enable();
+  // Every pause over 100 ms: a slow request (by route) or a gap in the event loop (anything blocking it).
+  const born = Date.now();
+  let stalls: Stall[] = [];
+  const stall = (ms: number, what: string) => stalls.length < 200 && stalls.push({ atS: Math.round((Date.now() - born) / 100) / 10, ms: Math.round(ms), what });
+  let beat = performance.now();
+  setInterval(() => {
+    const t = performance.now();
+    if (t - beat > 150) stall(t - beat - 50, "event loop");
+    beat = t;
+  }, 50).unref();
   const server = createFeedServer({
     store,
     trustProxy: true,
     notifyDispute: () => {},
     log: (e) => {
-      if (e.kind === "request" && times.length < 2_000_000) times.push(e.ms);
+      if (e.kind !== "request") return;
+      if (times.length < 2_000_000) times.push(e.ms);
+      if (e.ms > 100) stall(e.ms, `${e.method} ${e.route} ${e.status}`);
     },
   });
   server.listen(0, "127.0.0.1", () => process.send!({ port: (server.address() as AddressInfo).port } satisfies FromChild));
@@ -75,7 +89,8 @@ if (args[0] === "--serve") {
       const c = process.cpuUsage(cpu);
       cpu = process.cpuUsage();
       const loopDelayMs = { p99: loop.percentile(99) / 1e6, max: loop.max / 1e6 };
-      process.send!({ server: { n: s.length, p50: q(0.5), p99: q(0.99), max: s.at(-1) ?? 0, cpuMs: (c.user + c.system) / 1000, gc, loopDelayMs } } satisfies FromChild);
+      process.send!({ server: { n: s.length, p50: q(0.5), p99: q(0.99), max: s.at(-1) ?? 0, cpuMs: (c.user + c.system) / 1000, gc, loopDelayMs, stalls } } satisfies FromChild);
+      stalls = [];
       times.length = 0;
       gc = { count: 0, totalMs: 0, maxMs: 0, over10ms: 0 };
       loop.reset();
@@ -196,7 +211,7 @@ async function main(): Promise<void> {
     let inflight = 0;
     let dropped = 0;
     let fired = 0;
-    const memTimer = setInterval(() => void sampleMem(), 10_000);
+    const memTimer = setInterval(() => void sampleMem(), 30_000); // each sample forces a full GC, so not too often
     let lastReport = Date.now();
     await new Promise<void>((resolve) => {
       const tick = setInterval(() => {
@@ -274,6 +289,7 @@ async function main(): Promise<void> {
     serverHandlerMs: { p50: +srv.p50.toFixed(3), p99: +srv.p99.toFixed(3), max: +srv.max.toFixed(2) },
     serverGc: { pauses: srv.gc.count, totalMs: Math.round(srv.gc.totalMs), maxMs: +srv.gc.maxMs.toFixed(1), over10ms: srv.gc.over10ms },
     serverEventLoopDelayMs: { p99: +srv.loopDelayMs.p99.toFixed(1), max: +srv.loopDelayMs.max.toFixed(1) },
+    serverStallsOver100ms: srv.stalls,
     cpuOfOneCore: { server: `${Math.round(srv.cpuMs / 10 / elapsed)}%`, client: `${Math.round((cc.user + cc.system) / 1e4 / elapsed)}%` },
     avgAnswerKB: Math.round(bytes / Math.max(1, s.length) / 102.4) / 10,
     recordsSchemaChecked: checked,

@@ -1,0 +1,59 @@
+# DELPHI live feed (scripts/feed.ts): pantheonindex.com/api/delphi/* → 127.0.0.1:3210, via Caddy
+# (deploy/Caddyfile.delphi-feed). Install:
+#   sudo install -m 0644 deploy/delphi-feed.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now delphi-feed
+# Logs: sudo journalctl -u delphi-feed -f   (a summary line a minute, plus every error and dispute)
+#
+# Runs as ayinde, like DELPHI's other services: it must open the watcher's feed.db, and SQLite's WAL mode
+# needs write access to the database's -wal and -shm files even for reading. FEED_DB must be the file the
+# watcher writes. It needs no key, makes no outgoing connections and only talks to Caddy on loopback.
+
+[Unit]
+Description=DELPHI live feed for apps (127.0.0.1:3210)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+User=ayinde
+Group=ayinde
+WorkingDirectory=/srv/hackathon/pantheon/services/delphi
+ExecStart=/usr/bin/node scripts/feed.ts
+Environment=NODE_ENV=production
+Environment=PORT=3210
+Environment=FEED_DB=/srv/hackathon/pantheon/services/delphi/data/feed.db
+Environment=DISPUTE_LOG=/srv/hackathon/pantheon/services/delphi/out/disputes.log
+Restart=always
+RestartSec=3
+# The server finishes open requests (up to 5 s) and closes its database on SIGTERM.
+TimeoutStopSec=15
+UMask=0077
+MemoryMax=512M
+LimitNOFILE=8192
+
+# Lock-down: read-only system and code, writes only to data/ and out/, loopback traffic only.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/srv/hackathon/pantheon/services/delphi/data /srv/hackathon/pantheon/services/delphi/out
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressAllow=localhost
+IPAddressDeny=any
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
