@@ -3,7 +3,7 @@
 // from the zod schema itself (as JSON Schema), so they can never drift; the meanings are written here, and
 // a test checks that every schema field has one and that docs/kalos-adapter.md lists them all.
 import { z } from "zod";
-import { Dispute, FeedRecord } from "./types.ts";
+import { Dispute, DisputeSignature, FeedRecord, SIGNATURE_WINDOW_SEC } from "./types.ts";
 
 /** The feed format version: a field's meaning never changes within it. */
 export const FEED_FORMAT = 1;
@@ -85,7 +85,9 @@ export const ERRORS: Record<string, string> = {
   "bad-limit": "limit must be a whole number from 1 to 100 (400).",
   "bad-before": "before must be a block number (400).",
   "bad-json": "The body is not JSON (400).",
-  "bad-dispute": "The dispute breaks the format; `fields` names the bad ones (400).",
+  "bad-dispute": "The dispute breaks the format; `fields` names the bad ones (400). A signed dispute needs all of wallet, signedAt and signature.",
+  "stale-signature": "A signed dispute's signedAt is more than 10 minutes from DELPHI's clock (400): sign it again.",
+  "bad-signature": "The signature is not the wallet's signature of this dispute's message (400). Nothing was stored.",
   unknown: "DELPHI has no record of this token (404). `token` is the address asked for, lowercase.",
   "not-found": "No such endpoint (404).",
   "method-not-allowed": "Wrong method for this endpoint; see the Allow header (405).",
@@ -104,7 +106,13 @@ export const ENDPOINTS = [
   { method: "GET", path: "/v1/history/{address}", returns: "{v, token, items:[{atMs, verdict, rules, why}], servedAtMs}. Every verdict the coin has had, oldest first: DELPHI's public record." },
   { method: "GET", path: "/v1/health", returns: "{v, ok, version, newestUpdateMs, servedAtMs}. Never cached." },
   { method: "GET", path: "/v1/format", returns: "This description." },
-  { method: "POST", path: "/v1/dispute", returns: "Body {token, contact, message} as application/json (max 4 KB) → 201 {v, ok:true, id, status:\"open\"}. A person answers every dispute." },
+  {
+    method: "POST",
+    path: "/v1/dispute",
+    returns:
+      "Body {token, contact, message} as application/json (max 4 KB) → 201 {v, ok:true, id, status:\"open\"}. A person answers every dispute. " +
+      "Optionally signed by the wallet a finding names: add {wallet, signedAt, signature}, an EIP-191 (personal_sign) signature over signedDispute.message, made within 10 minutes → 201 {..., signed:true}. The wallet is never published.",
+  },
 ];
 
 /** The description served at /v1/format, built once. */
@@ -135,6 +143,11 @@ export function formatDescription(limits: { maxIds: number; maxNew: number; maxB
       "symbol and name come from the coin's creator: render them as text, never as HTML.",
       "Every flag links to its evidence and can be disputed at disputeUrl.",
     ],
-    schema: { record: z.toJSONSchema(FeedRecord), dispute: z.toJSONSchema(Dispute) },
+    signedDispute: {
+      message: "PANTHEON dispute\ncoin: {token, lowercase}\nmessage sha256: {sha256 of the message's UTF-8 bytes, 64 lowercase hex}\nsigned at: {signedAt, unix seconds}",
+      signedAtWindowSec: SIGNATURE_WINDOW_SEC,
+      about: "Ties a dispute to the wallet a finding names. The signature is checked and the wallet kept for the person who answers; the answer says only signed:true.",
+    },
+    schema: { record: z.toJSONSchema(FeedRecord), dispute: z.toJSONSchema(Dispute), disputeSignature: z.toJSONSchema(DisputeSignature) },
   };
 }

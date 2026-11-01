@@ -9,13 +9,15 @@ import { connect, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { getAddress } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { fakeRecord, fakeToken } from "../src/live/fake.ts";
 import { ENDPOINTS, RECORD_FIELDS } from "../src/live/format.ts";
 import { createFeedServer, expiresOf, ipKey, RateLimiter, type FeedLimits, type FeedLogEvent, type FeedServerOptions } from "../src/live/server.ts";
 import { FeedStore, type StoredDispute } from "../src/live/store.ts";
-import { Dispute, FeedRecord } from "../src/live/types.ts";
+import { Dispute, disputeMessage, FeedRecord } from "../src/live/types.ts";
 
 const T0 = 1_800_000_000_000;
 const UNKNOWN = "0x00000000000000000000000000000000000000ff";
@@ -561,6 +563,119 @@ describe("POST /v1/dispute", () => {
       expect(a.status).toBe(405);
       expect(a.headers.allow).toBe("POST, OPTIONS");
     }
+  });
+});
+
+describe("POST /v1/dispute, signed by the wallet", () => {
+  const good = { token: fakeToken(1), contact: "@someone", message: "That wallet is our market maker, not the dev." };
+  // fresh keys every run: no key material in the repo
+  const me = privateKeyToAccount(generatePrivateKey());
+  const other = privateKeyToAccount(generatePrivateKey());
+  const nowSec = (h: Harness) => Math.floor(h.clock.t / 1000);
+  /** The dispute with a signature over its message, by `me` unless told otherwise. */
+  const signed = async (h: Harness, o: { by?: typeof me; signedAt?: number } = {}) => {
+    const signedAt = o.signedAt ?? nowSec(h);
+    const signature = await (o.by ?? me).signMessage({ message: disputeMessage({ token: good.token, message: good.message, signedAt }) });
+    return { ...good, wallet: me.address, signedAt, signature };
+  };
+
+  it("keeps the wallet that signed it for the person answering, and answers only that it was signed", async () => {
+    const h = await start();
+    const a = await post(h, await signed(h));
+    expect(a.status).toBe(201);
+    expect(a.json()).toEqual({ v: 1, ok: true, id: expect.any(Number), status: "open", signed: true });
+    expect(a.text.toLowerCase()).not.toContain(me.address.slice(2).toLowerCase());
+    const stored = h.store.disputes()[0]!;
+    expect(stored).toEqual({ ...good, id: stored.id, atMs: h.clock.t, status: "open", answer: null, wallet: me.address.toLowerCase() });
+    expect(h.disputes).toEqual([stored]);
+    expect(h.logs).toContainEqual({ kind: "dispute", id: stored.id, token: good.token, signed: true });
+    // the wallet can come in any case
+    expect((await post(h, { ...(await signed(h)), wallet: me.address.toLowerCase() })).status).toBe(201);
+  });
+
+  it("refuses another wallet's signature, or one over another message, and stores nothing", async () => {
+    const h = await start();
+    const bodies = [
+      await signed(h, { by: other }), // signed by someone else for my wallet
+      { ...(await signed(h)), message: "Changed after signing." },
+      { ...(await signed(h)), token: fakeToken(2) },
+      { ...(await signed(h)), signedAt: nowSec(h) - 1 },
+      { ...(await signed(h)), signature: `0x${"ab".repeat(65)}` },
+    ];
+    for (const body of bodies) {
+      const a = await post(h, body);
+      expect(a.status).toBe(400);
+      expect(a.json()).toEqual({ v: 1, error: "bad-signature" });
+    }
+    expect(h.store.disputes()).toHaveLength(0);
+  });
+
+  it("refuses a signature made more than 10 minutes from the server's clock, either way", async () => {
+    const h = await start();
+    for (const off of [-601, 601, -86_400]) {
+      const a = await post(h, await signed(h, { signedAt: nowSec(h) + off }));
+      expect(a.status).toBe(400);
+      expect(a.json()).toEqual({ v: 1, error: "stale-signature" });
+    }
+    expect(h.store.disputes()).toHaveLength(0);
+    for (const off of [-600, 600]) expect((await post(h, await signed(h, { signedAt: nowSec(h) + off }))).status).toBe(201);
+  });
+
+  it("needs all three of wallet, signedAt and signature, and names the ones missing or bad", async () => {
+    const h = await start();
+    const s = await signed(h);
+    const cases: Array<[unknown, string[]]> = [
+      [{ ...good, wallet: s.wallet }, ["signedAt", "signature"]],
+      [{ ...good, signature: s.signature }, ["wallet", "signedAt"]],
+      [{ ...s, wallet: "0x123" }, ["wallet"]],
+      [{ ...s, signedAt: String(s.signedAt) }, ["signedAt"]],
+      [{ ...s, signedAt: s.signedAt + 0.5 }, ["signedAt"]],
+      [{ ...s, signature: "not a signature" }, ["signature"]],
+      [{ ...s, signature: "0xabc" }, ["signature"]],
+      [{ ...s, contact: 5, wallet: 7 }, ["contact", "wallet"]],
+    ];
+    for (const [body, fields] of cases) {
+      const a = await post(h, body);
+      expect(a.status, JSON.stringify(body)).toBe(400);
+      expect(a.json()).toEqual({ v: 1, error: "bad-dispute", fields });
+    }
+    expect(h.store.disputes()).toHaveLength(0);
+  });
+
+  it("leaves the unsigned form exactly as it was", async () => {
+    const h = await start();
+    const a = await post(h, good);
+    expect(a.status).toBe(201);
+    const id = a.json().id;
+    expect(a.text).toBe(`{"v":1,"ok":true,"id":${id},"status":"open"}`);
+    const stored = h.store.disputes()[0]!;
+    expect(stored).toEqual({ ...good, id, atMs: h.clock.t, status: "open", answer: null });
+    expect(stored).not.toHaveProperty("wallet");
+    expect(h.logs).toContainEqual({ kind: "dispute", id, token: good.token });
+    // empty signed fields are no signature at all
+    const b = await post(h, { ...good, wallet: null, signedAt: null, signature: null });
+    expect(b.text).toBe(`{"v":1,"ok":true,"id":${b.json().id},"status":"open"}`);
+  });
+
+  it("is described at /v1/format and in docs/kalos-adapter.md", async () => {
+    const h = await start();
+    const f = (await get(h, "/v1/format")).json() as { signedDispute: { message: string; signedAtWindowSec: number }; errors: Record<string, string>; schema: Record<string, unknown> };
+    expect(f.signedDispute).toMatchObject({ message: expect.stringMatching(/^PANTHEON dispute\ncoin: .*\nmessage sha256: .*\nsigned at: /), signedAtWindowSec: 600 });
+    expect(Object.keys(f.errors)).toEqual(expect.arrayContaining(["bad-signature", "stale-signature"]));
+    expect(f.schema.disputeSignature).toBeDefined();
+    const doc = readFileSync(new URL("../docs/kalos-adapter.md", import.meta.url), "utf8");
+    for (const s of ["PANTHEON dispute", "message sha256:", "signed at:", "stale-signature", "bad-signature", "signed:true"]) expect(doc, s).toContain(s);
+  });
+
+  it("checks with the verifier it is given, so a node can check smart wallets", async () => {
+    const SAFE = "0x5afe00000000000000000000000000000000cafe";
+    const asked: unknown[] = [];
+    const h = await start({ options: { verifySigner: async (a) => (asked.push(a), a.address.toLowerCase() === SAFE) } });
+    const signedAt = nowSec(h);
+    const body = { ...good, wallet: SAFE, signedAt, signature: "0x1234" };
+    expect((await post(h, body)).json()).toMatchObject({ ok: true, signed: true });
+    expect(asked).toEqual([{ address: getAddress(SAFE), message: disputeMessage({ token: good.token, message: good.message, signedAt }), signature: "0x1234" }]);
+    expect((await post(h, { ...body, wallet: me.address })).json()).toEqual({ v: 1, error: "bad-signature" });
   });
 });
 

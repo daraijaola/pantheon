@@ -4,11 +4,14 @@
 //   node scripts/feed.ts --seed 500      serve a scratch db of 500 fake records instead (local testing only;
 //                                        it never touches FEED_DB and is deleted on exit)
 // Logs one summary line a minute, plus every server error and every dispute. Stops cleanly on SIGTERM.
+// A dispute signed by a plain wallet is checked with no chain read. With DISPUTE_RPC set (an RPC address),
+// smart wallets can sign too: their signature is checked on chain (ERC-1271, or ERC-6492 if not deployed).
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createPublicClient, http } from "viem";
 import { fakeRecord } from "../src/live/fake.ts";
-import { appendDisputeLog, createFeedServer, type FeedLogEvent } from "../src/live/server.ts";
+import { appendDisputeLog, createFeedServer, verifyPlainWallet, type FeedLogEvent, type VerifySigner } from "../src/live/server.ts";
 import { FeedStore } from "../src/live/store.ts";
 
 const args = process.argv.slice(2);
@@ -45,7 +48,7 @@ const onLog = (e: FeedLogEvent) => {
     counts.set(e.status, (counts.get(e.status) ?? 0) + 1);
     if (times.length < 100_000) times.push(e.ms);
   } else if (e.kind === "error") say(`error in ${e.route}: ${e.message}`);
-  else say(`dispute #${e.id} about ${e.token}`);
+  else say(`dispute #${e.id} about ${e.token}${e.signed ? " (signed by the wallet)" : ""}`);
 };
 const summary = setInterval(() => {
   if (!times.length) return;
@@ -58,7 +61,12 @@ const summary = setInterval(() => {
 }, 60_000);
 summary.unref();
 
-const server = createFeedServer({ store, log: onLog, trustProxy: true, notifyDispute: appendDisputeLog(process.env.DISPUTE_LOG || "out/disputes.log") });
+const disputeRpc = process.env.DISPUTE_RPC;
+const chain = disputeRpc ? createPublicClient({ transport: http(disputeRpc, { timeout: 5_000, retryCount: 0 }) }) : null;
+// A node that fails is an error on our side (500), never a "bad signature"; viem falls back to plain wallets by itself.
+const verifySigner: VerifySigner = chain ? (a) => chain.verifyMessage(a) : verifyPlainWallet;
+if (chain) say("signed disputes: smart wallets are checked on chain too");
+const server = createFeedServer({ store, log: onLog, trustProxy: true, notifyDispute: appendDisputeLog(process.env.DISPUTE_LOG || "out/disputes.log"), verifySigner });
 server.listen(port, "127.0.0.1", () => {
   const newest = store.db.prepare("SELECT COUNT(*) AS n, MAX(updated_ms) AS t FROM feed").get() as { n: number; t: number | null };
   say(`serving ${dbPath} on http://127.0.0.1:${port}/v1/ (${newest.n} records${newest.t ? `, newest ${new Date(newest.t).toISOString()}` : ""})`);

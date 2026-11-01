@@ -177,3 +177,32 @@ Content-Type: application/json
 | 429 | `{v:1, error:"rate-limited"}` + `Retry-After` | "Too many disputes from here; try again in an hour." (5 an hour per address.) |
 
 The message is stored as plain text and is never shown back in an answer, so the page must not echo it as HTML either.
+
+### Signed by the wallet (optional)
+
+A dispute can be tied to the wallet a finding names: the wallet signs a fixed, plain message (EIP-191 `personal_sign`), and the body carries three more fields. The unsigned form above keeps working exactly as it is.
+
+```http
+POST /api/delphi/v1/dispute
+Content-Type: application/json
+
+{"token": "0x…", "contact": "…", "message": "…", "wallet": "0x…", "signedAt": 1793750400, "signature": "0x…"}
+```
+
+The message to sign, four lines joined by `\n`, with no line break at the end:
+
+```text
+PANTHEON dispute
+coin: <token, lowercase>
+message sha256: <sha256 of the message's UTF-8 bytes, 64 lowercase hex characters>
+signed at: <signedAt, unix seconds>
+```
+
+With viem: `walletClient.signMessage({ account, message })`, after `sha256(stringToBytes(message)).slice(2)` for the third line. `signedAt` must be within 10 minutes of DELPHI's clock, either way. Plain wallets are checked with no chain read; smart wallets (ERC-1271, or ERC-6492 before they are deployed) when the feed runs with `DISPUTE_RPC` set.
+
+| Status | Body | Show |
+|---|---|---|
+| 201 | `{v:1, ok:true, id, status:"open", signed:true}` | "Thanks: a person will answer. Signed by your wallet." The wallet is kept for the person who answers and never published. |
+| 400 | `{v:1, error:"bad-dispute", fields:["signature"]}` | A field of the signed form is missing or malformed: all three of `wallet`, `signedAt` and `signature` are needed. |
+| 400 | `{v:1, error:"stale-signature"}` | "That signature is too old: sign again." |
+| 400 | `{v:1, error:"bad-signature"}` | "That signature isn't this wallet's, for this message: sign again." Nothing is stored. |

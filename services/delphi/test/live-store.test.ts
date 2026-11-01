@@ -1,6 +1,10 @@
+import Database from "better-sqlite3";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FeedStore } from "../src/live/store.ts";
-import { FeedRecord } from "../src/live/types.ts";
+import { disputeMessage, FeedRecord } from "../src/live/types.ts";
 
 const T = "0x00000000000000000000000000000000000000a3";
 const C = "0x00000000000000000000000000000000000000c0";
@@ -75,6 +79,38 @@ describe("FeedStore", () => {
     s.answerDispute(id, "changed", "right: rules v0.5 treat it as a market maker now");
     expect(s.disputes("open")).toHaveLength(0);
     expect(s.disputes()[0]).toMatchObject({ status: "changed", answer: expect.stringContaining("market maker") });
+  });
+
+  it("adds the wallet column to a feed database made before signed disputes, and keeps its disputes", () => {
+    const dir = mkdtempSync(join(tmpdir(), "delphi-feed-old-"));
+    const path = join(dir, "feed.db");
+    try {
+      // the disputes table as it was before signed disputes
+      const old = new Database(path);
+      old.exec("CREATE TABLE disputes (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL, contact TEXT NOT NULL, message TEXT NOT NULL, at_ms INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'open', answer TEXT)");
+      old.prepare("INSERT INTO disputes (token, contact, message, at_ms) VALUES (?, ?, ?, ?)").run(T, "@before", "an old dispute", 1);
+      old.close();
+      const s = new FeedStore(path);
+      expect(s.disputes()).toEqual([{ id: 1, token: T, contact: "@before", message: "an old dispute", atMs: 1, status: "open", answer: null }]);
+      s.addDispute({ token: T, contact: "@after", message: "signed", wallet: "0x00000000000000000000000000000000000000AB" }, 2);
+      expect(s.disputes()[1]).toMatchObject({ id: 2, wallet: "0x00000000000000000000000000000000000000ab" });
+      s.close();
+      // opening it again (the server and the watcher both do) changes nothing
+      const again = new FeedStore(path);
+      expect(again.disputes().map((d) => d.wallet)).toEqual([undefined, "0x00000000000000000000000000000000000000ab"]);
+      expect((again.db.prepare("PRAGMA table_info(disputes)").all() as Array<{ name: string }>).filter((c) => c.name === "wallet")).toHaveLength(1);
+      again.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("signs a dispute over a fixed, plain message", () => {
+    expect(disputeMessage({ token: "0x00000000000000000000000000000000000000A3", message: "hi", signedAt: 1_793_750_400 })).toBe(
+      "PANTHEON dispute\ncoin: 0x00000000000000000000000000000000000000a3\nmessage sha256: 8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4\nsigned at: 1793750400",
+    );
+    // the message's UTF-8 bytes, whatever the language
+    expect(disputeMessage({ token: T, message: "Ces deux portefeuilles — 做市商", signedAt: 1 })).toContain("message sha256: 7222c2a8b72784f6c66723d0f5789cc5ec2a7b2cfea4f0e8c46883a3ba015dd2");
   });
 
   it("accepts every field the format promises, and nothing looser", () => {

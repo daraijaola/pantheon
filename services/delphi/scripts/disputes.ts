@@ -28,6 +28,7 @@ function safe(s: string): string {
 function show(d: StoredDispute): void {
   console.log(`#${d.id}  ${new Date(d.atMs).toISOString()}  ${d.status}  ${d.token}`);
   console.log(`   from:    ${safe(d.contact) || "(no contact)"}`);
+  if (d.wallet) console.log(`   signed:  by ${d.wallet}, signature checked (never published)`);
   console.log(`   message: ${safe(d.message).replace(/\r?\n/g, "\n            ")}`);
   if (d.answer !== null) console.log(`   answer:  ${safe(d.answer)}`);
   const rec = store.get(d.token);

@@ -12,6 +12,10 @@
 //
 // Records are spliced into answers as the JSON text the store keeps, never parsed and re-written: a batch
 // of 50 costs about a quarter of a millisecond, which keeps p99 low with many callers on one thread.
+//
+// A dispute can come signed by the wallet a finding names (EIP-191 over disputeMessage(), types.ts):
+// the server checks the signature and the time, keeps the wallet for the person who answers, and says
+// only `signed: true` back. The unsigned form is answered exactly as before.
 import type Database from "better-sqlite3";
 import { createHash } from "node:crypto";
 import { appendFileSync, mkdirSync } from "node:fs";
@@ -19,9 +23,10 @@ import { createServer, STATUS_CODES, type IncomingMessage, type Server, type Ser
 import { isIP } from "node:net";
 import { dirname } from "node:path";
 import type { Duplex } from "node:stream";
+import { getAddress, verifyMessage, type Address, type Hex } from "viem";
 import { FEED_SERVER_VERSION, formatDescription } from "./format.ts";
 import type { FeedStore, StoredDispute } from "./store.ts";
-import { Dispute, type Venue } from "./types.ts";
+import { Dispute, disputeMessage, DisputeSignature, SIGNATURE_WINDOW_SEC, type Venue } from "./types.ts";
 
 /** A token bucket: `burst` requests at once, refilled at `perSecond`. */
 export type Bucket = { burst: number; perSecond: number };
@@ -71,7 +76,13 @@ export type FeedRoute = "token" | "tokens" | "new" | "history" | "health" | "for
 export type FeedLogEvent =
   | { kind: "request"; method: string; route: FeedRoute; status: number; ms: number }
   | { kind: "error"; route: FeedRoute; message: string }
-  | { kind: "dispute"; id: number; token: string };
+  | { kind: "dispute"; id: number; token: string; signed?: true };
+
+/** True if `address` signed `message` (EIP-191 personal_sign). */
+export type VerifySigner = (args: { address: Address; message: string; signature: Hex }) => Promise<boolean>;
+
+/** Plain wallets, by viem's verifyMessage, with no chain read. Something that isn't a signature is not the wallet's. */
+export const verifyPlainWallet: VerifySigner = (a) => verifyMessage(a).catch(() => false);
 
 export type FeedServerOptions = {
   store: FeedStore;
@@ -81,6 +92,11 @@ export type FeedServerOptions = {
   log?: (e: FeedLogEvent) => void;
   /** Told about each new dispute after it is stored. Default: a line in out/disputes.log. */
   notifyDispute?: (d: StoredDispute) => void | Promise<void>;
+  /**
+   * Checks a signed dispute's signature. Default: verifyPlainWallet. scripts/feed.ts passes a chain
+   * client's verifyMessage when DISPUTE_RPC is set, which also checks smart wallets (ERC-1271, ERC-6492).
+   */
+  verifySigner?: VerifySigner;
   /**
    * Behind a reverse proxy on this machine (Caddy): take the client's address from the last
    * X-Forwarded-For entry, which the proxy itself wrote. Only honoured for loopback peers.
@@ -260,6 +276,9 @@ const JSON_TYPE = /^application\/json\s*(?:;|$)/i;
 // eslint-disable-next-line no-control-regex -- finding control characters is the point
 const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/;
 const READS = new Set<FeedRoute>(["token", "tokens", "new", "history", "health", "format"]);
+/** A dispute's fields in the order a bad-dispute answer names them; the last three make the signed form. */
+const DISPUTE_FIELDS = ["token", "contact", "message", "wallet", "signedAt", "signature"] as const;
+const SIGNED = ["wallet", "signedAt", "signature"] as const;
 const TOO_LARGE = Symbol("too-large");
 const GONE = Symbol("gone");
 
@@ -315,6 +334,7 @@ export function createFeedServer(opts: FeedServerOptions): Server {
   const now = opts.now ?? Date.now;
   const log = opts.log ?? (() => {});
   const notify = opts.notifyDispute ?? appendDisputeLog();
+  const verifySigner = opts.verifySigner ?? verifyPlainWallet;
   const trustProxy = opts.trustProxy ?? false;
   const store = opts.store;
   const raw = new RawFeed(store.db);
@@ -442,29 +462,41 @@ export function createFeedServer(opts: FeedServerOptions): Server {
     }
     if (typeof input !== "object" || input === null || Array.isArray(input)) throw new HttpFail(400, "bad-dispute", { fields: ["token", "contact", "message"] });
     const o = input as Record<string, unknown>;
-    const tok = typeof o.token === "string" && ADDRESS.test(o.token) ? o.token.toLowerCase() : o.token;
-    const parsed = Dispute.safeParse({ token: tok, contact: o.contact, message: o.message });
+    const lower = (v: unknown) => (typeof v === "string" && ADDRESS.test(v) ? v.toLowerCase() : v);
+    const parsed = Dispute.safeParse({ token: lower(o.token), contact: o.contact, message: o.message });
     const bad = new Set<string>(parsed.success ? [] : parsed.error.issues.map((i) => String(i.path[0])));
     if (parsed.success) {
       if (!parsed.data.message.trim()) bad.add("message");
       if (CONTROL.test(parsed.data.message)) bad.add("message");
       if (CONTROL.test(parsed.data.contact)) bad.add("contact");
     }
-    if (!parsed.success || bad.size) throw new HttpFail(400, "bad-dispute", { fields: ["token", "contact", "message"].filter((f) => bad.has(f)) });
+    // The signed form: wallet, signedAt and signature together, or none of them (null counts as none).
+    const signing = SIGNED.some((k) => o[k] !== undefined && o[k] !== null);
+    const sig = signing ? DisputeSignature.safeParse({ wallet: lower(o.wallet), signedAt: o.signedAt, signature: o.signature }) : null;
+    if (sig && !sig.success) for (const i of sig.error.issues) bad.add(String(i.path[0]));
+    if (!parsed.success || bad.size) throw new HttpFail(400, "bad-dispute", { fields: DISPUTE_FIELDS.filter((f) => bad.has(f)) });
     const d = parsed.data;
     if (raw.one(d.token) === undefined) throw new HttpFail(404, "unknown", { token: d.token });
+    // Checked before the shared cap, so bad signatures can't use up everyone's disputes.
+    const wallet = sig?.success ? sig.data.wallet : null;
+    if (sig?.success) {
+      if (Math.abs(Math.floor(t / 1000) - sig.data.signedAt) > SIGNATURE_WINDOW_SEC) throw new HttpFail(400, "stale-signature");
+      const message = disputeMessage({ token: d.token, message: d.message, signedAt: sig.data.signedAt });
+      if (!(await verifySigner({ address: getAddress(sig.data.wallet), message, signature: sig.data.signature as Hex }))) throw new HttpFail(400, "bad-signature");
+    }
     const wait = postAll.take("all", t);
     if (wait) {
       res.setHeader("Retry-After", String(wait));
       throw new HttpFail(429, "rate-limited");
     }
-    const id = store.addDispute(d, t);
-    const stored: StoredDispute = { id, token: d.token, contact: d.contact, message: d.message, atMs: t, status: "open", answer: null };
-    log({ kind: "dispute", id, token: d.token });
+    const id = store.addDispute({ ...d, ...(wallet ? { wallet } : {}) }, t);
+    const stored: StoredDispute = { id, token: d.token, contact: d.contact, message: d.message, atMs: t, status: "open", answer: null, ...(wallet ? { wallet } : {}) };
+    log({ kind: "dispute", id, token: d.token, ...(wallet ? { signed: true as const } : {}) });
     Promise.resolve()
       .then(() => notify(stored))
       .catch((e: unknown) => log({ kind: "error", route: "dispute", message: `notifyDispute: ${e instanceof Error ? e.message : String(e)}` }));
-    send(req, res, 201, JSON.stringify({ v: 1, ok: true, id, status: "open" }));
+    // The wallet itself is never sent back: only that the dispute was signed by it.
+    send(req, res, 201, JSON.stringify({ v: 1, ok: true, id, status: "open", ...(wallet ? { signed: true } : {}) }));
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<FeedRoute> {

@@ -337,6 +337,8 @@ node scripts/feed-load.ts               # load: 5,000 records, batches of 50, 50
 node scripts/feed-load.ts --soak        # soak: 10 minutes at a steady 100 requests a second, memory sampled
 ```
 
+A dispute can also come **signed by the wallet** a finding names (EIP-191 over a fixed four-line message, made within 10 minutes; `docs/kalos-adapter.md` has the format). The feed checks the signature, keeps the wallet in the disputes table for the person answering (`scripts/disputes.ts` shows it), and answers only `signed: true`: the wallet is never published. Plain wallets need no chain read; set `DISPUTE_RPC` to an RPC address to accept smart wallets too. An older feed database gets its `wallet` column added when the store opens. The unsigned form works exactly as before.
+
 Deploying: `deploy/delphi-feed.service` (systemd) and `deploy/Caddyfile.delphi-feed` (the Caddy block).
 
 ## Commands

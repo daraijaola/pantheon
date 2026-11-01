@@ -7,7 +7,8 @@ import { dirname } from "node:path";
 import { FeedRecord, type Dispute, type Venue } from "./types.ts";
 
 export type VerdictChange = { token: string; atMs: number; verdict: FeedRecord["verdict"]; rules: string; why: string };
-export type StoredDispute = Dispute & { id: number; atMs: number; status: "open" | "answered" | "changed" | "upheld"; answer: string | null };
+/** `wallet`: set only when the dispute came signed and the signature checked out. For the person answering; never published. */
+export type StoredDispute = Dispute & { id: number; atMs: number; status: "open" | "answered" | "changed" | "upheld"; answer: string | null; wallet?: string };
 
 export class FeedStore {
   readonly db: Database.Database;
@@ -31,9 +32,17 @@ export class FeedStore {
       CREATE INDEX IF NOT EXISTS verdicts_token ON verdicts (token, at_ms);
       CREATE TABLE IF NOT EXISTS disputes (
         id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL, contact TEXT NOT NULL, message TEXT NOT NULL,
-        at_ms INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'open', answer TEXT
+        at_ms INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'open', answer TEXT, wallet TEXT
       );
     `);
+    // A feed database made before signed disputes has no wallet column: add it. In one write transaction,
+    // so the feed server and the watcher starting together can't both add it.
+    this.db
+      .transaction(() => {
+        const columns = this.db.prepare("PRAGMA table_info(disputes)").all() as Array<{ name: string }>;
+        if (!columns.some((c) => c.name === "wallet")) this.db.exec("ALTER TABLE disputes ADD COLUMN wallet TEXT");
+      })
+      .immediate();
   }
 
   /**
@@ -95,8 +104,11 @@ export class FeedStore {
     return rows.map((r) => ({ token: r.token, atMs: r.at_ms, verdict: r.verdict, rules: r.rules, why: r.why }));
   }
 
-  addDispute(d: Dispute, atMs = Date.now()): number {
-    const info = this.db.prepare("INSERT INTO disputes (token, contact, message, at_ms) VALUES (?, ?, ?, ?)").run(d.token.toLowerCase(), d.contact, d.message, atMs);
+  /** `wallet`: the wallet that signed it, only once its signature was checked. */
+  addDispute(d: Dispute & { wallet?: string }, atMs = Date.now()): number {
+    const info = this.db
+      .prepare("INSERT INTO disputes (token, contact, message, at_ms, wallet) VALUES (?, ?, ?, ?, ?)")
+      .run(d.token.toLowerCase(), d.contact, d.message, atMs, d.wallet?.toLowerCase() ?? null);
     return Number(info.lastInsertRowid);
   }
 
@@ -105,8 +117,8 @@ export class FeedStore {
       status
         ? this.db.prepare("SELECT * FROM disputes WHERE status = ? ORDER BY at_ms").all(status)
         : this.db.prepare("SELECT * FROM disputes ORDER BY at_ms").all()
-    ) as Array<{ id: number; token: string; contact: string; message: string; at_ms: number; status: StoredDispute["status"]; answer: string | null }>;
-    return rows.map((r) => ({ id: r.id, token: r.token, contact: r.contact, message: r.message, atMs: r.at_ms, status: r.status, answer: r.answer }));
+    ) as Array<{ id: number; token: string; contact: string; message: string; at_ms: number; status: StoredDispute["status"]; answer: string | null; wallet: string | null }>;
+    return rows.map((r) => ({ id: r.id, token: r.token, contact: r.contact, message: r.message, atMs: r.at_ms, status: r.status, answer: r.answer, ...(r.wallet ? { wallet: r.wallet } : {}) }));
   }
 
   answerDispute(id: number, status: Exclude<StoredDispute["status"], "open">, answer: string): void {

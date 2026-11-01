@@ -2,7 +2,7 @@
 // about them to other apps (Kalos's Sniper first). Three "doors" bring coins in: PerpMe launches,
 // new pools on Kalos's exchange, and Ascend launches. Every coin gets a feed record at once ("checking")
 // that fills in over its first hour. The record format is versioned: a meaning never changes within v1.
-import { parseAbiItem, type Address, type Hex } from "viem";
+import { parseAbiItem, sha256, stringToBytes, type Address, type Hex } from "viem";
 import { z } from "zod";
 
 /** Where a coin comes from. */
@@ -119,3 +119,29 @@ export const Dispute = z.object({
   message: text(1200),
 });
 export type Dispute = z.infer<typeof Dispute>;
+
+/**
+ * The optional signed form, which ties a dispute to the wallet a finding names: the wallet, when it
+ * signed (unix seconds), and its EIP-191 signature (personal_sign) over disputeMessage(). The server
+ * checks it and keeps the wallet for the person who answers; it is never published.
+ */
+export const DisputeSignature = z.object({
+  wallet: addr,
+  signedAt: z.number().int().nonnegative(),
+  signature: z.string().regex(/^0x(?:[0-9a-fA-F]{2})+$/).max(2_002),
+});
+export type DisputeSignature = z.infer<typeof DisputeSignature>;
+
+/** How far a signed dispute's `signedAt` may be from the server's clock, either way: 10 minutes. */
+export const SIGNATURE_WINDOW_SEC = 600;
+
+/**
+ * The plain message a wallet signs to put its name to a dispute, four lines:
+ *   PANTHEON dispute
+ *   coin: <token, lowercase>
+ *   message sha256: <sha256 of the message's UTF-8 bytes, 64 lowercase hex characters>
+ *   signed at: <unix seconds>
+ */
+export function disputeMessage(d: { token: string; message: string; signedAt: number }): string {
+  return ["PANTHEON dispute", `coin: ${d.token.toLowerCase()}`, `message sha256: ${sha256(stringToBytes(d.message)).slice(2)}`, `signed at: ${d.signedAt}`].join("\n");
+}
