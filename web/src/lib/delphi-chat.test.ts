@@ -20,16 +20,36 @@ const format = (await import(new URL("../components/delphi-chat/format.ts", impo
 const ask = (content: string) => ({ role: "user", content });
 
 /** Runs `f` with only these model keys set, then puts the real ones back. */
-function withKeys(keys: { ANTHROPIC_API_KEY?: string; XAI_API_KEY?: string }, f: () => void) {
+async function withKeys(keys: { ANTHROPIC_API_KEY?: string; XAI_API_KEY?: string }, f: () => void | Promise<void>) {
   const names = ["ANTHROPIC_API_KEY", "XAI_API_KEY"] as const;
   const before = names.map((k) => process.env[k]);
   const set = (k: string, v: string | undefined) => (v === undefined ? delete process.env[k] : (process.env[k] = v));
   try {
     for (const k of names) set(k, keys[k]);
-    f();
+    await f();
   } finally {
     names.forEach((k, i) => set(k, before[i]));
   }
+}
+
+/** Stands in for fetch: answers each call with the next of these, and keeps each request body sent. */
+function fakeFetch(...answers: Response[]): Array<Record<string, unknown>> {
+  const sent: Array<Record<string, unknown>> = [];
+  globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+    sent.push(JSON.parse(String(init?.body)));
+    return answers.shift() ?? new Response(null, { status: 500 });
+  }) as typeof fetch;
+  return sent;
+}
+
+/** A streamed reply, as the model APIs send it: each event on its own `data:` line. */
+const stream = (...events: unknown[]) => new Response(events.map((e) => `data: ${typeof e === "string" ? e : JSON.stringify(e)}\n\n`).join(""));
+
+/** Everything a model's answer says, in one string. */
+async function collect(answer: AsyncGenerator<string>): Promise<string> {
+  let out = "";
+  for await (const piece of answer) out += piece;
+  return out;
 }
 
 test("only JSON from this site is read", () => {
@@ -67,11 +87,11 @@ test("the newest messages are kept, up to 12 and 8,000 characters", () => {
   assert.equal(chat.parseMessages({ messages: [ask("q"), { role: "assistant", content: "a" }] }), null);
 });
 
-test("an earlier answer counts only with her signature on exactly that text", () => {
+test("an earlier answer counts only with her signature on exactly that text", async () => {
   const answer = "[FLAG] FOO is flagged.\n\n## What I saw\n- Five wallets bought early. ";
   const turns = (sig?: string) => ({ messages: [ask("Is FOO ok?"), { role: "assistant", content: answer, sig }, ask("Why?")] });
   const roles = (sig?: string) => chat.parseMessages(turns(sig))?.map((m) => m.role).join(" ");
-  withKeys({ ANTHROPIC_API_KEY: "test-anthropic-key" }, () => {
+  await withKeys({ ANTHROPIC_API_KEY: "test-anthropic-key" }, async () => {
     const sig = chat.sign(answer) ?? "";
     assert.ok(chat.signed(answer, sig));
     assert.equal(chat.signed(`${answer}!`, sig), false, "a changed answer");
@@ -83,10 +103,10 @@ test("an earlier answer counts only with her signature on exactly that text", ()
     assert.equal(roles(), "user user", "unsigned: left out");
     assert.equal(roles("forged"), "user user", "forged: left out");
     assert.equal(chat.parseMessages({ messages: [ask("q"), { role: "assistant", content: answer, sig }] }), null, "must end with a question");
-    withKeys({ ANTHROPIC_API_KEY: "a-new-key" }, () => assert.equal(roles(sig), "user user", "another key's signature doesn't count"));
+    await withKeys({ ANTHROPIC_API_KEY: "a-new-key" }, () => assert.equal(roles(sig), "user user", "another key's signature doesn't count"));
   });
-  withKeys({ XAI_API_KEY: "test-xai-key" }, () => assert.equal(roles(chat.sign(answer) ?? ""), "user assistant user", "Grok's key signs too"));
-  withKeys({}, () => {
+  await withKeys({ XAI_API_KEY: "test-xai-key" }, () => assert.equal(roles(chat.sign(answer) ?? ""), "user assistant user", "Grok's key signs too"));
+  await withKeys({}, () => {
     assert.equal(chat.sign(answer), null, "no model key, no signature");
     assert.equal(roles("anything"), "user user");
   });
@@ -121,4 +141,38 @@ test("names and tickers reach the model in quotes, and only the data's hashes ar
   const [point] = format.blocks(`- Five wallets bought first. ${real[0]} ${madeUp}.`, new Set(proofs));
   assert.deepEqual(point.proof, [{ kind: "tx", hash: real[0], n: 5 }], "the real one links");
   assert.deepEqual(point.pieces.at(-1), { kind: "word", text: `${madeUp}.`, n: 6 }, "the made-up one is a word");
+});
+
+test("a cut-off answer ends with a note, from Claude and from Grok", async () => {
+  const realFetch = globalThis.fetch;
+  const q = [{ role: "user" as const, content: "Is FOO ok?" }];
+  const signal = new AbortController().signal;
+  const say = (text: string) => ({ type: "content_block_delta", index: 0, delta: { type: "text_delta", text } });
+  const end = (stop_reason: string) => [{ type: "message_delta", delta: { stop_reason } }, { type: "message_stop" }];
+  const piece = (content: string, finish_reason: string | null = null) => ({ choices: [{ delta: { content }, finish_reason }] });
+  try {
+    await withKeys({ ANTHROPIC_API_KEY: "test" }, async () => {
+      const sent = fakeFetch(stream(say("[FLAG] FOO "), say("is flagged."), ...end("end_turn")));
+      assert.equal(await collect(chat.claude(q, "data", signal)), "[FLAG] FOO is flagged.");
+      assert.equal(sent[0].max_tokens, 2000);
+      fakeFetch(stream(say("[FLAG] FOO is flagged. Five wallets"), ...end("max_tokens")));
+      assert.match(await collect(chat.claude(q, "data", signal)), /Five wallets\n\n> I ran out of room/);
+      fakeFetch(stream(...end("max_tokens")));
+      await assert.rejects(collect(chat.claude(q, "data", signal)), /before writing/, "all thinking, no words: the reports answer");
+      fakeFetch(stream(say("[FLAG] FOO is")));
+      await assert.rejects(collect(chat.claude(q, "data", signal)), /ended early/, "no message_stop: not a finished answer");
+    });
+    await withKeys({ XAI_API_KEY: "test" }, async () => {
+      const sent = fakeFetch(new Response("unknown field", { status: 400 }), stream(piece("[FLAG] FOO "), piece("is flagged.", "stop"), "[DONE]"));
+      assert.equal(await collect(chat.model(q, "data", signal)), "[FLAG] FOO is flagged.");
+      assert.equal(sent[0].max_completion_tokens, 2000);
+      assert.ok("reasoning_effort" in sent[0] && !("reasoning_effort" in sent[1]), "asks again without reasoning_effort");
+      fakeFetch(stream(piece("[FLAG] FOO is flagged. Five"), piece("", "length"), "[DONE]"));
+      assert.match(await collect(chat.grok(q, "data", signal)), /Five\n\n> I ran out of room/);
+      fakeFetch(stream(piece("", "length"), "[DONE]"));
+      await assert.rejects(collect(chat.grok(q, "data", signal)), /before writing/);
+    });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

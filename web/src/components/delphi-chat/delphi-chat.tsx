@@ -182,6 +182,9 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
 
   const again = (t: Turn) => void ask(t.question, t.id);
 
+  // Leaving the page stops the answer in flight, so the server stops the model, and its cost, too.
+  useEffect(() => () => abort.current?.abort(), []);
+
   const newChat = () => {
     abort.current?.abort();
     const L = live.current;

@@ -344,11 +344,29 @@ async function* sse(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
   }
 }
 
+/** An event's JSON, or null for a keep-alive or a line split across reads. */
+function json(payload: string): unknown {
+  try {
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
+}
+
+// Room for her thinking as well as the answer: Claude's thinking counts toward this limit. Only what
+// she uses is paid for.
+const MAX_TOKENS = 2000;
+// Said at the end of an answer the limit cut off, so it doesn't just stop mid-sentence.
+const CUT_SHORT = "\n\n> I ran out of room, so this answer stops here. Ask about one part of it for more.";
+
 // The same Claude model @heyDelph answers with on X (services/delphi/src/x/config.ts, X_MODEL).
 // DELPHI_CHAT_MODEL picks another.
 const CLAUDE_MODEL = "claude-sonnet-5-5";
 
-/** Claude's answer as it streams: text pieces, in order. Throws if Anthropic refuses or the stream breaks. */
+/**
+ * Claude's answer as it streams: text pieces, in order, and a note if the token limit cut it short.
+ * Throws if Anthropic refuses, if the limit is hit before she writes a word, or if the stream breaks.
+ */
 export async function* claude(messages: ChatMessage[], data: string, signal: AbortSignal): AsyncGenerator<string> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("No ANTHROPIC_API_KEY");
@@ -360,7 +378,7 @@ export async function* claude(messages: ChatMessage[], data: string, signal: Abo
     body: JSON.stringify({
       model: process.env.DELPHI_CHAT_MODEL || CLAUDE_MODEL,
       stream: true,
-      max_tokens: 700,
+      max_tokens: MAX_TOKENS,
       // Low effort, as she answers from the data she's handed and should start writing at once.
       output_config: { effort: "low" },
       system: `${SYSTEM}\n\nDELPHI data:\n${data}`,
@@ -372,24 +390,31 @@ export async function* claude(messages: ChatMessage[], data: string, signal: Abo
     const why = (await res.text().catch(() => "")).slice(0, 300);
     throw new Error(`Anthropic answered ${res.status} ${why}`);
   }
+  let wrote = false;
   for await (const payload of sse(res.body)) {
-    try {
-      const ev = JSON.parse(payload) as { type?: string; delta?: { type?: string; text?: string }; error?: { message?: string } };
-      if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta" && ev.delta.text) yield ev.delta.text;
-      else if (ev.type === "message_stop") return;
-      else if (ev.type === "error") throw new Error(`Anthropic stream error: ${ev.error?.message ?? "unknown"}`);
-    } catch (err) {
-      if ((err as Error).message.startsWith("Anthropic")) throw err;
-      // A keep-alive or a line split across reads: skip it.
-    }
+    const ev = json(payload) as { type?: string; delta?: { type?: string; text?: string; stop_reason?: string }; error?: { message?: string } } | null;
+    if (ev?.type === "content_block_delta" && ev.delta?.type === "text_delta" && ev.delta.text) {
+      wrote = true;
+      yield ev.delta.text;
+    } else if (ev?.type === "message_delta" && ev.delta?.stop_reason === "max_tokens") {
+      // With nothing written yet, the reports answer instead.
+      if (!wrote) throw new Error("Anthropic hit max_tokens before writing");
+      yield CUT_SHORT;
+    } else if (ev?.type === "message_stop") return;
+    else if (ev?.type === "error") throw new Error(`Anthropic stream error: ${ev.error?.message ?? "unknown"}`);
   }
+  // No message_stop: the connection broke, so this isn't a finished answer.
+  throw new Error("Anthropic stream ended early");
 }
 
 // grok-4.3 with reasoning off: xAI's fast chat model since it retired grok-4-1-fast-non-reasoning
 // (May 15, 2026). Used only when there is no Claude key. DELPHI_CHAT_MODEL picks another.
 const GROK_MODEL = "grok-4.3";
 
-/** Grok's answer as it streams: text pieces, in order. Throws if xAI refuses or the stream breaks. */
+/**
+ * Grok's answer as it streams: text pieces, in order, and the same note as Claude's if the token limit
+ * cut it short. Throws if xAI refuses, if the limit is hit before a word, or if the stream breaks.
+ */
 export async function* grok(messages: ChatMessage[], data: string, signal: AbortSignal): AsyncGenerator<string> {
   const key = process.env.XAI_API_KEY;
   if (!key) throw new Error("No XAI_API_KEY");
@@ -402,7 +427,7 @@ export async function* grok(messages: ChatMessage[], data: string, signal: Abort
         model: process.env.DELPHI_CHAT_MODEL || GROK_MODEL,
         stream: true,
         temperature: 0.3,
-        max_completion_tokens: 700,
+        max_completion_tokens: MAX_TOKENS,
         // No thinking: she answers from the data she's handed, and starts writing at once.
         ...(effort ? { reasoning_effort: "none" } : {}),
         messages: [{ role: "system", content: `${SYSTEM}\n\nDELPHI data:\n${data}` }, ...messages],
@@ -416,13 +441,17 @@ export async function* grok(messages: ChatMessage[], data: string, signal: Abort
     res = await ask(false);
   }
   if (!res.ok || !res.body) throw new Error(`xAI answered ${res.status}`);
+  let wrote = false;
   for await (const payload of sse(res.body)) {
     if (payload === "[DONE]") return;
-    try {
-      const piece = (JSON.parse(payload) as { choices?: Array<{ delta?: { content?: string } }> }).choices?.[0]?.delta?.content;
-      if (piece) yield piece;
-    } catch {
-      // A keep-alive or a line split across reads: skip it.
+    const choice = (json(payload) as { choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }> } | null)?.choices?.[0];
+    if (choice?.delta?.content) {
+      wrote = true;
+      yield choice.delta.content;
+    }
+    if (choice?.finish_reason === "length") {
+      if (!wrote) throw new Error("xAI hit its token limit before writing");
+      yield CUT_SHORT;
     }
   }
 }

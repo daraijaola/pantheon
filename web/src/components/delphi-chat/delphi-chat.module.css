@@ -258,9 +258,10 @@
       shimmer 4.2s linear infinite;
   }
 }
+/* Small grey text is ink at 0.62 or more: at least 4.5:1 on the paper (0.55 was 3.9:1). */
 .timer {
   font: 400 12px/16px var(--mono);
-  color: rgb(23 23 23 / 0.55);
+  color: rgb(23 23 23 / 0.62);
   font-variant-numeric: tabular-nums;
 }
 
@@ -292,7 +293,7 @@
   font: 500 11px/16px var(--mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgb(23 23 23 / 0.55);
+  color: rgb(23 23 23 / 0.62);
 }
 .point {
   padding: 12px 0;
