@@ -1,6 +1,7 @@
-/* /upload once a wallet is connected: DELPHI's orb takes the whole page. No header, no rails: the
-   wallet chip top right, the orb, and one line under it. The orb is one WebGL canvas behind the page
-   (orb-renderer.ts); everything here is the HTML on top. */
+/* /upload: DELPHI's orb takes the whole page, from connecting a wallet to your self. No menu, no
+   rails: the wordmark top left, "Back to site" (then the wallet chip) top right, the orb, and the words
+   and one button under it. The orb is one WebGL canvas behind the page (orb-renderer.ts); everything
+   here is the HTML on top. */
 .root {
   --ink: var(--color-ink, #171717);
   --paper: var(--color-paper, #f9f9f9);
@@ -25,6 +26,38 @@
   pointer-events: none;
 }
 
+/* The wordmark, top left on the 1112px frame. */
+.logo {
+  position: absolute;
+  top: 21px;
+  left: max(16px, calc((100% - 1112px) / 2 + 4px));
+  z-index: 5;
+  display: flex;
+  color: var(--ink);
+}
+/* Before a wallet connects, the chip's place says how to leave. */
+.back {
+  position: absolute;
+  top: 14px;
+  right: max(16px, calc((100% - 1112px) / 2 + 4px));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px 0 11px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px var(--rule),
+    0 1px 2px rgb(0 0 0 / 0.04);
+  color: var(--ink);
+  font: 450 13px/1 var(--sans);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: box-shadow 0.15s;
+}
+
 /* The wallet, top right on the 1112px frame. The bead is the orb in miniature. */
 .chip {
   position: absolute;
@@ -46,6 +79,7 @@
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  animation: rise 0.4s ease-out both;
 }
 .bead {
   flex: none;
@@ -138,6 +172,63 @@
   white-space: nowrap;
 }
 
+/* ------------------------------------------------------------------ connect */
+.connect {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px;
+  text-align: center;
+  opacity: 0;
+  visibility: hidden;
+}
+.title {
+  margin: 0;
+  font-size: 40px;
+  line-height: 44px;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  color: var(--ink);
+}
+/* DELPHI's light passes along the words, as it does on every line she says. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .title {
+    background-image: linear-gradient(90deg, var(--ink) 0%, var(--ink) 45%, #ff9858 47.2%, #fb7b9f 49%, #ab75df 51%, #5381e6 52.8%, var(--ink) 55%, var(--ink) 100%);
+    background-size: 400% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 4.6s linear infinite;
+  }
+}
+.lede {
+  max-width: 330px;
+  margin: 12px 0 0;
+  font-size: 16px;
+  line-height: 24px;
+  color: rgb(23 23 23 / 0.62);
+  text-wrap: balance;
+}
+.connectBtn {
+  margin: 26px 0 0;
+}
+.connect .error {
+  margin-top: 12px;
+}
+.connect .other {
+  margin-top: 8px;
+}
+.small {
+  min-height: 16px;
+  margin: 14px 0 0;
+  font: 400 12px/16px var(--mono);
+  color: rgb(23 23 23 / 0.55);
+}
+
 /* ------------------------------------------------------------------ sign */
 .sign {
   position: absolute;
@@ -153,8 +244,9 @@
   visibility: hidden;
 }
 .signBtn {
-  height: 40px;
-  padding: 0 18px;
+  min-width: 168px;
+  height: 44px;
+  padding: 0 20px;
   border: 0;
   border-radius: 10px;
   background: var(--ink);
@@ -223,6 +315,11 @@
   }
   .ghost:hover {
     background: rgb(23 23 23 / 0.1);
+  }
+  .back:hover {
+    box-shadow:
+      0 0 0 1px rgb(23 23 23 / 0.16),
+      0 1px 2px rgb(0 0 0 / 0.04);
   }
 }
 .signBtn:not(:disabled):active {
@@ -312,15 +409,28 @@
   }
 }
 
-/* Phones: a size smaller. */
+/* Phones: a size smaller, and the button wide enough for a thumb. */
 @media (max-width: 640px) {
   .line {
     font-size: 16px;
   }
+  .title {
+    font-size: 34px;
+    line-height: 38px;
+  }
+  .lede {
+    font-size: 15px;
+    line-height: 22px;
+  }
+  .signBtn {
+    min-width: 220px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .line {
+  .line,
+  .title,
+  .chip {
     animation: none;
     will-change: auto;
   }
