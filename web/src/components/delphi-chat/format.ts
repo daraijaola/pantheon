@@ -1,6 +1,7 @@
 // DELPHI's answers are plain text with a few marks (see src/lib/delphi-chat.ts). This turns the part
 // written so far into blocks the page can draw, and keeps a running count of words, so the word being
-// written is always the last one drawn.
+// written is always the last one drawn. A transaction hash becomes a proof link only if the server
+// said it's in her data; any other hash stays a plain word.
 
 export type Verdict = "FLAG" | "WATCH" | "CLEAN" | "NOT_ENOUGH_DATA";
 
@@ -16,8 +17,8 @@ const VERDICT = /^\[(FLAG|WATCH|CLEAN|NOT ENOUGH DATA)\]/;
 const HASH = /^0x[0-9a-fA-F]{64}[.,;:)]?$/;
 const ADDRESS = /^0x[0-9a-fA-F]{40}[.,;:)]?$/;
 
-/** Blocks for `text`, which is cut at a word boundary. */
-export function blocks(text: string): Block[] {
+/** Blocks for `text`, which is cut at a word boundary. `proofs`: the hashes in her data, lowercase. */
+export function blocks(text: string, proofs: ReadonlySet<string>): Block[] {
   const out: Block[] = [];
   let n = 0;
   let para: Block | null = null;
@@ -48,23 +49,24 @@ export function blocks(text: string): Block[] {
     }
     // Plain lines next to each other are one paragraph.
     if (kind === "text" && para) {
-      para.pieces.push(...words(body, () => n++));
+      para.pieces.push(...words(body, () => n++, proofs));
       continue;
     }
     const block: Block = { kind, pieces: [], proof: [] };
     if (v) block.pieces.push({ kind: "verdict", verdict: v[1].replace(/ /g, "_") as Verdict, n: n++ });
-    for (const p of words(body, () => n++)) (p.kind === "tx" ? block.proof : block.pieces).push(p);
+    for (const p of words(body, () => n++, proofs)) (p.kind === "tx" ? block.proof : block.pieces).push(p);
     out.push(block);
     para = kind === "text" ? block : null;
   }
   return out;
 }
 
-function words(body: string, next: () => number): Piece[] {
+function words(body: string, next: () => number, proofs: ReadonlySet<string>): Piece[] {
   if (!body) return [];
   // Markdown emphasis isn't drawn: drop the marks rather than show them.
   return body.replace(/\*\*|__|`/g, "").split(/\s+/).filter(Boolean).map((w): Piece => {
-    if (HASH.test(w)) return { kind: "tx", hash: w.slice(0, 66), n: next() };
+    // A hash she wrote that isn't in her data could be made up: it's shown, but not as proof.
+    if (HASH.test(w) && proofs.has(w.slice(0, 66).toLowerCase())) return { kind: "tx", hash: w.slice(0, 66), n: next() };
     if (ADDRESS.test(w)) return { kind: "address", address: w.slice(0, 42), n: next() };
     return { kind: "word", text: w, n: next() };
   });

@@ -1,14 +1,17 @@
 // POST /api/ask-delphi: DELPHI answers a question, streamed as newline-delimited JSON:
-//   {"type":"coins","coins":[…]}   the coins the question is about (first, so the page can name them)
+//   {"type":"coins","coins":[…],"proofs":[…]}   first: the coins the question is about, so the page can
+//                                  name them, and the transactions in her data, the only ones it links
 //   {"type":"text","text":"…"}      pieces of the answer, in order
-//   {"type":"done"} or {"type":"error","error":"…"}
+//   {"type":"done","sig":"…"} or {"type":"error","error":"…"}
+// sig is her signature on the whole answer (no model key, no sig). The page sends it back with the
+// answer, and an earlier answer only counts in the conversation if it carries one.
 // The answer comes from Claude (the model @heyDelph answers with) when a Claude key is set, else Grok
 // when XAI_API_KEY is set, else straight from DELPHI's data (src/lib/delphi-chat.ts).
 // Not under /api/delphi/: on the server, Caddy sends that path to the feed.
 // Only JSON from this site is read (415 or 403 otherwise), and a visitor who asks too often gets a 429
 // with Retry-After in seconds.
 
-import { coinRef, context, findCoins, fromReports, hasModel, model, modelBudget, parseMessages, refuse, visitor, waitFor } from "@/lib/delphi-chat";
+import { coinRef, context, findCoins, fromReports, hasModel, model, modelBudget, parseMessages, refuse, sign, txsIn, visitor, waitFor } from "@/lib/delphi-chat";
 import { readDelphi } from "@/lib/delphi";
 
 export async function POST(req: Request) {
@@ -27,6 +30,7 @@ export async function POST(req: Request) {
 
   const data = await readDelphi();
   const coins = data ? findCoins(data, messages) : [];
+  const facts = context(data, coins);
   const useModel = hasModel() && modelBudget();
   const encoder = new TextEncoder();
   const upstream = new AbortController();
@@ -35,25 +39,26 @@ export async function POST(req: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (event: object) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
-      send({ type: "coins", coins: coins.map(coinRef) });
-      let said = false;
+      // Everything said so far, which is what gets signed at the end.
+      let answer = "";
+      const say = (text: string) => {
+        answer += text;
+        send({ type: "text", text });
+      };
+      const done = () => send({ type: "done", sig: sign(answer) ?? undefined });
+      send({ type: "coins", coins: coins.map(coinRef), proofs: txsIn(facts) });
       try {
-        if (useModel) {
-          for await (const text of model(messages, context(data, coins), upstream.signal)) {
-            said = true;
-            send({ type: "text", text });
-          }
-        }
-        if (!said) send({ type: "text", text: fromReports(data, coins) });
-        send({ type: "done" });
+        if (useModel) for await (const text of model(messages, facts, upstream.signal)) say(text);
+        if (!answer) say(fromReports(data, coins));
+        done();
       } catch (err) {
         if (upstream.signal.aborted) {
           // The visitor stopped it or left: nothing to send.
-        } else if (!said) {
+        } else if (!answer) {
           // The model failed before saying anything: answer from the reports instead.
           console.warn("DELPHI chat: model failed, answering from the reports.", (err as Error).message);
-          send({ type: "text", text: fromReports(data, coins) });
-          send({ type: "done" });
+          say(fromReports(data, coins));
+          done();
         } else {
           send({ type: "error", error: "STREAM_BROKE" });
         }

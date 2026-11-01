@@ -270,6 +270,8 @@
 }
 .word {
   display: inline-block;
+  /* A hash that isn't a proof link stays a word: it may wrap rather than run past a phone's edge. */
+  overflow-wrap: anywhere;
   animation: settle 0.55s ease-out both;
 }
 .head {

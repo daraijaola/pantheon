@@ -22,6 +22,8 @@ type Turn = {
   /** Her answer as written on the page so far: always cut at a word. */
   text: string;
   coins: Coin[];
+  /** The transactions in her data for this answer (lowercase): the only hashes drawn as proof links. */
+  proofs: ReadonlySet<string>;
   status: "thinking" | "writing" | "done" | "error";
   error?: string;
   /** When it was asked (performance.now). */
@@ -85,6 +87,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
   const live = useRef({
     turns: [] as Turn[],
     full: new Map<number, string>(), // everything received, per answer
+    sigs: new Map<number, string>(), // her signature on each whole answer, sent back with it
     ended: new Set<number>(), // answers whose stream is over
     errors: new Map<number, string>(), // why an answer failed, if it did
     pen: { id: -1, end: 0, start: 0, delay: 0, dur: 0, tail: 0 },
@@ -104,19 +107,24 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     if (!q || busy) return;
     const id = ++nextId.current;
     const L = live.current;
+    // Her earlier answers go back exactly as they came, with her signature: the server ignores any
+    // answer without one, so nobody can put words in her mouth.
     const history = turns
       .filter((t) => t.status === "done" && t.id !== without)
       .slice(-RECENT)
       .flatMap((t) => [
         { role: "user" as const, content: t.question },
-        { role: "assistant" as const, content: L.full.get(t.id) ?? t.text },
+        { role: "assistant" as const, content: L.full.get(t.id) ?? t.text, sig: L.sigs.get(t.id) },
       ]);
     L.full.set(id, "");
     L.ended.delete(id);
     L.stuck = true;
     setStuck(true);
     setDraft("");
-    setTurns((ts) => [...ts.filter((t) => t.id !== without), { id, question: q, text: "", coins: [], status: "thinking", at: performance.now() }]);
+    setTurns((ts) => [
+      ...ts.filter((t) => t.id !== without),
+      { id, question: q, text: "", coins: [], proofs: new Set(), status: "thinking", at: performance.now() },
+    ]);
 
     const ctrl = new AbortController();
     abort.current = ctrl;
@@ -142,10 +150,11 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
           const line = buf.slice(0, nl).trim();
           buf = buf.slice(nl + 1);
           if (!line) continue;
-          const ev = JSON.parse(line) as { type: string; text?: string; coins?: Coin[]; error?: string };
+          const ev = JSON.parse(line) as { type: string; text?: string; coins?: Coin[]; proofs?: string[]; sig?: string; error?: string };
           if (ctrl.signal.aborted) break;
-          if (ev.type === "coins") setTurn(id, (t) => ({ ...t, coins: ev.coins ?? [] }));
+          if (ev.type === "coins") setTurn(id, (t) => ({ ...t, coins: ev.coins ?? [], proofs: new Set(ev.proofs ?? []) }));
           else if (ev.type === "text" && ev.text) L.full.set(id, (L.full.get(id) ?? "") + ev.text);
+          else if (ev.type === "done" && ev.sig) L.sigs.set(id, ev.sig);
           else if (ev.type === "error") throw new Error("FAILED");
         }
       }
@@ -163,7 +172,11 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
   const stop = () => {
     const L = live.current;
     const cur = L.turns.at(-1);
-    if (cur) L.full.set(cur.id, L.pen.id === cur.id ? (L.full.get(cur.id) ?? "").slice(0, L.pen.end) : "");
+    if (cur) {
+      L.full.set(cur.id, L.pen.id === cur.id ? (L.full.get(cur.id) ?? "").slice(0, L.pen.end) : "");
+      // What's left isn't the answer she signed, so it won't count as hers.
+      L.sigs.delete(cur.id);
+    }
     abort.current?.abort();
   };
 
@@ -173,6 +186,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     abort.current?.abort();
     const L = live.current;
     L.full.clear();
+    L.sigs.clear();
     L.ended.clear();
     L.errors.clear();
     L.pen.id = -1;
@@ -544,7 +558,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
                       answers.current.set(t.id, el);
                     }}
                   >
-                    {blocks(t.text).map((b, j) => (
+                    {blocks(t.text, t.proofs).map((b, j) => (
                       <BlockView key={j} b={b} explorer={explorer} />
                     ))}
                   </div>
