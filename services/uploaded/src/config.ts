@@ -29,6 +29,10 @@ const EnvSchema = z.object({
   FRESH_READS: z.enum(["on", "off"]).default("on"),
   /** At most one fresh read this often, however many coins are asked about. */
   FRESH_GAP_SEC: wholeNumber.pipe(z.number().min(60)).default(300),
+  /** How often Guard reads on its own, to see verdicts change and creators sell. */
+  GUARD_READ_SEC: wholeNumber.pipe(z.number().min(60)).default(900),
+  /** What Guard remembers. */
+  GUARD_FILE: z.string().min(1).default("data/guard.json"),
 });
 
 export type Config = Readonly<{
@@ -43,6 +47,8 @@ export type Config = Readonly<{
   delphiDir: string;
   freshReads: boolean;
   freshGapSec: number;
+  guardReadSec: number;
+  guardFile: string;
 }>;
 
 export class ConfigError extends Error {
@@ -60,5 +66,5 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   } catch (err) {
     throw new ConfigError(`can't use ${e.DEPLOYMENT_FILE}: ${(err as Error).message.split("\n")[0]}`);
   }
-  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, deployment, indexerUrl: e.INDEXER_URL, trialsUrl: e.TRIALS_URL, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", freshGapSec: e.FRESH_GAP_SEC });
+  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, deployment, indexerUrl: e.INDEXER_URL, trialsUrl: e.TRIALS_URL, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", freshGapSec: e.FRESH_GAP_SEC, guardReadSec: e.GUARD_READ_SEC, guardFile: e.GUARD_FILE });
 }

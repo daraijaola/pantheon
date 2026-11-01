@@ -5,6 +5,7 @@
 // The written explanations are left out on purpose: they can be older than the verdicts (17 of 33 on Nov 1).
 import { readFileSync, statSync } from "node:fs";
 import { z } from "zod";
+import type { Sale, Seen } from "./guard.ts";
 
 const SITE = "https://pantheonindex.com";
 /** The scan runs twice a day and can take an hour or two: past this, say the verdicts are old. */
@@ -18,6 +19,8 @@ const Finding = z.object({
   evidence: z.array(Evidence),
 });
 const Report = z.object({
+  /** The version of DELPHI's rules this verdict came from. */
+  rules: z.string().optional(),
   coin: z.object({
     token: z.string(),
     name: z.string().nullable(),
@@ -37,6 +40,8 @@ const Scan = z.object({
   network: z.enum(["testnet", "mainnet"]),
   generatedAt: z.iso.datetime(),
   reports: z.array(Report),
+  /** Sales by creators' groups. Fresh reads have these; the scan doesn't. */
+  creatorSells: z.array(z.object({ token: z.string(), wallet: z.string(), ppm: z.number(), tx: z.string(), url: z.string(), time: z.number() })).optional(),
 });
 type Report = z.infer<typeof Report>;
 
@@ -82,7 +87,7 @@ export function reasonOf(r: Pick<Report, "verdict" | "findings" | "notes" | "sta
   return r.notes[0] ?? "See DELPHI's report on this coin.";
 }
 
-type Loaded = { network: "testnet" | "mainnet"; scannedAt: string; scannedMs: number; coins: Map<string, Report> };
+type Loaded = { network: "testnet" | "mainnet"; scannedAt: string; scannedMs: number; coins: Map<string, Report>; sales: Sale[] };
 
 function parse(json: string): Loaded {
   const scan = Scan.parse(JSON.parse(json));
@@ -91,6 +96,7 @@ function parse(json: string): Loaded {
     scannedAt: scan.generatedAt,
     scannedMs: Date.parse(scan.generatedAt),
     coins: new Map(scan.reports.map((r) => [r.coin.token.toLowerCase(), r])),
+    sales: scan.creatorSells ?? [],
   };
 }
 
@@ -162,6 +168,38 @@ export class Verdicts {
       scannedAt: from.scannedAt,
       stale: this.#stale(from),
     };
+  }
+
+  /** Every coin as DELPHI sees it now, for Guard. */
+  seen(): Seen[] {
+    const all = new Map([...(this.#loaded?.coins ?? []), ...(this.#fresh?.coins ?? [])]);
+    return [...all.keys()].flatMap((t) => {
+      const s = this.seenOne(t);
+      return s ? [s] : [];
+    });
+  }
+
+  seenOne(token: string): Seen | null {
+    const key = token.toLowerCase();
+    const r = (this.#fresh?.coins.has(key) ? this.#fresh : this.#loaded)?.coins.get(key);
+    const c = this.get(key);
+    if (!r || !c.known) return null;
+    return {
+      token: key,
+      symbol: c.symbol,
+      venue: c.venue,
+      verdict: c.verdict,
+      rules: r.rules ?? null,
+      reason: c.reason,
+      evidence: c.findings.flatMap((f) => f.evidence),
+      reportUrl: c.reportUrl,
+      disputeUrl: c.disputeUrl,
+    };
+  }
+
+  /** Sales by creators' groups, from the latest fresh read. */
+  sales(): Sale[] {
+    return this.#fresh?.sales ?? [];
   }
 
   /** The coins this wallet launched, as DELPHI's scan names their creators. */

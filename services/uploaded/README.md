@@ -4,7 +4,7 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, stake data, basket data and standing facts are done. It listens on this machine only
+Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, stake data, basket data, standing facts and Guard are done. It listens on this machine only
 (`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
@@ -28,6 +28,8 @@ npm start        # settings below; run it from this folder
 | `DELPHI_DIR` | `../delphi` | Where DELPHI's code and cache are. Fresh reads run there. |
 | `FRESH_READS` | `on` | `off` means scans only. |
 | `FRESH_GAP_SEC` | `300` | At most one fresh read this often. |
+| `GUARD_READ_SEC` | `900` | How often Guard reads on its own. Needs `FRESH_READS` on. |
+| `GUARD_FILE` | `data/guard.json` | What Guard remembers: past verdicts and its alerts. Keep this file: it's the only record of them. |
 
 A wrong value stops it at start.
 
@@ -64,6 +66,23 @@ bundled request. The explorer's API has been behind a bot check since Oct 25, so
 - **What it doesn't see:** coins DELPHI hasn't read, and PNTH that's staked (it sits in the staking contract).
 - **One wallet at a time,** to go easy on the public node. A busy launch day will need a paid node.
 - **Private on purpose:** this route must not go public before sign-in is decided.
+
+## Guard (`src/guard.ts`)
+
+`GET /wallets/{address}/guard?since={date}` lists alerts on the coins this wallet holds now, newest first, going back
+a week by default. It answers `{alerts, coinsWatched, watchingSince, salesSeenOn, unread, complete}`. Each alert has
+`kind`, the coin, `at`, `reason`, `evidence` (transactions), `reportUrl` and `disputeUrl`, plus `from` and `to` or
+`soldPct`. An empty list is the normal answer. How alerts reach people is undecided, so this only keeps the list.
+
+- **`verdict-drop`:** a coin went from CLEAN to WATCH or FLAG. Nothing else alerts, not even WATCH to FLAG, as the
+  brief says. DELPHI keeps only the latest verdict, so Guard remembers the last one in its own file.
+- **`creator-sold`:** the creator's group (creator, launcher and wallets linked to them) sold 1% or more of the supply
+  in a UTC day. One alert per coin per day, which grows if more is sold. Ascend only: only a fresh read has sales.
+- **A rules change isn't news.** If DELPHI's rules version changed, a new verdict alerts no one.
+- **It only speaks for what it watched.** The first read of a coin sets the starting point, and sales over 2 days old
+  are history, so it won't report last month on day one. `watchingSince` says when it began.
+- **Choices worth a second look:** the 1% line came from real data on Nov 1: every coin-day of sales was under 0.5% or
+  over 1%. Mainnet may differ.
 
 ## Standing facts (`src/standing.ts`)
 

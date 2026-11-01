@@ -11,7 +11,7 @@ describe("settings", () => {
   });
 
   it("has safe defaults", () => {
-    expect(loadConfig({})).toEqual({ port: 8791, rpc: "https://testnet-rpc.elysium.kinetiq.xyz", archiveRpc: "https://test-explorer.elysium.kinetiq.xyz/rpc", deployment: { staking: A, passportRegistry: A, pnth: A, usdc: A }, indexerUrl: "http://127.0.0.1:8789", trialsUrl: "http://127.0.0.1:8790", scanFile: "../delphi/out/scan.json", refreshSec: 60, delphiDir: "../delphi", freshReads: true, freshGapSec: 300 });
+    expect(loadConfig({})).toEqual({ port: 8791, rpc: "https://testnet-rpc.elysium.kinetiq.xyz", archiveRpc: "https://test-explorer.elysium.kinetiq.xyz/rpc", deployment: { staking: A, passportRegistry: A, pnth: A, usdc: A }, indexerUrl: "http://127.0.0.1:8789", trialsUrl: "http://127.0.0.1:8790", scanFile: "../delphi/out/scan.json", refreshSec: 60, delphiDir: "../delphi", freshReads: true, freshGapSec: 300, guardReadSec: 900, guardFile: "data/guard.json" });
   });
 
   it("treats an empty value as not set", () => {

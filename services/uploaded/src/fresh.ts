@@ -28,17 +28,19 @@ export class FreshChecks {
   readonly #gapMs: number;
   readonly #afterMs: number;
   readonly #log: (msg: string) => void;
+  readonly #onLoaded: () => void;
   readonly #stop = new AbortController();
   #running = false;
   #lastStart: number | null = null;
 
-  constructor(verdicts: Pick<Verdicts, "applyFresh">, run: Runner, opts: { now?: () => number; gapMs?: number; afterMs?: number; log?: (msg: string) => void } = {}) {
+  constructor(verdicts: Pick<Verdicts, "applyFresh">, run: Runner, opts: { now?: () => number; gapMs?: number; afterMs?: number; log?: (msg: string) => void; onLoaded?: () => void } = {}) {
     this.#verdicts = verdicts;
     this.#run = run;
     this.#now = opts.now ?? Date.now;
     this.#gapMs = opts.gapMs ?? GAP_MS;
     this.#afterMs = opts.afterMs ?? FRESH_AFTER_MS;
     this.#log = opts.log ?? (() => {});
+    this.#onLoaded = opts.onLoaded ?? (() => {});
   }
 
   /** Starts a read if this coin needs one and the gap has passed. True while a read that covers it is running. */
@@ -52,6 +54,13 @@ export class FreshChecks {
     return true;
   }
 
+  /** Guard's regular read: starts one if none is running and the gap has passed. */
+  tick() {
+    if (this.#stop.signal.aborted || this.#running) return;
+    if (this.#lastStart !== null && this.#now() - this.#lastStart < this.#gapMs) return;
+    this.#start();
+  }
+
   /** For shutting down: stops a running read and starts no more. */
   stop() {
     this.#stop.abort();
@@ -62,7 +71,10 @@ export class FreshChecks {
     this.#lastStart = this.#now();
     this.#run(this.#stop.signal)
       .then((json) => {
-        if (this.#verdicts.applyFresh(json)) this.#log("fresh verdicts loaded");
+        if (this.#verdicts.applyFresh(json)) {
+          this.#log("fresh verdicts loaded");
+          this.#onLoaded();
+        }
       })
       .catch((err: unknown) => {
         // The first line only: what's held keeps answering, and the next read may well work.

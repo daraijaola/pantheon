@@ -6,6 +6,7 @@ import type { BagReader } from "./bag.ts";
 import type { BasketReader } from "./basket.ts";
 import type { FreshChecks } from "./fresh.ts";
 import type { HistoryReader } from "./history.ts";
+import type { GuardReader } from "./guard.ts";
 import { NotReady, type HoldingsReader } from "./holdings.ts";
 import type { StageEvent } from "./scan.ts";
 import type { StandingReader } from "./standing.ts";
@@ -17,7 +18,7 @@ export const PER_MINUTE = 120;
 
 const Address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 
-export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent>; stake?: Pick<StakeReader, "read" | "preview">; basket?: Pick<BasketReader, "read" | "basket">; standing?: Pick<StandingReader, "read"> } = {}) {
+export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent>; stake?: Pick<StakeReader, "read" | "preview">; basket?: Pick<BasketReader, "read" | "basket">; standing?: Pick<StandingReader, "read">; guard?: Pick<GuardReader, "read"> } = {}) {
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: "127.0.0.1", bodyLimit: 1024 });
   const now = opts.now ?? Date.now;
   const hits = new Map<string, { n: number; since: number }>();
@@ -63,6 +64,23 @@ export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { log
   if (opts.history) walletRoute("history", opts.history);
   if (opts.bag) walletRoute("bag", opts.bag);
   if (opts.standing) walletRoute("standing", opts.standing);
+
+  const { guard } = opts;
+  if (guard) {
+    // A wallet's alerts. `since` (a date) picks how far back; the default is a week.
+    app.get<{ Params: { address: string }; Querystring: { since?: string } }>("/wallets/:address/guard", async (req, reply) => {
+      const wallet = Address.safeParse(req.params.address);
+      if (!wallet.success) return reply.code(400).send({ error: "INVALID_ADDRESS" });
+      const since = req.query.since === undefined ? undefined : Date.parse(req.query.since);
+      if (since !== undefined && Number.isNaN(since)) return reply.code(400).send({ error: "INVALID_SINCE" });
+      try {
+        return await reply.header("cache-control", "no-store").send(await guard.read(wallet.data, since));
+      } catch (err) {
+        req.log.warn({ error: (err as Error).message.split("\n")[0] }, "couldn't read a wallet's guard");
+        return reply.code(503).send({ error: err instanceof NotReady ? "NOT_READY" : "CHAIN_UNAVAILABLE" });
+      }
+    });
+  }
 
   const { basket } = opts;
   if (basket) {
