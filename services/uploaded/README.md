@@ -4,7 +4,7 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, stake data, basket data, standing facts and Guard are done. It listens on this machine only
+Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, stake data, basket data, standing facts, Guard and the Trials round are done. It listens on this machine only
 (`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
@@ -66,6 +66,21 @@ bundled request. The explorer's API has been behind a bot check since Oct 25, so
 - **What it doesn't see:** coins DELPHI hasn't read, and PNTH that's staked (it sits in the staking contract).
 - **One wallet at a time,** to go easy on the public node. A busy launch day will need a paid node.
 - **Private on purpose:** this route must not go public before sign-in is decided.
+
+## The Trials round (`src/trials.ts`)
+
+`GET /trials/round` answers the latest round: `{round, status, opensAt, closesAt, secondsLeft, seats, ballots, method,
+candidates}`, or 404 `NO_ROUND`, or 503 `TRIALS_UNAVAILABLE`. Each candidate has `votes`, `voters`, `rank`, `inSeat`,
+DELPHI's `verdict` now, `verdictAtOpen`, `verdictChanged`, `reason`, `reportUrl`, `disputeUrl` and `stale`.
+
+- **Two verdicts, on purpose.** A round's file records each coin's verdict when the round was set, and a coin can
+  change after that. 3 of round 5's 20 candidates had changed by Nov 1.
+- **A candidate that's now FLAG stays a candidate.** That's what the round says; the screen shows the new verdict.
+  What should happen to it is Micheal's call.
+- **`status` comes from the times,** so a remembered answer can't say open after a round has closed. The round is
+  remembered for 15 s, but the clock and the verdicts are live.
+- On Nov 1, round 5's votes matched a recount from the raw ballots on all 20 candidates. No round was open then, so the
+  open and upcoming states are covered by tests, not a real round.
 
 ## Guard (`src/guard.ts`)
 

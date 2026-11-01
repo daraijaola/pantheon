@@ -12,6 +12,7 @@ import { chainBalances, HoldingsReader } from "./holdings.ts";
 import { scanStages } from "./scan.ts";
 import { chainStake, StakeReader } from "./stake.ts";
 import { roundVoters, StandingReader } from "./standing.ts";
+import { RoundReader, trialsCalls } from "./trials.ts";
 import { Verdicts } from "./verdicts.ts";
 
 const cfg = loadConfig();
@@ -35,7 +36,7 @@ const indexer = indexerCalls(cfg.indexerUrl);
 const standing = new StandingReader({ history, stake, indexer, voters: roundVoters(cfg.trialsUrl) });
 const scan = (wallet: string) => scanStages(wallet, { history, holdings, standing, bag: (h) => bag.fromHoldings(h), log: (msg) => app.log.warn(msg) });
 const basket = new BasketReader({ verdicts, stake, indexer, rewards: chainRewards(chain, cfg.deployment.staking), usdc: cfg.deployment.usdc });
-const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, stake, basket, standing, guard: new GuardReader(guard, holdings), ...(fresh ? { fresh } : {}) });
+const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, stake, basket, standing, guard: new GuardReader(guard, holdings), round: new RoundReader(verdicts, trialsCalls(cfg.trialsUrl)), ...(fresh ? { fresh } : {}) });
 
 let lastSaid: string | null = null;
 function refresh() {

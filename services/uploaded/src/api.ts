@@ -11,6 +11,7 @@ import { NotReady, type HoldingsReader } from "./holdings.ts";
 import type { StageEvent } from "./scan.ts";
 import type { StandingReader } from "./standing.ts";
 import { UnstakeError, type StakeReader } from "./stake.ts";
+import type { RoundReader } from "./trials.ts";
 import type { Verdicts } from "./verdicts.ts";
 
 /** Requests per minute per visitor. Answers come from memory, so this only stops floods. */
@@ -18,7 +19,7 @@ export const PER_MINUTE = 120;
 
 const Address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 
-export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent>; stake?: Pick<StakeReader, "read" | "preview">; basket?: Pick<BasketReader, "read" | "basket">; standing?: Pick<StandingReader, "read">; guard?: Pick<GuardReader, "read"> } = {}) {
+export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent>; stake?: Pick<StakeReader, "read" | "preview">; basket?: Pick<BasketReader, "read" | "basket">; standing?: Pick<StandingReader, "read">; guard?: Pick<GuardReader, "read">; round?: Pick<RoundReader, "read"> } = {}) {
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: "127.0.0.1", bodyLimit: 1024 });
   const now = opts.now ?? Date.now;
   const hits = new Map<string, { n: number; since: number }>();
@@ -64,6 +65,20 @@ export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { log
   if (opts.history) walletRoute("history", opts.history);
   if (opts.bag) walletRoute("bag", opts.bag);
   if (opts.standing) walletRoute("standing", opts.standing);
+
+  const { round } = opts;
+  if (round) {
+    app.get("/trials/round", async (req, reply) => {
+      try {
+        const r = await round.read();
+        if (!r) return await reply.code(404).send({ error: "NO_ROUND" });
+        return await reply.header("cache-control", "no-store").send(r);
+      } catch (err) {
+        req.log.warn({ error: (err as Error).message.split("\n")[0] }, "couldn't read the Trials round");
+        return reply.code(503).send({ error: "TRIALS_UNAVAILABLE" });
+      }
+    });
+  }
 
   const { guard } = opts;
   if (guard) {
