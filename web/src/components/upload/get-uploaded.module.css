@@ -1,5 +1,5 @@
-/* "Get uploaded": the hero's main button. A small window onto Caspian in the cloud (code-text art,
-   public/upload/caspian-tile.webp), a soft scan line while idle, a short glitch on hover. */
+/* "Get uploaded": the hero's main button. A small window with DELPHI's orb drifting in it (the
+   /delphi/chat orb, drawn on a canvas). Nothing in the window changes on hover, click or tap. */
 .btn {
   position: relative;
   display: inline-flex;
@@ -42,16 +42,35 @@
   height: 48px;
   overflow: hidden;
   border-radius: 9px;
-  background: #f9f9f9 url("/upload/caspian-tile.webp") center / 100% 100% no-repeat;
+  background: #f9f9f9;
   box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12);
+  /* Its own layer, so the button's press never resamples the canvas. */
+  isolation: isolate;
+  transform: translateZ(0);
 }
-.sweep {
+.orb {
   position: absolute;
-  inset: 0 0 auto;
-  height: 10px;
-  transform: translateY(-12px);
-  background: linear-gradient(to bottom, transparent, rgb(23 23 23 / 0.16), transparent);
-  animation: sweep 4.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+/* Without WebGL: the orb as a still glass bead. */
+.bead {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, rgb(255 255 255 / 0.8) 0 9%, rgb(255 255 255 / 0) 15%),
+    radial-gradient(ellipse 72% 20% at 50% 60%, rgb(255 255 255 / 0.95), rgb(251 123 159 / 0.75) 42%, rgb(83 129 230 / 0) 78%),
+    radial-gradient(circle at 50% 44%, #232326, #060606 72%);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.28);
 }
 .label {
   min-width: 7.6em;
@@ -60,9 +79,6 @@
 }
 .isSoon .label {
   opacity: 0.8;
-}
-.isSoon .tile {
-  animation: glitch 0.4s steps(1) 1;
 }
 .arrow {
   margin-left: -4px;
@@ -74,36 +90,6 @@
   transform: translateX(2px);
   opacity: 0.9;
 }
-.btn:hover .tile {
-  animation: glitch 0.4s steps(1) 1;
-}
-@keyframes sweep {
-  0%,
-  55% {
-    transform: translateY(-12px);
-  }
-  85%,
-  100% {
-    transform: translateY(50px);
-  }
-}
-@keyframes glitch {
-  0% {
-    background-position: calc(50% + 2px) 50%;
-    clip-path: inset(15% 0 50% 0);
-  }
-  33% {
-    background-position: calc(50% - 2px) 50%;
-    clip-path: inset(50% 0 20% 0);
-  }
-  66% {
-    background-position: calc(50% + 1px) 50%;
-    clip-path: none;
-  }
-  100% {
-    background-position: center;
-  }
-}
 @media (max-width: 639px) {
   .btn {
     width: 100%;
@@ -112,15 +98,5 @@
     flex: 1;
     text-align: center;
     margin-right: 30px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sweep,
-  .btn:hover .tile,
-  .isSoon .tile {
-    animation: none;
-  }
-  .sweep {
-    display: none;
   }
 }
