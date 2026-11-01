@@ -61,11 +61,19 @@ if (args[0] === "--serve") {
   const born = Date.now();
   let stalls: Stall[] = [];
   const stall = (ms: number, what: string) => stalls.length < 200 && stalls.push({ atS: Math.round((Date.now() - born) / 100) / 10, ms: Math.round(ms), what });
+  // Each gap also says how many page faults (major: read back from disk or swap) and forced context switches
+  // it saw, which tells a busy or swapping machine apart from the server's own work.
   let beat = performance.now();
+  let ru = process.resourceUsage();
   setInterval(() => {
     const t = performance.now();
-    if (t - beat > 150) stall(t - beat - 50, "event loop");
+    const now = process.resourceUsage();
+    if (t - beat > 150) {
+      const faults = `${now.majorPageFault - ru.majorPageFault} major / ${now.minorPageFault - ru.minorPageFault} minor faults, ${now.involuntaryContextSwitches - ru.involuntaryContextSwitches} forced switches`;
+      stall(t - beat - 50, `event loop (${faults})`);
+    }
     beat = t;
+    ru = now;
   }, 50).unref();
   const server = createFeedServer({
     store,
@@ -138,7 +146,8 @@ async function main(): Promise<void> {
       if (m) child.send(m);
     });
   const { port } = await ask("", "port");
-  const agent = new Agent({ keepAlive: true, maxSockets: soak ? 256 : concurrency });
+  // Idle sockets are dropped after 4 s, under the server's 5 s keep-alive, as Caddy's `keepalive 4s` does.
+  const agent = new Agent({ keepAlive: true, maxSockets: soak ? 256 : concurrency, timeout: 4_000 });
   const pool = Array.from({ length: soak ? 20_000 : 5_000 }, (_, i) => `10.${(i >> 16) & 255}.${(i >> 8) & 255}.${i & 255}`);
   const pick = <T>(a: readonly T[]) => a[Math.floor(Math.random() * a.length)]!;
   let total = records;
@@ -232,10 +241,16 @@ async function main(): Promise<void> {
           else if (r < 0.97 && etags.length) {
             const [path, etag] = pick(etags).split(" ") as [string, string];
             p = once1(path, { "if-none-match": etag });
-          } else if (r < 0.99) p = once1(`/v1/token/0x${"z".repeat(40)}`);
-          else p = once1("/v1/health", { "x-forwarded-for": "203.0.113.66" }); // one address over its limit
+          } else p = once1(`/v1/token/0x${"z".repeat(40)}`);
           inflight++;
           void p.then(() => inflight--);
+          // Every 10 s one address sends 60 at once: its burst of 40 passes, the other 20 get 429.
+          if (fired % (rate * 10) === 0) {
+            for (let b = 0; b < 60; b++) {
+              inflight++;
+              void once1("/v1/health", { "x-forwarded-for": "203.0.113.66" }).then(() => inflight--);
+            }
+          }
         }
         if (Date.now() - lastReport > 60_000) {
           lastReport = Date.now();
