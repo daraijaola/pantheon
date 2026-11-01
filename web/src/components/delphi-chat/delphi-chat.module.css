@@ -1,0 +1,712 @@
+/* DELPHI's chat: ink on paper, one column, one orb. The orb is a WebGL canvas fixed over the page
+   (orb.ts), above the conversation and under the header and the composer. */
+.page {
+  --ink: var(--color-ink, #171717);
+  --paper: var(--color-paper, #f9f9f9);
+  --rule: var(--color-rule, #ebebeb);
+  --sans: var(--font-geist-sans, "Geist"), ui-sans-serif, system-ui, sans-serif;
+  --mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, monospace;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --col: 720px;
+  position: relative;
+  min-height: 100svh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+.orb {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+/* Without WebGL: the orb as a still glass bead. */
+.bead {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 34% 28%, rgb(255 255 255 / 0.8) 0 9%, rgb(255 255 255 / 0) 15%),
+    radial-gradient(ellipse 72% 20% at 50% 60%, rgb(255 255 255 / 0.95), rgb(251 123 159 / 0.75) 42%, rgb(83 129 230 / 0) 78%),
+    radial-gradient(circle at 50% 44%, #232326, #060606 72%);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.28),
+    inset 0 0 0 0.5px rgb(255 255 255 / 0.2);
+}
+
+/* ------------------------------------------------------------------ header */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  padding: 0 max(24px, calc((100% - 1112px) / 2 + 4px));
+  background: var(--paper);
+}
+/* Under it, the conversation fades out instead of meeting a hard edge. */
+.header::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(var(--paper), rgb(249 249 249 / 0));
+  pointer-events: none;
+}
+.logo {
+  display: flex;
+  color: var(--ink);
+}
+.newChat {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 13px 0 11px;
+  border: 0;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgb(23 23 23 / 0.1),
+    0 1px 2px rgb(0 0 0 / 0.04);
+  color: var(--ink);
+  font: 450 14px/1 var(--sans);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s,
+    visibility 0s 0.3s,
+    box-shadow 0.15s;
+}
+.page[data-started] .newChat {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.3s 0.4s,
+    box-shadow 0.15s;
+}
+
+/* ------------------------------------------------------------------ before the first question */
+.main {
+  position: relative;
+  z-index: 1;
+  max-width: var(--col);
+  margin: 0 auto;
+  padding: 96px 24px 200px;
+}
+.empty {
+  position: absolute;
+  top: clamp(72px, 19vh, 190px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  transition:
+    opacity 0.35s,
+    transform 0.35s var(--ease),
+    visibility 0s;
+}
+.page[data-started] .empty {
+  opacity: 0;
+  transform: translateY(-10px);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.3s,
+    transform 0.35s var(--ease),
+    visibility 0s 0.35s;
+}
+.heroSpot {
+  width: 112px;
+  height: 112px;
+  margin: 0 auto 30px;
+}
+.title {
+  margin: 0;
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.sub {
+  max-width: 440px;
+  margin: 10px auto 0;
+  padding: 0 16px;
+  font-size: 15px;
+  line-height: 23px;
+  color: rgb(23 23 23 / 0.65);
+  text-wrap: balance;
+}
+
+/* ------------------------------------------------------------------ the conversation */
+.thread {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.turn {
+  margin: 0 0 44px;
+}
+.you {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 26px;
+  animation: rise 0.45s var(--ease) both;
+}
+.bubble {
+  max-width: min(520px, 82%);
+  margin: 0;
+  padding: 11px 16px;
+  border-radius: 20px 20px 8px 20px;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgb(23 23 23 / 0.08),
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 10px 24px -14px rgb(0 0 0 / 0.18);
+  font-size: 15px;
+  line-height: 23px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.delphi {
+  position: relative;
+  min-height: 40px;
+}
+
+/* Thinking: the orb sits in .spot; her line rises in, in the orb's light, beside a timer. */
+.think {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.think[data-on] {
+  opacity: 1;
+  transition: opacity 0.3s 0.25s;
+}
+.spot {
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+.thinkLine {
+  display: inline-block;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 22px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  animation: lineIn 0.45s var(--ease) both;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .thinkLine {
+    background-image: linear-gradient(90deg, var(--ink) 0%, var(--ink) 45%, #ff9858 47.2%, #fb7b9f 49%, #ab75df 51%, #5381e6 52.8%, var(--ink) 55%, var(--ink) 100%);
+    background-size: 400% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation:
+      lineIn 0.45s var(--ease) both,
+      shimmer 3.45s linear infinite;
+  }
+}
+.timer {
+  font: 400 12px/16px var(--mono);
+  color: rgb(23 23 23 / 0.55);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Her answer. Each word is drawn as the orb writes it; the page inks it in (delphi-chat.tsx). */
+.answer {
+  position: relative;
+}
+.word {
+  display: inline-block;
+  animation: settle 0.4s ease-out both;
+}
+.head {
+  margin: 0 0 10px;
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.text {
+  margin: 0 0 12px;
+  font-size: 16px;
+  line-height: 26px;
+  color: rgb(23 23 23 / 0.9);
+}
+.label {
+  margin: 20px 0 4px;
+  font: 500 11px/16px var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(23 23 23 / 0.55);
+}
+.point {
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  font-size: 15px;
+  line-height: 23px;
+}
+.label + .point {
+  border-top: 0;
+  padding-top: 6px;
+}
+.note {
+  margin: 14px 0 0;
+  padding-left: 12px;
+  box-shadow: inset 2px 0 0 var(--rule);
+  font-size: 14px;
+  line-height: 22px;
+  color: rgb(23 23 23 / 0.62);
+}
+.proof {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.tx {
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--rule);
+  font: 12px/16px var(--mono);
+  color: rgb(23 23 23 / 0.7);
+  text-decoration: none;
+  white-space: nowrap;
+  animation: pop 0.35s var(--ease) both;
+  transition:
+    box-shadow 0.15s,
+    color 0.15s;
+}
+.address {
+  font: 13px/1 var(--mono);
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: rgb(23 23 23 / 0.25);
+  text-underline-offset: 3px;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  margin-right: 2px;
+  padding: 0 9px;
+  border-radius: 999px;
+  vertical-align: 2px;
+  font: 500 12px/1 var(--mono);
+  white-space: nowrap;
+  animation: pop 0.35s var(--ease) both;
+}
+.FLAG {
+  background: var(--ink);
+  color: #fff;
+}
+.WATCH {
+  box-shadow: inset 0 0 0 1px var(--ink);
+  color: var(--ink);
+}
+.CLEAN {
+  background: rgb(23 23 23 / 0.07);
+  color: var(--ink);
+}
+.NOT_ENOUGH_DATA {
+  border: 1px dashed rgb(23 23 23 / 0.3);
+  color: rgb(23 23 23 / 0.6);
+}
+/* Beside the orb, which rests where she was thinking. */
+.error,
+.stopped {
+  margin: 0;
+  padding: 7px 0 0 38px;
+  font-size: 14px;
+  line-height: 22px;
+  color: #9a1c1c;
+}
+.stopped {
+  color: rgb(23 23 23 / 0.5);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 14px 0 0 -10px;
+  animation: rise 0.4s 0.15s var(--ease) both;
+}
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgb(23 23 23 / 0.6);
+  font: 450 13px/1 var(--sans);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+/* ------------------------------------------------------------------ the composer */
+.dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  padding: 0 16px calc(20px + env(safe-area-inset-bottom));
+  pointer-events: none;
+  transition: transform 0.65s cubic-bezier(0.65, 0, 0.35, 1);
+}
+/* Paper behind it, so the conversation fades out as it scrolls under. */
+.dock::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(100% + 40px);
+  z-index: -1;
+  background: linear-gradient(rgb(249 249 249 / 0), var(--paper) 46%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.page[data-started] .dock::before {
+  opacity: 1;
+}
+.composer {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: var(--col);
+  margin: 0 auto;
+  padding: 11px 11px 11px 20px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgb(23 23 23 / 0.08),
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 2px 6px -2px rgb(0 0 0 / 0.05),
+    0 18px 40px -16px rgb(0 0 0 / 0.18);
+  pointer-events: auto;
+  transition: box-shadow 0.2s;
+}
+.composer:focus-within {
+  box-shadow:
+    0 0 0 1px rgb(23 23 23 / 0.2),
+    0 1px 2px rgb(0 0 0 / 0.05),
+    0 2px 6px -2px rgb(0 0 0 / 0.06),
+    0 22px 48px -18px rgb(0 0 0 / 0.24);
+}
+.field {
+  flex: 1;
+  min-width: 0;
+  min-height: 22px;
+  margin: 7px 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--ink);
+  font: 400 15px/22px var(--sans);
+}
+.field::placeholder {
+  color: rgb(23 23 23 / 0.4);
+}
+/* The whole composer shows focus (above), so the field itself drops the site-wide ring. */
+.composer .field:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Send: a small block of ink glass, lit from above, with a pixel arrow. Empty, it's paper; the ink
+   fades in with the first letter you type. */
+.send {
+  position: relative;
+  isolation: isolate;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(180deg, #fff 0%, #f3f3f3 100%);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 0 0 1px rgb(23 23 23 / 0.1),
+    0 1px 2px rgb(0 0 0 / 0.05);
+  cursor: pointer;
+  transition:
+    transform 0.18s var(--ease),
+    color 0.2s;
+}
+.send::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #303030 0%, #1c1c1c 48%, #0e0e0e 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    inset 0 -1px 0 rgb(0 0 0 / 0.5),
+    0 0 0 1px #0a0a0a,
+    0 1px 2px rgb(0 0 0 / 0.25),
+    0 8px 16px -8px rgb(0 0 0 / 0.55);
+  transition:
+    opacity 0.2s,
+    box-shadow 0.18s;
+}
+.send svg {
+  transition: transform 0.18s var(--ease);
+}
+.send:disabled {
+  cursor: default;
+  color: rgb(23 23 23 / 0.28);
+}
+.send:disabled::before {
+  opacity: 0;
+}
+.send:not(:disabled):active {
+  transform: scale(0.94);
+}
+.send:focus-visible,
+.newChat:focus-visible,
+.action:focus-visible,
+.suggestion:focus-visible,
+.latest:focus-visible,
+.tx:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* First questions, under the composer before the chat starts. */
+.suggestions {
+  position: absolute;
+  top: calc(100% - 4px);
+  left: 16px;
+  right: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: var(--col);
+  margin: 0 auto;
+  pointer-events: auto;
+  transition:
+    opacity 0.2s,
+    visibility 0s;
+}
+.page[data-started] .suggestions {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s,
+    visibility 0s 0.15s;
+}
+.suggestion {
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgb(23 23 23 / 0.09),
+    0 1px 2px rgb(0 0 0 / 0.04);
+  color: rgb(23 23 23 / 0.8);
+  font: 450 13px/1 var(--sans);
+  cursor: pointer;
+  transition:
+    box-shadow 0.15s,
+    color 0.15s,
+    transform 0.15s var(--ease);
+}
+.latest {
+  position: fixed;
+  left: 50%;
+  bottom: calc(108px + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-left: -17px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgb(23 23 23 / 0.1),
+    0 6px 16px -6px rgb(0 0 0 / 0.2);
+  color: var(--ink);
+  cursor: pointer;
+  animation: rise 0.3s var(--ease) both;
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .newChat:hover {
+    box-shadow:
+      0 0 0 1px rgb(23 23 23 / 0.22),
+      0 1px 2px rgb(0 0 0 / 0.05);
+  }
+  .send:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+  .send:not(:disabled):hover::before {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.2),
+      inset 0 -1px 0 rgb(0 0 0 / 0.5),
+      0 0 0 1px #0a0a0a,
+      0 2px 4px rgb(0 0 0 / 0.25),
+      0 12px 22px -10px rgb(0 0 0 / 0.6);
+  }
+  .send:not(:disabled):hover svg {
+    transform: translateY(-1px);
+  }
+  .suggestion:hover {
+    box-shadow:
+      0 0 0 1px rgb(23 23 23 / 0.22),
+      0 2px 4px rgb(0 0 0 / 0.05);
+    color: var(--ink);
+    transform: translateY(-1px);
+  }
+  .action:hover {
+    background: rgb(23 23 23 / 0.05);
+    color: var(--ink);
+  }
+  .tx:hover {
+    box-shadow: 0 0 0 1px rgb(23 23 23 / 0.25);
+    color: var(--ink);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+@keyframes settle {
+  from {
+    filter: blur(1.6px);
+  }
+}
+@keyframes lineIn {
+  from {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translateY(6px);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
+
+/* Phones: a 16px field, so iOS doesn't zoom in; tighter gutters. */
+@media (max-width: 640px) {
+  .header {
+    height: 56px;
+    padding: 0 16px;
+  }
+  .main {
+    padding: 80px 16px 170px;
+  }
+  .heroSpot {
+    width: 92px;
+    height: 92px;
+    margin-bottom: 26px;
+  }
+  .title {
+    font-size: 22px;
+    line-height: 28px;
+  }
+  .head {
+    font-size: 17px;
+    line-height: 26px;
+  }
+  .text {
+    font-size: 15px;
+    line-height: 24px;
+  }
+  .field {
+    font-size: 16px;
+  }
+  .composer {
+    padding: 9px 9px 9px 16px;
+    border-radius: 22px;
+  }
+  .dock {
+    padding: 0 12px calc(12px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .you,
+  .word,
+  .tx,
+  .pill,
+  .actions,
+  .latest,
+  .thinkLine {
+    animation: none;
+  }
+  .dock,
+  .empty,
+  .think,
+  .send,
+  .send::before,
+  .send svg,
+  .suggestion {
+    transition: none;
+  }
+}

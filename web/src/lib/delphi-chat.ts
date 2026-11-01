@@ -1,0 +1,414 @@
+// DELPHI's chat, the server side: which coins a question is about, what DELPHI's published data says
+// about them, and the answer. With a Claude key set (the model @heyDelph answers with on X), Claude
+// writes it from that data; failing that, Grok with XAI_API_KEY; without either, or if the model fails
+// before it says anything, the answer is written straight from the data. Either way she only speaks
+// from DELPHI's data, and never says to buy or sell.
+//
+// She knows two lists (src/lib/delphi.ts): Ascend's coins, with a written report for the busiest, and
+// every coin on Kalos, from its own pools and from PerpMe launches, with contract checks too.
+//
+// The answer is plain text with a few marks the page draws (delphi-chat/format.ts):
+//   [FLAG] / [WATCH] / [CLEAN] / [NOT ENOUGH DATA] at the start of a line: the verdict pill
+//   ## A label        - A finding, ending with its transaction hashes        > A caveat
+
+import { isIP } from "node:net";
+import { headline, type CoinRow, type Delphi, type KalosRow, type Verdict } from "@/lib/delphi";
+
+export type ChatMessage = { role: "user" | "assistant"; content: string };
+export type Market = "ascend" | "kalos" | "perpme";
+/** A coin from either list. Kalos's fields are there for Kalos and PerpMe coins only. */
+export type Coin = CoinRow & Partial<Omit<KalosRow, keyof CoinRow>> & { market: Market };
+export type CoinRef = { symbol: string | null; token: string; verdict: Verdict; market: Market };
+
+const TAG: Record<Verdict, string> = { FLAG: "[FLAG]", WATCH: "[WATCH]", CLEAN: "[CLEAN]", NOT_ENOUGH_DATA: "[NOT ENOUGH DATA]" };
+const SAYS: Record<Verdict, string> = { FLAG: "is flagged", WATCH: "is on watch", CLEAN: "is clean", NOT_ENOUGH_DATA: "doesn’t have enough data yet" };
+
+// ------------------------------------------------------------------ the question
+
+const LIMITS = { messages: 12, user: 2000, assistant: 4000 };
+
+/** The conversation from the request body, trimmed, or null if it isn't one. */
+export function parseMessages(body: unknown): ChatMessage[] | null {
+  const raw = (body as { messages?: unknown } | null)?.messages;
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 40) return null;
+  const out: ChatMessage[] = [];
+  for (const m of raw) {
+    const role = (m as { role?: unknown })?.role;
+    const content = (m as { content?: unknown })?.content;
+    if ((role !== "user" && role !== "assistant") || typeof content !== "string") return null;
+    const text = content.trim().slice(0, role === "user" ? LIMITS.user : LIMITS.assistant);
+    if (text) out.push({ role, content: text });
+  }
+  if (out.at(-1)?.role !== "user") return null;
+  return out.slice(-LIMITS.messages);
+}
+
+/** Every coin DELPHI has read: Ascend's, then Kalos's. */
+function everyCoin(data: Delphi): Coin[] {
+  return [
+    ...data.coins.map((c): Coin => ({ ...c, market: "ascend" })),
+    ...(data.kalos?.coins ?? []).map((c): Coin => ({ ...c, market: c.venue ?? "kalos" })),
+  ];
+}
+
+// Words that are tickers on some launchpad but are far more often just words in a question.
+const COMMON = new Set(
+  ("A I AM AN AND ANY ARE AS AT BE BUT BUY BY CAN COIN COINS DO FOR FROM GET HAS HE HOW IF IN IS IT ITS ME MY NO NOT NOW OF OK ON OR OUT SELL SO THAT THE THEM THEN THEY THIS TO UP US WAS WE WHAT WHEN WHO WHY WITH YES YOU " +
+    "ABOUT ALL BEST CLEAN COULD DELPHI FLAG FLAGGED GIVE GOOD HELLO HEY HI LIST MOST NEW RUG SAFE SHOULD SHOW TELL THANKS TOP WATCH WHERE WHICH WOULD").split(" "),
+);
+const ADDRESS = /0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/g;
+
+/**
+ * The coins a conversation is about, from the newest question that names one: by address, "$TICKER"
+ * or TICKER first, then a lowercase word that is also a ticker.
+ */
+export function findCoins(data: Delphi, messages: ChatMessage[]): Coin[] {
+  const all = everyCoin(data);
+  const byToken = new Map(all.map((c) => [c.token.toLowerCase(), c]));
+  const bySymbol = new Map<string, Coin>();
+  for (const c of all) {
+    if (!c.symbol) continue;
+    const key = c.symbol.toUpperCase();
+    const seen = bySymbol.get(key);
+    if (!seen || c.trades > seen.trades) bySymbol.set(key, c);
+  }
+  const asked = messages.filter((m) => m.role === "user").slice(-3).reverse();
+  for (const m of asked) {
+    const sure: Coin[] = [];
+    const maybe: Coin[] = [];
+    const add = (to: Coin[], c: Coin | undefined) => {
+      if (c && !sure.includes(c) && !maybe.includes(c)) to.push(c);
+    };
+    for (const a of m.content.match(ADDRESS) ?? []) add(sure, byToken.get(a.toLowerCase()));
+    for (const w of m.content.replace(ADDRESS, " ").match(/\$?[A-Za-z0-9]{2,12}/g) ?? []) {
+      const word = w.replace("$", "");
+      const key = word.toUpperCase();
+      const marked = w.startsWith("$") || (word === key && /[A-Z]/.test(word));
+      if (!w.startsWith("$") && COMMON.has(key)) continue;
+      if (!marked && word.length < 3) continue;
+      add(marked ? sure : maybe, bySymbol.get(key));
+    }
+    const found = [...sure, ...maybe];
+    if (found.length) return found.slice(0, 3);
+  }
+  return [];
+}
+
+export const coinRef = (c: Coin): CoinRef => ({ symbol: c.symbol, token: c.token, verdict: c.verdict, market: c.market });
+
+// ------------------------------------------------------------------ what DELPHI knows
+
+/** What a Kalos coin's contract checks found, said once each (as on /delphi/kalos). */
+function contractRisks(c: Coin): string[] {
+  const sf = c.safety;
+  if (!sf) return [];
+  return sf.risks.filter((r) => r !== "verified" && !(r === "owner" && sf.risks.includes("powers"))).map((r) => sf.checks[r].summary);
+}
+
+/** Context the checks saw that isn't cheating (who a big wallet is, a crowd farming), minus housekeeping. */
+const notesOf = (c: Coin) => (c.notes ?? []).filter((n) => !/^(Too busy to read|\d+ decimals|Supply changed|Contracts hold)/.test(n));
+
+/** Where a Kalos coin trades, in a sentence. */
+function venue(c: Coin): string {
+  if (c.market === "perpme") return c.lpLocked ? "It launched on PerpMe, and its liquidity is locked for good." : "It launched on PerpMe.";
+  if (!c.pools) return "It has no Kalos pool with liquidity right now.";
+  return `It trades in ${c.pools === 1 ? "a Kalos pool" : `${c.pools} Kalos pools`}.`;
+}
+
+const pct = (n: number) => `${Math.round(n * 10) / 10}%`;
+
+/** DELPHI's data for the model: the scan, then each coin asked about, or the flagged lists. */
+export function context(data: Delphi | null, coins: Coin[]): string {
+  if (!data) return "DELPHI has not published a scan yet. You have no coin data: say so plainly.";
+  const n = data.counts;
+  const k = data.kalos?.counts;
+  const lines = [
+    `Scan: last on ${(data.scannedAt ?? data.generatedAt).slice(0, 16).replace("T", " ")} UTC, rules ${data.rules.version}.`,
+    `Ascend: ${n.coins} coins. ${n.FLAG} flagged, ${n.WATCH} on watch, ${n.CLEAN} clean, ${n.NOT_ENOUGH_DATA} without enough data.`,
+  ];
+  if (k) lines.push(`Kalos and PerpMe: ${k.coins} coins. ${k.FLAG} flagged, ${k.WATCH} on watch, ${k.CLEAN} clean, ${k.NOT_ENOUGH_DATA} without enough data.`);
+  for (const c of coins) {
+    const e = data.explained[c.token.toLowerCase()];
+    lines.push(
+      "",
+      `COIN ${c.symbol ?? "(no ticker)"}${c.name ? ` (${c.name})` : ""}, ${c.token}. ${c.market === "ascend" ? "On Ascend." : venue(c)} Verdict ${c.verdict}. ` +
+        `Launched ${c.launched.slice(0, 10)}. ${c.trades} trades, ${c.holders} holders.${c.market === "ascend" ? ` Report: /delphi/${c.token}` : ""}`,
+    );
+    if (e) {
+      lines.push(`Headline: ${headline(e.explanation.headline)}`, `Summary: ${e.explanation.summary}`);
+      for (const p of e.explanation.points) lines.push(`Finding: ${p.text} Evidence: ${p.evidence.join(" ")}`);
+      for (const x of e.explanation.caveats) lines.push(`Caveat: ${x}`);
+    } else if (c.market !== "ascend") {
+      for (const f of c.findings ?? []) lines.push(`Finding: ${f.summary}`);
+      for (const r of contractRisks(c)) lines.push(`Contract: ${r}`);
+      const sell = c.safety?.checks?.sell;
+      if (sell && sell.state !== "risk") lines.push(`Selling: ${sell.summary}`);
+      if (c.creatorPct !== undefined && c.top5Pct !== undefined) {
+        lines.push(`Holders: the creator holds ${pct(c.creatorPct)} of the supply, the top 5 wallets ${pct(c.top5Pct)}.`);
+      }
+      for (const x of notesOf(c)) lines.push(`Caveat: ${x}`);
+      lines.push("This coin has no transaction hashes in the data: cite none.");
+    } else {
+      if (c.headline) lines.push(`Headline: ${headline(c.headline)}`);
+      lines.push("No written report yet, so no transactions to cite.");
+    }
+  }
+  if (!coins.length) {
+    const all = everyCoin(data);
+    // Test coins often share a ticker: name each ticker once, with how many coins carry it.
+    const top = (v: Verdict, market: (m: Market) => boolean, max: number) => {
+      const seen = new Map<string, number>();
+      for (const c of all.filter((c) => c.verdict === v && c.symbol && market(c.market)).sort((a, b) => b.trades - a.trades)) {
+        seen.set(c.symbol as string, (seen.get(c.symbol as string) ?? 0) + 1);
+      }
+      return (
+        [...seen]
+          .slice(0, max)
+          .map(([sym, k]) => (k > 1 ? `${sym} (${k} coins with this ticker)` : sym))
+          .join(", ") || "none"
+      );
+    };
+    const ascend = (m: Market) => m === "ascend";
+    const kalos = (m: Market) => m !== "ascend";
+    lines.push(
+      "",
+      "Different coins can share a ticker, so one ticker can sit in more than one list. Ask for an address to tell them apart.",
+      `Flagged on Ascend, busiest first: ${top("FLAG", ascend, 10)}.`,
+      `On watch on Ascend: ${top("WATCH", ascend, 6)}. Clean on Ascend: ${top("CLEAN", ascend, 6)}.`,
+    );
+    if (k) lines.push(`Flagged on Kalos and PerpMe, busiest first: ${top("FLAG", kalos, 8)}.`, `On watch on Kalos and PerpMe: ${top("WATCH", kalos, 5)}.`);
+  }
+  return lines.join("\n");
+}
+
+export const SYSTEM = `You are DELPHI, PANTHEON's coin checker. You speak as "I"; people call you "she".
+You read every coin on Ascend, Kalos and PerpMe (Elysium) and check three things: a launch bundle (linked wallets buying in the first 30 seconds), wash trading (the same actor buying and selling back within 5 minutes) and hidden whales (linked wallets, or one wallet, holding a large share). On Kalos and PerpMe you also check each contract: who controls it, what powers they keep, and whether selling is taxed or blocked. Each coin gets FLAG, WATCH, CLEAN or NOT ENOUGH DATA.
+
+Rules:
+- Use only the DELPHI data below. If a coin isn't in it, say you haven't read it. Unknown is never clean.
+- Never tell anyone to buy, sell or hold, and never predict a price. You report patterns, not intent.
+- End each finding with the transaction hashes behind it, copied in full from the data. If the data has none, cite none. Never make one up.
+- Write plainly: short declarative sentences, no hype, no exclamation marks, no emoji. Talk to "you". Write PANTHEON, DELPHI, HYPE and USDC in capitals.
+- About one coin, use exactly this shape:
+[VERDICT] One line: the coin and its verdict, in plain words.
+One or two sentences on what that means.
+## What I saw
+- One finding per line, ending with its transaction hashes.
+> One caveat, if the data has one.
+  where [VERDICT] is [FLAG], [WATCH], [CLEAN] or [NOT ENOUGH DATA].
+- Anything else: one to three short paragraphs.
+- Keep every answer under 150 words.`;
+
+// ------------------------------------------------------------------ answers
+
+/** An answer written straight from DELPHI's data: no model needed. */
+export function fromReports(data: Delphi | null, coins: Coin[]): string {
+  if (!data) return "I haven’t published a scan yet, so I can’t check coins right now. Try again soon.";
+  if (!coins.length) {
+    const k = data.kalos?.counts;
+    const read = k ? `I’ve read ${data.counts.coins} coins on Ascend and ${k.coins} on Kalos and PerpMe.` : `I’ve read ${data.counts.coins} coins on Ascend.`;
+    const total = data.counts.FLAG + (k?.FLAG ?? 0);
+    const busiest = everyCoin(data)
+      .filter((c) => c.verdict === "FLAG" && c.symbol)
+      .sort((a, b) => b.trades - a.trades)
+      .filter((c, i, xs) => xs.findIndex((x) => x.symbol === c.symbol) === i)
+      .slice(0, 4)
+      .map((c) => c.symbol as string);
+    const names = !busiest.length
+      ? ""
+      : total > busiest.length
+        ? `; the busiest ${busiest.length === 1 ? "is" : "are"} ${list(busiest)}`
+        : `: ${list(busiest)}`;
+    const worst = total === 0 ? "None of them is flagged." : `${total === 1 ? "One is" : `${total} are`} flagged${names}.`;
+    return [`${read} ${worst}`, "Ask me about any coin by its ticker or its address, and I’ll show you what I found."].join("\n\n");
+  }
+  const [first, ...rest] = coins;
+  const name = first.symbol ?? "This coin";
+  const e = data.explained[first.token.toLowerCase()];
+  const out: string[] = [];
+  if (e) {
+    out.push(`${TAG[first.verdict]} ${name} ${SAYS[first.verdict]}: ${stop(lowerFirst(headline(e.explanation.headline)))}`);
+    out.push(e.explanation.summary);
+    if (e.explanation.points.length) {
+      out.push(["## What I saw", ...e.explanation.points.map((p) => `- ${p.text}${p.evidence.length ? ` ${p.evidence.join(" ")}` : ""}`)].join("\n"));
+    }
+    if (e.explanation.caveats[0]) out.push(`> ${e.explanation.caveats[0]}`);
+  } else if (first.market !== "ascend") {
+    out.push(`${TAG[first.verdict]} ${name} ${SAYS[first.verdict]}.`);
+    const seen = [...(first.findings ?? []).map((f) => f.summary), ...contractRisks(first)];
+    out.push(
+      `${venue(first)} ${
+        seen.length ? "" : first.verdict === "NOT_ENOUGH_DATA" ? "It hasn’t traded enough yet for my checks to say anything." : "None of my checks found anything."
+      }`.trim(),
+    );
+    if (seen.length) out.push(["## What I saw", ...seen.map((x) => `- ${stop(x)}`)].join("\n"));
+    const note = notesOf(first)[0];
+    if (note) out.push(`> ${note}`);
+  } else {
+    out.push(`${TAG[first.verdict]} ${name} ${SAYS[first.verdict]}.`);
+    out.push(first.headline ? stop(headline(first.headline)) : "I haven’t written a full report on it yet, so there are no transactions to show you.");
+  }
+  for (const c of rest) out.push(`${c.symbol ?? c.token} ${SAYS[c.verdict]} too. Ask me about it on its own for the details.`);
+  return out.join("\n\n");
+}
+
+const stop = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`);
+const lowerFirst = (s: string) => (/^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
+const list = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+
+// ------------------------------------------------------------------ the model
+
+/** Is there a model to write answers? Claude first (what @heyDelph uses), then Grok. */
+export const hasModel = () => !!(process.env.ANTHROPIC_API_KEY || process.env.XAI_API_KEY);
+
+/** The answer as it streams, from whichever model is set up. */
+export function model(messages: ChatMessage[], data: string, signal: AbortSignal): AsyncGenerator<string> {
+  return process.env.ANTHROPIC_API_KEY ? claude(messages, data, signal) : grok(messages, data, signal);
+}
+
+/** Server-sent events from a response body: each `data:` payload, in order. */
+async function* sse(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    buf += decoder.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (line.startsWith("data:")) yield line.slice(5).trim();
+    }
+  }
+}
+
+// The same Claude model @heyDelph answers with on X (services/delphi/src/x/config.ts, X_MODEL).
+// DELPHI_CHAT_MODEL picks another.
+const CLAUDE_MODEL = "claude-sonnet-5-5";
+
+/** Claude's answer as it streams: text pieces, in order. Throws if Anthropic refuses or the stream breaks. */
+export async function* claude(messages: ChatMessage[], data: string, signal: AbortSignal): AsyncGenerator<string> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error("No ANTHROPIC_API_KEY");
+  // Claude wants the conversation to start with a question.
+  const turns = messages.slice(messages.findIndex((m) => m.role === "user"));
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({
+      model: process.env.DELPHI_CHAT_MODEL || CLAUDE_MODEL,
+      stream: true,
+      max_tokens: 700,
+      // Low effort, as she answers from the data she's handed and should start writing at once.
+      output_config: { effort: "low" },
+      system: `${SYSTEM}\n\nDELPHI data:\n${data}`,
+      messages: turns,
+    }),
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    const why = (await res.text().catch(() => "")).slice(0, 300);
+    throw new Error(`Anthropic answered ${res.status} ${why}`);
+  }
+  for await (const payload of sse(res.body)) {
+    try {
+      const ev = JSON.parse(payload) as { type?: string; delta?: { type?: string; text?: string }; error?: { message?: string } };
+      if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta" && ev.delta.text) yield ev.delta.text;
+      else if (ev.type === "message_stop") return;
+      else if (ev.type === "error") throw new Error(`Anthropic stream error: ${ev.error?.message ?? "unknown"}`);
+    } catch (err) {
+      if ((err as Error).message.startsWith("Anthropic")) throw err;
+      // A keep-alive or a line split across reads: skip it.
+    }
+  }
+}
+
+// grok-4.3 with reasoning off: xAI's fast chat model since it retired grok-4-1-fast-non-reasoning
+// (May 15, 2026). Used only when there is no Claude key. DELPHI_CHAT_MODEL picks another.
+const GROK_MODEL = "grok-4.3";
+
+/** Grok's answer as it streams: text pieces, in order. Throws if xAI refuses or the stream breaks. */
+export async function* grok(messages: ChatMessage[], data: string, signal: AbortSignal): AsyncGenerator<string> {
+  const key = process.env.XAI_API_KEY;
+  if (!key) throw new Error("No XAI_API_KEY");
+  const base = (process.env.XAI_BASE_URL ?? "https://api.x.ai/v1").replace(/\/$/, "");
+  const ask = (effort: boolean) =>
+    fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        model: process.env.DELPHI_CHAT_MODEL || GROK_MODEL,
+        stream: true,
+        temperature: 0.3,
+        max_completion_tokens: 700,
+        // No thinking: she answers from the data she's handed, and starts writing at once.
+        ...(effort ? { reasoning_effort: "none" } : {}),
+        messages: [{ role: "system", content: `${SYSTEM}\n\nDELPHI data:\n${data}` }, ...messages],
+      }),
+      signal,
+    });
+  let res = await ask(true);
+  // A model that doesn't take reasoning_effort says so with a 400: ask it again without.
+  if (res.status === 400) {
+    await res.body?.cancel();
+    res = await ask(false);
+  }
+  if (!res.ok || !res.body) throw new Error(`xAI answered ${res.status}`);
+  for await (const payload of sse(res.body)) {
+    if (payload === "[DONE]") return;
+    try {
+      const piece = (JSON.parse(payload) as { choices?: Array<{ delta?: { content?: string } }> }).choices?.[0]?.delta?.content;
+      if (piece) yield piece;
+    } catch {
+      // A keep-alive or a line split across reads: skip it.
+    }
+  }
+}
+
+// ------------------------------------------------------------------ flood guard
+
+/**
+ * Who's asking: the last X-Forwarded-For entry, which the proxy in front wrote (Caddy appends the
+ * client's address; anything before it came from the client). An IPv6 address counts by its /64,
+ * which one home or server holds whole, as the DELPHI feed does.
+ */
+export function visitor(headers: Headers): string {
+  const ip = (headers.get("x-forwarded-for") ?? "").split(",").pop()?.trim() || headers.get("x-real-ip")?.trim() || "local";
+  if (ip.startsWith("::ffff:") && isIP(ip.slice(7)) === 4) return ip.slice(7);
+  const a = ip.split("%")[0].toLowerCase();
+  if (isIP(a) !== 6) return ip;
+  const [l = "", r] = a.split("::");
+  const left = l ? l.split(":") : [];
+  const right = r ? r.split(":") : [];
+  const groups = r === undefined ? left : [...left, ...Array<string>(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right];
+  return `${groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":")}::/64`;
+}
+
+const WINDOW_MS = 10 * 60_000;
+const PER_WINDOW = 30;
+const asks = new Map<string, { n: number; since: number }>();
+
+/** At most 30 questions per visitor every 10 minutes. Kept in memory: it only stops floods. */
+export function allow(visitor: string, now = Date.now()): boolean {
+  const h = asks.get(visitor);
+  if (!h || now - h.since >= WINDOW_MS) asks.set(visitor, { n: 1, since: now });
+  else if (++h.n > PER_WINDOW) return false;
+  if (asks.size > 20_000) for (const [k, v] of asks) if (now - v.since >= WINDOW_MS) asks.delete(k);
+  return true;
+}
+
+let spent = { n: 0, since: 0 };
+
+/**
+ * The model's hourly budget, across everyone: DELPHI_CHAT_MAX_PER_HOUR answers, 300 if unset. Past it
+ * she still answers, straight from the reports, so a flood from many addresses can't run up the bill.
+ */
+export function modelBudget(now = Date.now()): boolean {
+  const max = Number(process.env.DELPHI_CHAT_MAX_PER_HOUR) || 300;
+  if (now - spent.since >= 3_600_000) spent = { n: 0, since: now };
+  if (spent.n >= max) return false;
+  spent.n++;
+  return true;
+}
