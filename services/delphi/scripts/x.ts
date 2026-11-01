@@ -72,7 +72,7 @@ try {
   if (features.size) log(`extra abilities on: ${[...features].join(", ")}`);
   // The extra tools' services. accounts: set below, once X and its state are open.
   const deps: FeatureDeps = {
-    ...(features.has("wallet") ? { chain: chainReader(client, store), firstFunding: funding.firstFundingFn(store) } : {}),
+    ...(features.has("wallet") ? { chain: chainReader(client, store) } : {}),
     ...(features.has("safety") ? { safety: safetyCheck(new BatchRpc(), store, log) } : {}),
   };
   const xApi = () => new XApi(loadXKeys(xcfg.keysFile), features.has("xaccount") ? { userFields: PROFILE_FIELDS } : {});

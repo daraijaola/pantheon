@@ -28,7 +28,8 @@ export class ToolInputError extends Error {
   override name = "ToolInputError";
 }
 
-function coinOf(ws: Workspace, token: string): CoinData {
+/** One coin's data, or a ToolInputError the model can read. */
+export function coinOf(ws: Workspace, token: string): CoinData {
   if (!isAddress(token, { strict: false })) throw new ToolInputError(`${token} is not an address`);
   const d = ws.coins.get(lc(token));
   if (!d) throw new ToolInputError(`${token} is not a coin in this scan (use list_coins)`);

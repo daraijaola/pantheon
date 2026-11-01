@@ -1,6 +1,7 @@
 // Checks on every reply before it can be posted: X's length rule, no links or tags, no words that
-// accuse or advise, and every number traceable to what DELPHI's tools returned. A draft that fails
-// goes back to Claude with the reasons; it is never posted.
+// accuse or advise, every number traceable to what DELPHI's tools returned, and nothing that ties a
+// wallet to its funder or to other wallets. A draft that fails goes back to Claude with the reasons;
+// it is never posted.
 
 /** X's weighted length: most characters count 1; emoji, CJK and other wide characters count 2. */
 export function xLength(s: string): number {
@@ -58,7 +59,11 @@ export type Check = {
   /** Lowercase full addresses the reply may name (the coin's own data, or every coin's). */
   addresses: ReadonlySet<string>;
   maxLength: number;
+  /** Lowercase addresses a reply never names, even if a tool returned them: wallets DELPHI knows only as someone's funder. */
+  hidden?: ReadonlySet<string>;
 };
+
+const FUNDER_ONLY = (a: string) => `${a} is a wallet DELPHI knows only as someone's funder: who funded a wallet is never said on X`;
 
 /** Why a draft reply can't be posted (empty when it can). */
 export function replyProblems(text: string, c: Check): string[] {
@@ -80,12 +85,18 @@ export function replyProblems(text: string, c: Check): string[] {
   const advise = t.match(ADVISE);
   if (advise) errors.push(`"${advise[0]}" is advice or hype; DELPHI states facts and never tells anyone to buy or sell`);
   if (HASH.test(t)) errors.push("no transaction hashes in a reply; they don't fit and nobody can click them");
-  for (const a of t.match(FULL_ADDRESS) ?? []) if (!c.addresses.has(a.toLowerCase())) errors.push(`${a} is not in the data the tools returned`);
+  const hidden = c.hidden ?? new Set<string>();
+  for (const a of t.match(FULL_ADDRESS) ?? []) {
+    if (hidden.has(a.toLowerCase())) errors.push(FUNDER_ONLY(a));
+    else if (!c.addresses.has(a.toLowerCase())) errors.push(`${a} is not in the data the tools returned`);
+  }
   for (const m of t.matchAll(SHORT_ADDRESS)) {
     const [, head, tail] = m;
-    const hit = [...c.addresses].some((a) => a.slice(2).startsWith(head!.toLowerCase()) && a.endsWith(tail!.toLowerCase()));
-    if (!hit) errors.push(`${m[0]} does not match any address the tools returned`);
+    const fits = (a: string) => a.slice(2).startsWith(head!.toLowerCase()) && a.endsWith(tail!.toLowerCase());
+    if ([...c.addresses].some((a) => !hidden.has(a) && fits(a))) continue;
+    errors.push([...hidden].some(fits) ? FUNDER_ONLY(m[0]) : `${m[0]} does not match any address the tools returned`);
   }
+  errors.push(...privacyProblems(t));
   const stated = statedNumbers(t);
   const loose = stated.filter((n) => !grounded(n, c.known)).map((n) => n.text);
   if (loose.length) errors.push(`these numbers are not in any tool result: ${[...new Set(loose)].join(", ")}. Use the tools' numbers (rounded) or leave them out.`);
@@ -206,6 +217,54 @@ export function biggestProblems(text: string, top: readonly TopHolder[]): string
     }
   }
   return [...new Set(errors)];
+}
+
+/**
+ * Words that tie a wallet to its funder or to other wallets (a few in Spanish and French too). Beside an
+ * address, or after a rank that points at wallets, they make that tie public.
+ */
+const TIES =
+  /(?<![\p{L}\p{N}_])(?:fund(?:s|ed|er|ers|ing)?|financ\p{L}*|linked|links?|linking|connected|connections?|conectad[oa]s?|vinculad[oa]s?|lié(?:e|s|es)?|clusters?|clustered|groups?|grouped|grupos?|groupes?|rings?|bundled?|bundles|sybils?|alts|alt wallets?|same (?:owner|person|people|entity|team|actor|wallet|funder|source)|(?:owned|controlled|run) by|belongs? to|paid (?:for|by)|bought for|sold for|sent (?:it|them)|hype from|first hype)(?![\p{L}\p{N}_])/iu;
+const ANY_ADDRESS = /0x[0-9a-fA-F]{40}(?![0-9a-fA-F])|0x[0-9a-fA-F]{3,8}(?:…|\.\.\.)[0-9a-fA-F]{3,8}/;
+/** One wallet's funding or links, said without its address: "first funded by", "its funder", "this wallet is linked", "it was in a group". */
+const ONE_WALLET_TIE =
+  /\b(?:first[- ]fund(?:ed|ing|er)|(?:its|their|his|her) funders?|funded (?:it|this wallet|that wallet|your wallet)|(?:it|this wallet|that wallet|the wallet|your wallet|this address|that address)(?:['’]s| is| was| isn['’]t| wasn['’]t| is not| was not)(?: also)? (?:linked|connected|tied|funded|in (?:a|the|one|its|that) (?:linked |same )?(?:group|cluster|ring|bundle)))\b/i;
+/** What follows a rank when it points at wallets: "biggest [linked] holder(s)", "biggest buyer", "biggest holds", "biggest is". */
+const RANKED_WHO =
+  /^\s*(?:(?:single|individual|one)\s+)?(?:(?:linked|connected|clustered|vinculad[oa]s?)\s+)?(?:holders?|wallets?|address(?:es)?|accounts?|buyers?|sellers?|traders?|billeteras?|tenedor(?:es)?|portefeuilles?|détenteurs?)(?!\p{L})|^\s*(?:linked|connected|clustered|vinculad[oa]s?)(?!\p{L})|^\s*(?:holds?|has|have|owns?|is|are|was|were|tiene|tienen|posee[n]?|détien(?:t|nent))(?!\p{L})/iu;
+
+/**
+ * Lines that would make a wallet's funder or links public: a wallet named by address beside how it was
+ * funded or linked, one wallet's funding or links said without its address ("it was first funded by the
+ * creator"), or wallets picked out by rank ("the biggest linked wallet holds 45%", "the biggest holder is
+ * in a group"), which the public list of holders turns into addresses. Counts stay fine: "5 linked
+ * wallets hold 30%", "the creator and 4 linked wallets bought 20% at launch", "one group holds most of it".
+ */
+export function privacyProblems(text: string): string[] {
+  const errors: string[] = [];
+  for (const line of text.split("\n")) {
+    const l = line.trim();
+    if (!l) continue;
+    if (ANY_ADDRESS.test(l) && TIES.test(l)) {
+      errors.push(`"${l}": names a wallet beside how it was funded or linked. Who funded a wallet and which wallets are linked are never said on X: say how many wallets, never which ones.`);
+      continue;
+    }
+    if (ONE_WALLET_TIE.test(l)) {
+      errors.push(`"${l}": says how one wallet was funded or what it is linked to. That is never said on X: say DELPHI keeps wallet links and funders private.`);
+      continue;
+    }
+    const ranks = [...l.matchAll(RANKED)];
+    const picked = ranks.some((m, i) => {
+      const segment = l.slice(m.index + m[0].length, ranks[i + 1]?.index ?? l.length);
+      return RANKED_WHO.test(segment) && TIES.test(segment);
+    });
+    if (picked) {
+      errors.push(
+        `"${l}": picks out linked wallets by rank, and the public list of holders turns that into addresses. Say how many wallets are linked and what they hold together on a line of its own, and rank holders without saying who is linked.`,
+      );
+    }
+  }
+  return errors;
 }
 
 /** Every full address in some text (lowercase): what the extra tools and web pages returned may be named. */

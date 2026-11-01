@@ -2,23 +2,28 @@
 // read-only tools, and drafts one short reply. The submit tool checks the draft (length, no links or
 // tags, no accusations or advice, every number and address from a tool result, the verdict is
 // DELPHI's own) and sends the problems back until it passes. She can also choose to stay silent.
+// She answers in public, so her tools are public views (src/x/public.ts): no funders, no linked
+// wallets, no balances, and the reply checks refuse a draft that names them.
 // X_FEATURES adds abilities (src/x/features.ts): with none on, she gets exactly the instructions and
 // tools she had before them.
 import type Anthropic from "@anthropic-ai/sdk";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
-import { coinAddresses, listHolders, readTools } from "../ai/tools.ts";
 import type { Verdict } from "../types.ts";
 import { NO_FEATURES, type Features } from "./config.ts";
 import { extraTools, featureGuidance, type FeatureDeps, type ToolEnv } from "./features.ts";
 import type { Found } from "./find.ts";
+import { privateAddresses, publicAddresses, publicHolders, publicReadTools } from "./public.ts";
 import { addressesIn, biggestProblems, knownNumbers, replyProblems, untrusted } from "./text.ts";
 import { siteNames, webEvidence, webTools } from "./webtools.ts";
 import { PNTH, xTools, type Snapshot } from "./xtools.ts";
 
-/** The instructions' version with no feature on; any feature on makes it X_PROMPT_VERSION_FEATURES. */
-export const X_PROMPT_VERSION = "x-v5";
-export const X_PROMPT_VERSION_FEATURES = "x-v6";
+/**
+ * The instructions' version with no feature on; any feature on makes it X_PROMPT_VERSION_FEATURES.
+ * x-v7 and x-v8 (were x-v5 and x-v6): her tools became public views, and wallets stay private.
+ */
+export const X_PROMPT_VERSION = "x-v7";
+export const X_PROMPT_VERSION_FEATURES = "x-v8";
 export const xPromptVersion = (features: Features = NO_FEATURES) => (features.size ? X_PROMPT_VERSION_FEATURES : X_PROMPT_VERSION);
 export const MAX_REPLY = 270;
 const lc = (a: string) => a.toLowerCase();
@@ -30,7 +35,7 @@ export function xSystemPrompt(handle: string, features: Features = NO_FEATURES):
 
 How you work:
 1. The message tells you which coin DELPHI matched from the posts (by address or $ticker), or that it found none, or several. Trust that match. If none was found, try find_coin with a ticker or name from the posts. If several coins fit, ask for the address instead of guessing.
-2. For a coin: call coin_report first. Then look up what the question needs: holders, clusters, trades, wallet, links, creator_history ("has the dev launched before?"), market (price, market cap, volume, 24h change), delphi_status (how fresh the data is). To rank wallets ("the biggest holder", "the biggest linked wallets", "top 3"), call holders: it lists them biggest first and marks which are in a linked group. The wallets in coin_report's findings are in no order, so never rank them yourself. When a contract holds a big share, or one wallet stands out (biggest buyer, biggest holder), check it with what_is_address (for example PANTHEON's staking contract); if it's unknown, say "a contract" and nothing more. A question you can't answer from the tools gets an honest "I can't see that".
+2. For a coin: call coin_report first. Then look up what the question needs: holders, clusters, trades, wallet, creator_history ("has the dev launched before?"), market (price, market cap, volume, 24h change), delphi_status (how fresh the data is). To rank wallets ("the biggest holder", "top 3"), call holders: it lists them biggest first. When a contract holds a big share, or one wallet stands out (biggest buyer, biggest holder), check it with what_is_address (for example PANTHEON's staking contract); if it's unknown, say "a contract" and nothing more. A question you can't answer from the tools gets an honest "I can't see that".
 3. Finish with submit_reply (one reply) or stay_silent. submit_reply checks your draft and tells you what to fix.
 
 When someone asks you something but there is no coin to check (a vague "is it a rug?" under a post that names no coin, "check this", "thoughts?"), don't stay silent: answer in one or two short lines asking which coin, so they come back with one. For example: "Which coin? Send me its $ticker or contract (0x…), or tag me under the coin's post." Word it fresh each time and match their language.
@@ -55,6 +60,7 @@ Voice:
 - NOT ENOUGH DATA is an honest answer: say what's missing ("needs 10 trades, has 4").
 - CLEAN means every check had enough data and found nothing. It never means safe: patterns can start later.
 - Patterns, not intent: say what wallets did. Never call anyone a scammer, never say rug pull, never tell anyone to buy, sell, hold or avoid, never hype. No "NFA", no "DYOR".
+- Wallets stay private. Never say who funded a wallet, which wallets are linked to which, or that wallets share an owner, and never give a wallet's balance or profit: the tools leave those out on purpose. Say how many wallets are linked and what they hold together ("5 linked wallets hold 30%"), never which ones, and never point at one by rank ("the biggest linked wallet"). Asked who funded a wallet or which wallets are linked, say DELPHI keeps wallet links and funders private, and give the coin's verdict if there is a coin.
 - At most ${MAX_REPLY} characters including line breaks. No links, no @tags, no hashtags, no transaction hashes. Shorten wallets like 0x34Cc…5174. Numbers must come from tool results. No emoji.
 - Reply in the language the question was asked in.
 - Testnet coins trade with test money: when you give a price or market cap, say "test" once ("$1,200 test market cap").
@@ -178,7 +184,7 @@ export async function answer(
   };
 
   const base = [
-    ...readTools(snap.ws, (name) => calls.push(name)).map((t) =>
+    ...publicReadTools(snap.ws, (name) => calls.push(name)).map((t) =>
       capturing(t, seen, t.name === "coin_report" ? (a) => typeof a.token === "string" && reported.add(lc(a.token)) : undefined),
     ),
     ...xTools(
@@ -210,15 +216,15 @@ export async function answer(
         else {
           if (!reported.has(token)) errors.push("call coin_report for this coin before answering about it");
           if (r.verdict !== report.verdict) errors.push(`verdict must be DELPHI's: ${report.verdict}`);
-          errors.push(...biggestProblems(r.text, listHolders(snap.ws, { token, limit: 10 }).rows));
+          errors.push(...biggestProblems(r.text, publicHolders(snap.ws, { token, limit: 10 }).rows));
         }
       } else if (r.verdict) errors.push("a verdict needs the coin's token");
       const addresses = new Set<string>(
-        token && snap.ws.coins.has(token) ? coinAddresses(snap.ws, token) : [...snap.ws.coins.values()].flatMap((d) => [lc(d.coin.token), lc(d.coin.creator)]),
+        token && snap.ws.coins.has(token) ? publicAddresses(snap.ws, token) : [...snap.ws.coins.values()].flatMap((d) => [lc(d.coin.token), lc(d.coin.creator)]),
       );
       for (const a of addressesIn(extra)) addresses.add(a);
       const known = knownNumbers([...seen, c.question.text, c.parent?.text ?? "", c.earlier?.text ?? ""]);
-      errors.push(...replyProblems(r.text, { known, addresses, maxLength: MAX_REPLY }));
+      errors.push(...replyProblems(r.text, { known, addresses, maxLength: MAX_REPLY, hidden: privateAddresses(snap.ws) }));
       if (features.size) {
         // a site a page, a profile or a post showed, by name: refused even where the link check doesn't know its ending
         const posts = [c.question, c.parent, c.quoted, c.grandparent].flatMap((p) => p?.links ?? []);

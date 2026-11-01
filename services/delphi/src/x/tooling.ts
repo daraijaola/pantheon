@@ -8,15 +8,16 @@ import type { Address } from "viem";
 import type { SafetySummary } from "../safety-run.ts";
 import type { AccountLookup } from "./account.ts";
 import type { Feature } from "./config.ts";
-import type { ChainReader, FirstFundingFn } from "./wallet.ts";
+import type { ChainReader } from "./wallet.ts";
 import type { Snapshot } from "./xtools.ts";
 
-/** The services the extra tools use, injected so tests can use fakes. A tool whose service is missing is left out. */
+/**
+ * The services the extra tools use, injected so tests can use fakes. A tool whose service is missing is
+ * left out. There is no funding lookup: who funded a wallet is never said on X (src/x/public.ts).
+ */
 export type FeatureDeps = {
   /** Chain reads for wallet_profile (scripts/x.ts builds it from the RPC client with chainReader()). */
   chain?: ChainReader;
-  /** The first HYPE a wallet ever received (src/funding.ts). Without it, wallet_profile uses DELPHI's cached funding. */
-  firstFunding?: FirstFundingFn;
   /** X account lookups, cached in x.db (XAccounts). */
   accounts?: AccountLookup;
   /** A coin's contract and market checks, kept a day (src/safety-run.ts). */

@@ -3,6 +3,10 @@
 // From the funding lookup: who first funded it, and when. From DELPHI's coins: the coins it created,
 // traded or holds, the linked groups it is in (with each coin's verdict), and groups it paid for.
 // A contract or pool is said to be one, and its "funding" is not looked up: it says nothing about an owner.
+//
+// That full profile (walletProfileAny) is for internal use. The X tool answers in public, so it gets
+// publicProfile(): the kind, a known name, transactions sent, and the coins created, traded or held with
+// their verdicts. Never the funder, the first funding, linked wallets or groups, or the HYPE balance.
 import { formatEther, getAddress, isAddress, type Address, type Hex, type PublicClient } from "viem";
 import { z } from "zod";
 import { amount } from "../ai/tools.ts";
@@ -12,6 +16,7 @@ import { balances, pct } from "../detect.ts";
 import { actorsOf, clusters } from "../graph.ts";
 import type { Store } from "../store.ts";
 import type { Verdict } from "../types.ts";
+import { PRIVATE } from "./public.ts";
 import { untrusted } from "./text.ts";
 import { jsonTool, type ExtraTool } from "./tooling.ts";
 import { KNOWN_ADDRESSES, whatIsAddress, type Snapshot } from "./xtools.ts";
@@ -177,20 +182,54 @@ export async function walletProfileAny(
   };
 }
 
+type Profile = Awaited<ReturnType<typeof walletProfileAny>>;
+
+/**
+ * What anyone may be told about an address, from its full profile: an allowlist, so a field added to
+ * walletProfileAny later stays private until it is added here. Per coin: the verdict, buys and sells,
+ * whether it still holds any and its share of the supply. Errors and coin addresses pass as they are.
+ */
+export function publicProfile(p: Profile) {
+  if (!("sentTxs" in p)) return p;
+  return {
+    address: p.address,
+    kind: p.kind,
+    ...(p.is ? { is: p.is } : {}),
+    sentTxs: p.sentTxs,
+    coinsCreated: p.coinsCreated,
+    coinsTradedOrHeld: {
+      count: p.coinsTradedOrHeld.count,
+      rows: p.coinsTradedOrHeld.rows.map((r) => ({
+        token: r.token,
+        symbolSetByCreator: r.symbolSetByCreator,
+        verdict: r.verdict,
+        buys: r.buys,
+        sells: r.sells,
+        stillHolds: r.holds !== "0",
+        pctOfSupply: r.pctOfSupply,
+      })),
+    },
+    network: p.network,
+    note: p.note,
+    private: PRIVATE,
+  };
+}
+
 export const walletTool: ExtraTool = {
   feature: "wallet",
   name: "wallet_profile",
   guidance:
-    'wallet_profile checks any address ("check 0x…" when it isn\'t a coin): wallet, contract or pool, its HYPE, how many transactions it sent, who first funded it and when, coins it created, traded or holds, and linked groups it is in with each coin\'s verdict. A contract or pool isn\'t a wallet: say what kind of address it is (what_is_address names the ones DELPHI knows) and stop there. For an answer about a wallet, token and verdict are null.',
+    'wallet_profile checks any address ("check 0x…" when it isn\'t a coin): wallet, contract or pool, how many transactions it sent, and the coins it created, traded or holds, with each coin\'s verdict. It never says who funded a wallet, which wallets are linked to it, or its balance: DELPHI keeps those private, so say so if asked. A contract or pool isn\'t a wallet: say what kind of address it is (what_is_address names the ones DELPHI knows) and stop there. For an answer about a wallet, token and verdict are null.',
   build: (env) => {
     const chain = env.deps.chain;
     if (!chain) return null;
     return jsonTool(env, {
       name: "wallet_profile",
       description:
-        "Any address across all of DELPHI's coins: kind (wallet, contract or pool), HYPE balance, transactions sent, first funding (who and when), coins it created, coins it traded or holds, linked groups it is in (with each coin's verdict), and groups of wallets it funded.",
+        "Any address across all of DELPHI's coins: kind (wallet, contract or pool), a known name, transactions sent, coins it created, and coins it traded or holds (buys, sells, share of the supply), each with its verdict. Never its funder, linked wallets or balance.",
       inputSchema: z.object({ address: z.string().describe("A full 0x address (40 hex characters)") }),
-      run: (i) => walletProfileAny(env.snap, { chain, firstFunding: env.deps.firstFunding }, i, env.aboutUs),
+      // No funding lookup: nothing from it would be said.
+      run: async (i) => publicProfile(await walletProfileAny(env.snap, { chain }, i, env.aboutUs)),
     });
   },
 };

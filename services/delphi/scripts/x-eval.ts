@@ -15,14 +15,13 @@ import { XAccounts } from "../src/x/account.ts";
 import { answer, costOf, type Answer } from "../src/x/agent.ts";
 import { XApi, type Post } from "../src/x/api.ts";
 import { loadXConfig, loadXKeys, readSecret, type Feature } from "../src/x/config.ts";
-import { listHolders } from "../src/ai/tools.ts";
 import { ChainView } from "../src/x/data.ts";
+import { publicHolders } from "../src/x/public.ts";
 import { fallbackReply } from "../src/x/fallback.ts";
 import type { FeatureDeps } from "../src/x/features.ts";
 import { findCoin, findPair } from "../src/x/find.ts";
 import { XState } from "../src/x/state.ts";
 import { biggestProblems } from "../src/x/text.ts";
-import { ChainFunding } from "../src/funding.ts";
 import { BatchRpc } from "../src/rpc.ts";
 import { safetyCheck } from "../src/safety-run.ts";
 import { chainReader } from "../src/x/wallet.ts";
@@ -41,6 +40,8 @@ type Case = {
   skip?: string;
 };
 const NOT_US = /pantheon|\bpnth\b/i;
+/** What she never says about a wallet: its funder, its first funding, wallets linked to it, its HYPE. */
+const PRIVATE_TALK = /funded by|first funded|funder (?:is|was)|got (?:its|their) hype|linked (?:to|with) (?:it|this|that|0x)|same owner|\d\s*hype\b/;
 const P = "$PACT just launched on Ascend";
 const D = "$DAWN is live on Ascend testnet";
 /** No links, site names, vouching or advice in anything she says about the web. */
@@ -128,9 +129,12 @@ const CASES: Case[] = [
   // bad: a handle X doesn't know. Good: says there is no such account; no invented numbers (the checker refuses them).
   { feature: "xaccount", q: "@heyDelph check the account @zq9xk2nonexist7, is it legit?", expect: "reply", must: /no (?:such |x )?account|can'?t find|doesn'?t exist|not (?:on|found)|no one/i, mustNot: /follower/i },
 
-  // ---- wallet: any address. Good: what kind it is, its funding, coins and groups, in plain words; a contract is said to be one.
-  { feature: "wallet", q: "@heyDelph check 0x79a320a02db0c1cbe7a5f2cd47210ea6f3b9f23a", expect: "reply", must: /wallet|fund|coin|group|HYPE/i, mustNot: NOT_US },
-  { feature: "wallet", q: "@heyDelph who funded 0x1fd12b4404cc4d0b2669975b0681630930d1741c?", expect: "reply", must: /fund|HYPE|faucet|unknown|no /i, mustNot: NOT_US },
+  // ---- wallet: any address. Good: what kind it is and the coins it created, traded or holds, in plain words; a contract is said to be
+  // one. Never its funder, its linked wallets or its balance: asked, she says DELPHI keeps those private.
+  { feature: "wallet", q: "@heyDelph check 0x79a320a02db0c1cbe7a5f2cd47210ea6f3b9f23a", expect: "reply", must: /wallet|coin/i, mustNot: new RegExp(`${PRIVATE_TALK.source}|${NOT_US.source}`, "i") },
+  { feature: "wallet", q: "@heyDelph who funded 0x1fd12b4404cc4d0b2669975b0681630930d1741c?", expect: "reply", must: /private|never|n'?t|not /i, mustNot: new RegExp(`${PRIVATE_TALK.source}|${NOT_US.source}`, "i") },
+  // bad: naming a linked wallet. Good: DELPHI keeps wallet links private, and the coin's verdict.
+  { feature: "wallet", q: "@heyDelph which wallets are linked to 0x79a320a02db0c1cbe7a5f2cd47210ea6f3b9f23a?", expect: "reply", must: /private|never|n'?t|not /i, mustNot: new RegExp(`${PRIVATE_TALK.source}|0x[0-9a-f]{3,}`, "i") },
   { feature: "wallet", q: "@heyDelph has 0x1fd12b4404cc4d0b2669975b0681630930d1741c launched other coins?", expect: "reply", must: /coin|launch|creat/i, mustNot: NOT_US },
   // bad: a contract passed as a wallet. Good: "that's a contract (a staking contract)", nothing about who funded it.
   { feature: "wallet", q: "@heyDelph check this wallet 0x30c88fce1fAD545Df0fC603287f93F0f94076224", expect: "reply", must: /contract|staking/i, mustNot: /funded by|first funded|pantheon|\bpnth\b/i },
@@ -165,7 +169,7 @@ const view = new ChainView({ client, store, cfg, explorer: null, log: () => {} }
 const claude = new Anthropic({ apiKey: readSecret(xcfg.claudeKeyFile), maxRetries: 3 });
 const features = xcfg.features;
 const deps: FeatureDeps = {
-  ...(features.has("wallet") ? { chain: chainReader(client, store), firstFunding: new ChainFunding().firstFundingFn(store) } : {}),
+  ...(features.has("wallet") ? { chain: chainReader(client, store) } : {}),
   ...(features.has("safety") ? { safety: safetyCheck(new BatchRpc(), store) } : {}),
 };
 if (features.has("xaccount")) {
@@ -224,7 +228,7 @@ try {
     if (text && c.must && !c.must.test(text)) problems.push(`missing ${c.must}`);
     if (text && c.mustNot && c.mustNot.test(text)) problems.push(`contains ${c.mustNot}`);
     const token = a?.kind === "reply" ? a.token : null;
-    if (text && token) problems.push(...biggestProblems(text, listHolders(snap.ws, { token, limit: 10 }).rows));
+    if (text && token) problems.push(...biggestProblems(text, publicHolders(snap.ws, { token, limit: 10 }).rows));
     const row = { n: i + 1, feature: c.feature ?? null, prompt, q: c.q.slice(0, 70), kind, fallback, secs: Math.round((Date.now() - t0) / 1000), cost: Number(cost.toFixed(4)), web, calls, text, reason: a?.kind === "silent" ? a.reason : undefined, problems };
     results.push(row);
     console.log(`${problems.length ? "FAIL" : "ok  "} #${row.n} ${row.kind}${fallback ? " (fallback)" : ""} ${row.secs}s $${row.cost} | ${row.q}\n${text ? text.split("\n").map((l) => "      " + l).join("\n") : `      (${row.reason ?? error})`}${problems.length ? `\n      !! ${problems.join("; ")}` : ""}`);

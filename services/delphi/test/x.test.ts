@@ -126,6 +126,40 @@ describe("reply checks", () => {
     expect(p("wallet 0xdead…beef holds it")).toMatch(/does not match/);
     expect(p("a".repeat(300))).toMatch(/too long/);
   });
+
+  it("never ties a wallet to its funder or to other wallets, and lets counts through", () => {
+    const FUNDER = addr(0xf00);
+    const k = { known: [27, 30, 35, 51], addresses: new Set([TOKEN, addr(0x200), addr(0x201), FUNDER].map((a) => a.toLowerCase())), maxLength: 270, hidden: new Set([FUNDER.toLowerCase()]) };
+    const p = (t: string) => replyProblems(t, k).join(" | ");
+    // a wallet known only as a funder is never named, in full or short, even if a tool returned it
+    expect(p(`• its gas came from ${FUNDER}`)).toMatch(/only as someone's funder/);
+    expect(p("• 0x0000…0f00 holds 27%")).toMatch(/only as someone's funder/);
+    // a wallet named beside how it was funded or what it is linked to
+    for (const t of [
+      "• 0x0000…0200 and 0x0000…0201 share a funder",
+      "• 0x0000…0201 is in the same group as the creator",
+      "• 0x0000…0200 was funded by the creator",
+      `• ${addr(0x201)} bought 30% in the launch bundle`,
+      "• 0x0000…0201 está vinculada al creador",
+    ])
+      expect(p(t), t).toMatch(/beside how it was funded or linked/);
+    // one wallet's funding or links, said without its address
+    for (const t of ["• it was first funded by the creator", "• this wallet is linked to the creator", "• its funder paid 4 other buyers", "• that wallet isn't in a linked group"])
+      expect(p(t), t).toMatch(/how one wallet was funded/);
+    // linked wallets picked out by rank: the public holder list turns that into addresses
+    for (const t of ["• the biggest linked wallet holds 51%", "• the top 3 linked wallets hold 51%", "• the biggest holder is in the creator's group", "• the second biggest wallet was funded by the creator"])
+      expect(p(t), t).toMatch(/by rank/);
+    // counts, the reasons behind a verdict, and plain holder facts are fine
+    for (const t of [
+      "Flagged: one group holds most of it.\n\n• 35 linked wallets hold 51% of the tokens in wallets\n• the biggest holds 27%",
+      "• the creator and 4 linked wallets bought 30% at launch",
+      "• 0x0000…0201 holds 27%",
+      "• the biggest holder 0x0000…0201 has 27%",
+      "• the top 3 hold 51% between them",
+      "DELPHI keeps wallet links and funders private.",
+    ])
+      expect(p(t), t).toBe("");
+  });
 });
 
 describe("finding the coin", () => {
