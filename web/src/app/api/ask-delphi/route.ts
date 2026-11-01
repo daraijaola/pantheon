@@ -5,12 +5,17 @@
 // The answer comes from Claude (the model @heyDelph answers with) when a Claude key is set, else Grok
 // when XAI_API_KEY is set, else straight from DELPHI's data (src/lib/delphi-chat.ts).
 // Not under /api/delphi/: on the server, Caddy sends that path to the feed.
+// Only JSON from this site is read (415 or 403 otherwise), and a visitor who asks too often gets a 429
+// with Retry-After in seconds.
 
-import { allow, coinRef, context, findCoins, fromReports, hasModel, model, modelBudget, parseMessages, visitor } from "@/lib/delphi-chat";
+import { coinRef, context, findCoins, fromReports, hasModel, model, modelBudget, parseMessages, refuse, visitor, waitFor } from "@/lib/delphi-chat";
 import { readDelphi } from "@/lib/delphi";
 
 export async function POST(req: Request) {
-  if (!allow(visitor(req.headers))) return Response.json({ error: "RATE_LIMITED" }, { status: 429 });
+  const refused = refuse(req.headers);
+  if (refused) return Response.json({ error: refused.error }, { status: refused.status });
+  const wait = waitFor(visitor(req.headers));
+  if (wait) return Response.json({ error: "RATE_LIMITED" }, { status: 429, headers: { "retry-after": String(wait) } });
   let body: unknown;
   try {
     body = await req.json();

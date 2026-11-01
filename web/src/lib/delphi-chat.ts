@@ -25,9 +25,12 @@ const SAYS: Record<Verdict, string> = { FLAG: "is flagged", WATCH: "is on watch"
 
 // ------------------------------------------------------------------ the question
 
-const LIMITS = { messages: 12, user: 2000, assistant: 4000 };
+const LIMITS = { messages: 12, user: 2000, assistant: 4000, total: 8000 };
 
-/** The conversation from the request body, trimmed, or null if it isn't one. */
+/**
+ * The conversation from the request body, trimmed, or null if it isn't one. The oldest messages go
+ * first, until the rest fit in 12 messages and 8,000 characters: the newest question always fits.
+ */
 export function parseMessages(body: unknown): ChatMessage[] | null {
   const raw = (body as { messages?: unknown } | null)?.messages;
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 40) return null;
@@ -40,7 +43,18 @@ export function parseMessages(body: unknown): ChatMessage[] | null {
     if (text) out.push({ role, content: text });
   }
   if (out.at(-1)?.role !== "user") return null;
-  return out.slice(-LIMITS.messages);
+  return newest(out);
+}
+
+/** The newest messages that fit in LIMITS, in order. */
+function newest(messages: ChatMessage[]): ChatMessage[] {
+  let from = messages.length;
+  let total = 0;
+  while (from > 0 && messages.length - from < LIMITS.messages && total + messages[from - 1].content.length <= LIMITS.total) {
+    total += messages[from - 1].content.length;
+    from--;
+  }
+  return messages.slice(from);
 }
 
 /** Every coin DELPHI has read: Ascend's, then Kalos's. */
@@ -370,6 +384,20 @@ export async function* grok(messages: ChatMessage[], data: string, signal: Abort
 // ------------------------------------------------------------------ flood guard
 
 /**
+ * Why a request is turned away before it's read, or null if it may ask. It must be JSON, which a page
+ * on another site can't send here without the browser asking us first. And if the browser says where
+ * it came from, that must be this site, or the visitor typing the address. So other sites can't spend
+ * DELPHI's model budget through their visitors' browsers.
+ */
+export function refuse(headers: Headers): { status: 403 | 415; error: string } | null {
+  const type = headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+  if (type !== "application/json") return { status: 415, error: "NOT_JSON" };
+  const site = headers.get("sec-fetch-site");
+  if (site !== null && site !== "same-origin" && site !== "none") return { status: 403, error: "OTHER_SITE" };
+  return null;
+}
+
+/**
  * Who's asking: the last X-Forwarded-For entry, which the proxy in front wrote (Caddy appends the
  * client's address; anything before it came from the client). An IPv6 address counts by its /64,
  * which one home or server holds whole, as the DELPHI feed does.
@@ -386,17 +414,28 @@ export function visitor(headers: Headers): string {
   return `${groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":")}::/64`;
 }
 
-const WINDOW_MS = 10 * 60_000;
-const PER_WINDOW = 30;
-const asks = new Map<string, { n: number; since: number }>();
+const MINUTE = 60_000;
+const HOUR = 3_600_000;
+const PER_MINUTE = 6;
+const PER_HOUR = 30;
+const asks = new Map<string, number[]>(); // when each visitor asked, over the last hour
 
-/** At most 30 questions per visitor every 10 minutes. Kept in memory: it only stops floods. */
-export function allow(visitor: string, now = Date.now()): boolean {
-  const h = asks.get(visitor);
-  if (!h || now - h.since >= WINDOW_MS) asks.set(visitor, { n: 1, since: now });
-  else if (++h.n > PER_WINDOW) return false;
-  if (asks.size > 20_000) for (const [k, v] of asks) if (now - v.since >= WINDOW_MS) asks.delete(k);
-  return true;
+/**
+ * How many seconds a visitor must wait to ask again: 0 if they can ask now, and then this question
+ * counts. At most 6 a minute and 30 an hour, plenty for someone reading the answers. Kept in memory:
+ * it only stops floods.
+ */
+export function waitFor(visitor: string, now = Date.now()): number {
+  const times = (asks.get(visitor) ?? []).filter((at) => now - at < HOUR);
+  const lastMinute = times.filter((at) => now - at < MINUTE);
+  // Free again when enough of the oldest questions in a full window have aged out of it.
+  let until = 0;
+  if (lastMinute.length >= PER_MINUTE) until = lastMinute[lastMinute.length - PER_MINUTE] + MINUTE;
+  if (times.length >= PER_HOUR) until = Math.max(until, times[times.length - PER_HOUR] + HOUR);
+  if (!until) times.push(now);
+  asks.set(visitor, times);
+  if (asks.size > 20_000) for (const [k, v] of asks) if (now - (v.at(-1) ?? 0) >= HOUR) asks.delete(k);
+  return until ? Math.ceil((until - now) / 1000) : 0;
 }
 
 let spent = { n: 0, since: 0 };

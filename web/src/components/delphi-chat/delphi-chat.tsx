@@ -31,6 +31,7 @@ type Turn = {
 const THINK_MIN = 1.4; // seconds she thinks, however fast the answer comes
 const CPS = 38; // characters a second she writes at; faster only when the answer is far ahead of her
 const LINE_EVERY = 2200; // ms each thinking line stays
+const RECENT = 6; // earlier questions and answers sent with each question (the server keeps 12 messages at most)
 const R = { hero: 56, heroPhone: 46, think: 20, pen: 7.5, rest: 7 };
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -50,6 +51,7 @@ function thinking(coins: Coin[]): string[] {
 
 const ERRORS: Record<string, string> = {
   RATE_LIMITED: "You’re asking faster than I can read. Wait a minute, then ask again.",
+  HOUR_LIMIT: "You’ve asked me a lot this hour. Wait a while, then ask again.",
   FAILED: "I couldn’t answer that just now.",
   STOPPED: "Stopped before I answered.",
 };
@@ -102,10 +104,13 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     if (!q || busy) return;
     const id = ++nextId.current;
     const L = live.current;
-    const history = turns.filter((t) => t.status === "done" && t.id !== without).flatMap((t) => [
-      { role: "user" as const, content: t.question },
-      { role: "assistant" as const, content: L.full.get(t.id) ?? t.text },
-    ]);
+    const history = turns
+      .filter((t) => t.status === "done" && t.id !== without)
+      .slice(-RECENT)
+      .flatMap((t) => [
+        { role: "user" as const, content: t.question },
+        { role: "assistant" as const, content: L.full.get(t.id) ?? t.text },
+      ]);
     L.full.set(id, "");
     L.ended.delete(id);
     L.stuck = true;
@@ -122,7 +127,9 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
         body: JSON.stringify({ messages: [...history, { role: "user", content: q }] }),
         signal: ctrl.signal,
       });
-      if (!res.ok || !res.body) throw new Error(res.status === 429 ? "RATE_LIMITED" : "FAILED");
+      // Too many questions: a wait of over a minute means this hour's are used up.
+      if (res.status === 429) throw new Error(Number(res.headers.get("retry-after")) > 60 ? "HOUR_LIMIT" : "RATE_LIMITED");
+      if (!res.ok || !res.body) throw new Error("FAILED");
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
