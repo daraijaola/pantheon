@@ -321,6 +321,12 @@ describe("GET /v1/health", () => {
     expect(a.json()).toEqual({ v: 1, ok: true, version: "1.0.0", newestUpdateMs: T0, servedAtMs: h.clock.t });
   });
 
+  it("stays cheap however big the feed gets: the newest update comes from an index, never a scan", async () => {
+    const h = await start({ records: 0 });
+    const plan = h.store.db.prepare("EXPLAIN QUERY PLAN SELECT MAX(updated_ms) FROM feed").all() as Array<{ detail: string }>;
+    expect(plan.map((p) => p.detail).join(" ")).toMatch(/USING COVERING INDEX feed_updated/);
+  });
+
   it("says null for an empty feed, and 503 when the database is gone", async () => {
     const h = await start({ records: 0 });
     expect((await get(h, "/v1/health")).json()).toMatchObject({ ok: true, newestUpdateMs: null });
