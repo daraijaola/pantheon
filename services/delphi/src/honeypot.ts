@@ -9,8 +9,14 @@
 //   fee and price impact cancel out and what is left is the coin's own tax. A coin that keeps part of
 //   every transfer cannot be sold into a Uniswap-V3-style pool at all: the pool gets less than it was
 //   promised and refuses ("IIA").
-import { decodeFunctionResult, encodeFunctionData, getAddress, keccak256, parseAbi, toEventSelector, toHex, type Address, type Hex } from "viem";
+// - Sale on PerpMe: the same, through PerpMe's own Uniswap V3 copy (the same router and QuoterV2 code as
+//   Kalos's, checked live), in the coin's PerpMe pool. For its first 366 parent-chain blocks a PerpMe coin
+//   caps every wallet at 2% of the supply, so a big buy is refused by design: DELPHI reads that window
+//   from the coin, and while it is on, also tries one buy just over the cap to see the cap at work.
+import { decodeFunctionResult, encodeFunctionData, getAddress, keccak256, pad, parseAbi, toEventSelector, toHex, type Address, type Hex } from "viem";
 import type { KalosContracts } from "./kalos-api.ts";
+import { TOKEN_LAUNCHED } from "./live/types.ts";
+import { PERPME, PERPME_RULES } from "./perpme.ts";
 import { answerData, balanceOfData, DEAD, ERC20, ethCall, getCode, outcome, pctOf, wordUint, ZERO } from "./pinned.ts";
 import type { BatchRpc } from "./rpc.ts";
 import { simulate, type Revert, type SimCall, type SimResult } from "./simulate.ts";
@@ -18,7 +24,7 @@ import { delegationTarget } from "./bytecode.ts";
 
 /** Made-up wallets for dry runs: derived from fixed words, so every run (and every replay) uses the same ones. */
 const testWallet = (word: string): Address => getAddress(`0x${keccak256(toHex(`delphi-safety:${word}`)).slice(26)}`);
-export const TEST_WALLETS = { receiver: testWallet("receiver"), onward: testWallet("onward"), buyer: testWallet("buyer") } as const;
+export const TEST_WALLETS = { receiver: testWallet("receiver"), onward: testWallet("onward"), buyer: testWallet("buyer"), probe: testWallet("cap-probe") } as const;
 
 const TRANSFER_TOPIC = toEventSelector("Transfer(address,address,uint256)");
 /** Far in the future: Kalos's router refuses a trade after its deadline. */
@@ -189,7 +195,12 @@ export async function transferTest(rpc: BatchRpc, block: Hex, token: Address, ho
   return result;
 }
 
-export type KalosPool = { pool: Address; fee: number; whypeInPool: string; liquidity: string };
+/**
+ * A Uniswap-V3-style pool to trade the coin in. `whypeInPool` is the pool's balance of its quote currency:
+ * WHYPE, unless `quote` names another (a PerpMe coin priced in USDC or KALOS).
+ */
+export type KalosPool = { pool: Address; fee: number; whypeInPool: string; liquidity: string; quote?: Address };
+const quoteOf = (pool: KalosPool, venue: KalosContracts) => pool.quote ?? venue.whype;
 
 /** The coin's Kalos pools against WHYPE, found on chain through Kalos's factory, deepest (most WHYPE) first. */
 export async function kalosPools(rpc: BatchRpc, block: Hex, token: Address, kalos: KalosContracts, feeTiers: readonly number[]): Promise<KalosPool[]> {
@@ -249,7 +260,7 @@ const leg = (amountIn: bigint, quote: bigint | null, swap: SimResult, received: 
  * most `maxShareBps` of the pool's WHYPE (a big holder's 1% can be a fifth of a thin pool).
  */
 export async function saleSize(rpc: BatchRpc, block: Hex, token: Address, amount: bigint, pool: KalosPool, kalos: KalosContracts, maxShareBps: number): Promise<bigint> {
-  const [a] = await rpc.many([ethCall(kalos.quoterV2, quoteData(token, kalos.whype, amount, pool.fee), block)]);
+  const [a] = await rpc.many([ethCall(kalos.quoterV2, quoteData(token, quoteOf(pool, kalos), amount, pool.fee), block)]);
   const o = outcome(a!);
   const quote = o.ok ? wordUint(o.data) : null;
   const cap = (BigInt(pool.whypeInPool) * BigInt(maxShareBps)) / 10_000n;
@@ -258,15 +269,16 @@ export async function saleSize(rpc: BatchRpc, block: Hex, token: Address, amount
   return scaled > 0n ? scaled : amount;
 }
 
-/** The holder sells `amount` for WHYPE through Kalos's router. */
+/** The holder sells `amount` for the pool's quote currency (WHYPE on Kalos) through the venue's router. */
 export async function holderSell(rpc: BatchRpc, block: Hex, token: Address, holder: Address, amount: bigint, pool: KalosPool, kalos: KalosContracts): Promise<TradeLeg> {
+  const quote = quoteOf(pool, kalos);
   const r = await simulate(rpc, block, [
-    { from: holder, to: kalos.quoterV2, data: quoteData(token, kalos.whype, amount, pool.fee) },
+    { from: holder, to: kalos.quoterV2, data: quoteData(token, quote, amount, pool.fee) },
     { from: holder, to: token, data: approveData(kalos.swapRouter, amount) },
-    { from: holder, to: kalos.whype, data: balanceOfData(holder) },
+    { from: holder, to: quote, data: balanceOfData(holder) },
     { from: holder, to: token, data: balanceOfData(holder) },
-    { from: holder, to: kalos.swapRouter, data: swapData(token, kalos.whype, pool.fee, holder, amount) },
-    { from: holder, to: kalos.whype, data: balanceOfData(holder) },
+    { from: holder, to: kalos.swapRouter, data: swapData(token, quote, pool.fee, holder, amount) },
+    { from: holder, to: quote, data: balanceOfData(holder) },
     { from: holder, to: token, data: balanceOfData(holder) },
   ]);
   if (!r[1]!.ok) return leg(amount, quoted(r[0]), r[1]!, null, null);
@@ -305,6 +317,127 @@ function buyerSetup(token: Address, buyWei: bigint, pool: KalosPool, kalos: Kalo
   return { buyer, money: { [buyer]: buyWei * 2n }, buyCall: { from: buyer, to: kalos.swapRouter, data: swapData(kalos.whype, token, pool.fee, buyer, buyWei), value: buyWei } };
 }
 
+// ─── PerpMe ──────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * PerpMe's contracts as the dry runs need them: its own Uniswap V3 copy (pool factory, position manager,
+ * router, QuoterV2 and WHYPE, the same code as Kalos's), its launch factory, the contract that makes each
+ * coin, and its Multicall3 (whose getBlockNumber() answers the parent chain's block).
+ */
+export type PerpmeVenue = KalosContracts & { launchFactory: Address; coinDeployer: Address; multicall3: Address };
+export const PERPME_VENUE: PerpmeVenue = {
+  factory: getAddress(PERPME.poolFactory),
+  positionManager: getAddress(PERPME.positionManager),
+  swapRouter: getAddress(PERPME.router),
+  quoterV2: getAddress(PERPME.quoter),
+  whype: getAddress(PERPME.whype),
+  launchFactory: getAddress(PERPME.launchFactory),
+  coinDeployer: getAddress(PERPME.coinDeployer),
+  multicall3: getAddress(PERPME.multicall3),
+};
+
+/** A coin's launch on PerpMe, as its TokenLaunched event tells it. */
+export type PerpmeLaunchFacts = {
+  factory: Address;
+  deployer: Address;
+  pool: Address;
+  pairToken: Address;
+  /** 10,000 = 1% (dexId 0), 20,000 = 2% (dexId 1). */
+  fee: number;
+  positionId: string;
+  /** A parent-chain (HyperEVM) block. */
+  restrictionEndBlock: string;
+  initialBuyTokens: string;
+  tx: Hex;
+  block: string;
+};
+
+const LAUNCHED_TOPIC = toEventSelector(TOKEN_LAUNCHED);
+
+/**
+ * The coin's PerpMe launch, read from the launch factory's TokenLaunched event in `atBlock` (the block it
+ * was created in: one transaction makes the coin and launches it). Null if PerpMe didn't launch it there.
+ */
+export async function perpmeLaunchOf(rpc: BatchRpc, token: Address, atBlock: bigint, venue: PerpmeVenue = PERPME_VENUE): Promise<PerpmeLaunchFacts | null> {
+  type Log = { topics: Hex[]; data: Hex; transactionHash: Hex; blockNumber: Hex };
+  const logs = await rpc.call<Log[]>("eth_getLogs", [{ address: venue.launchFactory, topics: [LAUNCHED_TOPIC, pad(token)], fromBlock: toHex(atBlock), toBlock: toHex(atBlock) }]);
+  const l = logs[0];
+  if (!l) return null;
+  const word = (i: number) => BigInt(`0x${l.data.slice(2 + 64 * i, 66 + 64 * i)}`);
+  // data: pairToken, dexId, launchConfigId, positionId, restrictionEndBlock, initialBuyAmount, initialBuyTokens
+  return {
+    factory: venue.launchFactory,
+    deployer: getAddress(`0x${l.topics[2]!.slice(26)}`),
+    pool: getAddress(`0x${l.topics[3]!.slice(26)}`),
+    pairToken: getAddress(`0x${l.data.slice(26, 66)}`),
+    fee: PERPME_RULES.feeOfDex[Number(word(1))] ?? 0,
+    positionId: word(3).toString(),
+    restrictionEndBlock: word(4).toString(),
+    initialBuyTokens: word(6).toString(),
+    tx: l.transactionHash,
+    block: BigInt(l.blockNumber).toString(),
+  };
+}
+
+const PROTECTION = parseAbi([
+  "function restrictionsActive() view returns (bool)",
+  "function maxWalletAmount() view returns (uint256)",
+  "function restrictionEndBlock() view returns (uint256)",
+  "function getBlockNumber() view returns (uint256)",
+]);
+
+/** A PerpMe coin's launch protection at one block, read from the coin itself. */
+export type LaunchProtection = {
+  /** restrictionsActive(): wallets are capped right now. */
+  active: boolean;
+  /** maxWalletAmount(): the most one wallet may hold while it is on (2% of the supply). */
+  maxWallet: string | null;
+  /** restrictionEndBlock() on the coin, a parent-chain block. */
+  endBlock: string | null;
+  /** The parent chain's block at this Elysium block (Multicall3.getBlockNumber()). */
+  parentBlock: string | null;
+};
+
+export async function launchProtection(rpc: BatchRpc, block: Hex, token: Address, venue: PerpmeVenue = PERPME_VENUE): Promise<LaunchProtection> {
+  const call = (to: Address, functionName: "restrictionsActive" | "maxWalletAmount" | "restrictionEndBlock" | "getBlockNumber") => ethCall(to, encodeFunctionData({ abi: PROTECTION, functionName }), block);
+  const [active, max, end, parent] = await rpc.many([call(token, "restrictionsActive"), call(token, "maxWalletAmount"), call(token, "restrictionEndBlock"), call(venue.multicall3, "getBlockNumber")]);
+  const n = (a: typeof active) => wordUint(answerData(a));
+  return { active: n(active) === 1n, maxWallet: n(max)?.toString() ?? null, endBlock: n(end)?.toString() ?? null, parentBlock: n(parent)?.toString() ?? null };
+}
+
+/**
+ * A buy sized for a PerpMe pool: `buyWei` of HYPE, scaled down so its quote stays under `maxTokens` (a
+ * small share of the coins in the pool, and under the wallet cap while launch protection is on). PerpMe
+ * pools open holding only the coin, so the HYPE side says nothing about depth.
+ */
+export async function buySize(rpc: BatchRpc, block: Hex, token: Address, buyWei: bigint, pool: KalosPool, venue: KalosContracts, maxTokens: bigint): Promise<bigint> {
+  const [a] = await rpc.many([ethCall(venue.quoterV2, quoteData(venue.whype, token, buyWei, pool.fee), block)]);
+  const o = outcome(a!);
+  const quote = o.ok ? wordUint(o.data) : null;
+  if (!quote || quote <= maxTokens) return buyWei;
+  const scaled = (buyWei * maxTokens) / quote;
+  return scaled > 0n ? scaled : buyWei;
+}
+
+const EXACT_OUT = parseAbi([
+  "function exactOutputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountOut, uint256 amountInMaximum, uint160 sqrtPriceLimitX96)) payable returns (uint256 amountIn)",
+]);
+
+/**
+ * While launch protection is on: a fresh wallet asks for one coin unit more than the wallet cap, paying
+ * with up to `maxWei` of HYPE. PerpMe's coin refuses it by design (its pool then reverts "TF").
+ */
+export async function capProbe(rpc: BatchRpc, block: Hex, token: Address, maxWallet: bigint, pool: KalosPool, venue: KalosContracts, maxWei: bigint): Promise<TradeLeg> {
+  const { probe } = TEST_WALLETS;
+  const want = maxWallet + 1n;
+  const data = encodeFunctionData({
+    abi: EXACT_OUT,
+    functionName: "exactOutputSingle",
+    args: [{ tokenIn: venue.whype, tokenOut: token, fee: pool.fee, recipient: probe, deadline: DEADLINE, amountOut: want, amountInMaximum: maxWei, sqrtPriceLimitX96: 0n }],
+  });
+  const r = await simulate(rpc, block, [{ from: probe, to: venue.swapRouter, data, value: maxWei }, { from: probe, to: token, data: balanceOfData(probe) }], { [probe]: maxWei * 2n });
+  return leg(maxWei, null, r[0]!, r[0]!.ok ? uintOf(r[1]) : null, null);
+}
 /** Reads one holder's balance at `block` (0 when the call fails). */
 export async function balanceAt(rpc: BatchRpc, block: Hex, token: Address, who: Address): Promise<bigint> {
   const [a] = await rpc.many([ethCall(token, balanceOfData(who), block)]);

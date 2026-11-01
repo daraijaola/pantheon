@@ -23,8 +23,13 @@ import { cloneTarget, codeSize, delegationTarget, dispatchSelectors, hasDelegate
 import { ContractsApi, ExplorerApi, type AbiItem, type Verification } from "./conduit.ts";
 import {
   balanceAt,
+  buySize,
+  capProbe,
   holderSell,
   kalosPools,
+  launchProtection,
+  PERPME_VENUE,
+  perpmeLaunchOf,
   pickHolder,
   roundTrip,
   saleSize,
@@ -32,6 +37,9 @@ import {
   transferTest,
   type HolderPick,
   type KalosPool,
+  type LaunchProtection,
+  type PerpmeLaunchFacts,
+  type PerpmeVenue,
   type Setup,
   type TradeLeg,
   type TransferTest,
@@ -40,7 +48,7 @@ import type { Fetch } from "./http.ts";
 import { KALOS_CONTRACTS, KalosApi, type KalosContracts } from "./kalos-api.ts";
 import { lookalikes, looksDisguised, skeleton, visible, type KnownToken, type LookalikeMatch } from "./lookalike.ts";
 import { NOT_POWERS, POWER_KINDS, POWER_SELECTORS, powerKind, STANDARD_SELECTORS, type PowerId } from "./powers.ts";
-import { answerData, decodeText, ethCall, getCode, getSlot, isRenounced, outcome, pctText, RENOUNCED, short, wordAddress, wordUint, ZERO } from "./pinned.ts";
+import { answerData, balanceOfData, decodeText, ethCall, getCode, getSlot, isRenounced, outcome, pctText, RENOUNCED, short, wordAddress, wordUint, ZERO } from "./pinned.ts";
 import type { BatchRpc } from "./rpc.ts";
 
 export type { KnownToken } from "./lookalike.ts";
@@ -71,6 +79,12 @@ export const SAFETY_RULES = {
   saleMaxPoolShareBps: 100,
   /** Kalos fee tiers tried when looking for a coin's pools (the factory has 100, 500, 3000, 10000 and 20000). */
   kalosFeeTiers: [100, 500, 3_000, 10_000, 20_000] as readonly number[],
+  /**
+   * PerpMe: the fresh wallet's test buy is worth at most this share of the coins in the pool (PerpMe pools
+   * open holding only the coin, so their HYPE says nothing about depth), and while launch protection is
+   * on, at most this share of the wallet cap. The cap probe may spend up to `capProbeWei`.
+   */
+  perpme: { maxPoolShareBps: 100, maxCapShareBps: 5_000, capProbeWei: 10_000n * 10n ** 18n },
 } as const;
 
 const eip1967 = (label: string) => toHex(BigInt(keccak256(toHex(label))) - 1n, { size: 32 });
@@ -107,6 +121,8 @@ export const ADDRESS_LABELS: Readonly<Record<string, string>> = {
   // Arbitrum Orbit's UpgradeExecutor (execute, executeCall, EXECUTOR_ROLE): the chain owner's contract.
   "0xfa78c1a82455a6ce83aa82cf464d74e88b384600": "Elysium's UpgradeExecutor (the chain owner)",
   [DEFAULT_LAUNCHPAD.toLowerCase()]: "Ascend's launchpad",
+  [PERPME_VENUE.launchFactory.toLowerCase()]: "PerpMe's launch factory",
+  [PERPME_VENUE.coinDeployer.toLowerCase()]: "PerpMe's coin deployer",
 };
 /** An address for a sentence: its label when DELPHI knows one, else the short form. */
 const who = (a: string) => (ADDRESS_LABELS[a.toLowerCase()] ? `${ADDRESS_LABELS[a.toLowerCase()]} ${short(a)}` : short(a));
@@ -186,8 +202,15 @@ export type SellFacts = {
   holderSell: TradeLeg | null;
   roundTrip: { buy: TradeLeg; sell: TradeLeg | null } | null;
   ascend: AscendLaunch | null;
+  /** Set for a coin launched on PerpMe: the tests ran in its PerpMe pool, through PerpMe's router. */
+  perpme?: PerpmeSale;
   error?: string;
 };
+/**
+ * A PerpMe coin's sale test: its launch, its launch protection at the pinned block, and while that is on,
+ * a buy of just over the wallet cap (refused by design).
+ */
+export type PerpmeSale = { launch: PerpmeLaunchFacts; protection: LaunchProtection | null; capProbe: TradeLeg | null };
 export type ImpersonationFacts = { symbol: string | null; name: string | null; skeleton: { symbol: string; name: string }; disguised: boolean; matches: LookalikeMatch[]; isKnown: KnownToken | null };
 export type AscendLaunch = { launchpad: Address; creator: Address; quote: Address; poolId: Hex; tx: Hex; block: string };
 
@@ -237,6 +260,8 @@ export type SafetyOptions = {
   known?: readonly KnownToken[];
   launchpad?: Address;
   kalos?: KalosContracts;
+  /** PerpMe's contracts (default PERPME_VENUE); false: don't look for a PerpMe launch. */
+  perpme?: PerpmeVenue | false;
   /** Look for a holder when none is given (default true). */
   findHolder?: boolean;
 };
@@ -607,6 +632,15 @@ export async function checkSafety(deps: SafetyDeps, tokenIn: Address, opts: Safe
       return null;
     }),
   ]);
+  // A coin PerpMe's coin deployer made: its launch names the pool to test sales in.
+  const perpmeVenue = opts.perpme === false ? null : (opts.perpme ?? PERPME_VENUE);
+  const perpme =
+    perpmeVenue && deployment?.factory && deployment.block && deployment.factory.toLowerCase() === perpmeVenue.coinDeployer.toLowerCase()
+      ? await perpmeLaunchOf(rpc, token, BigInt(deployment.block), perpmeVenue).catch((err: unknown) => {
+          notes.push(`PerpMe's launch records could not be read (${errText(err)}).`);
+          return null;
+        })
+      : null;
   const logicEntry = "error" in verifiedLogic ? null : verifiedLogic.entry;
   const verified = verifiedCheck(logicEntry, verifiedProxy, proxy !== null, "error" in verifiedLogic ? verifiedLogic.error : undefined);
 
@@ -675,7 +709,7 @@ export async function checkSafety(deps: SafetyDeps, tokenIn: Address, opts: Safe
   const ownerC = ownerCheck(ownerFacts, found, upgrade);
 
   // 5. Transfer and sale dry runs.
-  const [transfer, sell] = await tradeChecks(rpc, token, block, holding, opts, kalos, ascend);
+  const [transfer, sell] = await tradeChecks(rpc, token, block, holding, opts, kalos, ascend, perpme && perpmeVenue ? { launch: perpme, venue: perpmeVenue } : null);
 
   return report({ code, verified, owner: ownerC, powers, transfer, sell, impersonation: fakeTicker });
 }
@@ -824,7 +858,16 @@ async function findHolder(rpc: BatchRpc, token: Address, block: Hex, blockNumber
 }
 
 /** The transfer and the sale dry runs, sharing one holder (or a fresh buyer when no wallet holds it). */
-async function tradeChecks(rpc: BatchRpc, token: Address, block: Hex, holding: Holding, opts: SafetyOptions, kalos: KalosContracts, ascend: AscendLaunch | null): Promise<[Check<TransferFacts>, Check<SellFacts>]> {
+async function tradeChecks(
+  rpc: BatchRpc,
+  token: Address,
+  block: Hex,
+  holding: Holding,
+  opts: SafetyOptions,
+  kalos: KalosContracts,
+  ascend: AscendLaunch | null,
+  perpme: { launch: PerpmeLaunchFacts; venue: PerpmeVenue } | null,
+): Promise<[Check<TransferFacts>, Check<SellFacts>]> {
   const taxed = (p: number | null) => p !== null && p * 100 >= SAFETY_RULES.taxToleranceBps;
   const { address: holderAddr, balance } = holding;
   const amount = opts.amount ?? (balance * BigInt(SAFETY_RULES.testShareBps)) / 10_000n;
@@ -834,40 +877,45 @@ async function tradeChecks(rpc: BatchRpc, token: Address, block: Hex, holding: H
   const sellFacts: SellFacts = { pool: null, holderSell: null, roundTrip: null, ascend };
   let sell: Check<SellFacts>;
   let buyer: { setup: Setup; bought: bigint } | null = null;
-  try {
-    const pools = await kalosPools(rpc, block, token, kalos, SAFETY_RULES.kalosFeeTiers);
-    const pool = pools[0] ?? null;
-    sellFacts.pool = pool;
-    if (!pool) {
-      const why = ascend
-        ? "It trades in its Ascend pool (liquidity the launchpad seeded and locked) and has no Kalos pool; DELPHI tested a transfer, not a sale through Ascend's router."
-        : token === kalos.whype
-          ? "It is Kalos's wrapped HYPE, the currency other coins are sold for."
-          : "It has no Kalos pool against WHYPE with liquidity, so DELPHI could not test a sale.";
-      sell = check("unknown", why, sellFacts, ascend ? [{ what: "launched on Ascend", tx: ascend.tx, address: ascend.launchpad }] : []);
-    } else {
-      const poolShare = (BigInt(pool.whypeInPool) * BigInt(SAFETY_RULES.roundTrip.maxPoolShareBps)) / 10_000n;
-      const buyWei = SAFETY_RULES.roundTrip.buyWei < poolShare ? SAFETY_RULES.roundTrip.buyWei : poolShare;
-      const sale = holderAddr && testAmount > 0n ? await saleSize(rpc, block, token, testAmount, pool, kalos, SAFETY_RULES.saleMaxPoolShareBps) : 0n;
-      const [h, rt] = await Promise.all([
-        holderAddr && sale > 0n ? holderSell(rpc, block, token, holderAddr, sale, pool, kalos) : Promise.resolve(null),
-        buyWei > 0n ? roundTrip(rpc, block, token, buyWei, pool, kalos) : Promise.resolve(null),
-      ]);
-      sellFacts.holderSell = h;
-      sellFacts.roundTrip = rt ? { buy: rt.buy, sell: rt.sell } : null;
-      if (rt?.setup && rt.buy.received) buyer = { setup: rt.setup, bought: BigInt(rt.buy.received) };
-      sell = sellCheck(sellFacts, pool, holderAddr, taxed);
+  if (perpme) {
+    // Sale on PerpMe: in the coin's PerpMe pool, through PerpMe's router.
+    ({ sell, buyer } = await perpmeSale(rpc, token, block, holderAddr, testAmount, perpme.launch, perpme.venue, sellFacts, taxed));
+  } else {
+    try {
+      const pools = await kalosPools(rpc, block, token, kalos, SAFETY_RULES.kalosFeeTiers);
+      const pool = pools[0] ?? null;
+      sellFacts.pool = pool;
+      if (!pool) {
+        const why = ascend
+          ? "It trades in its Ascend pool (liquidity the launchpad seeded and locked) and has no Kalos pool; DELPHI tested a transfer, not a sale through Ascend's router."
+          : token === kalos.whype
+            ? "It is Kalos's wrapped HYPE, the currency other coins are sold for."
+            : "It has no Kalos pool against WHYPE with liquidity, so DELPHI could not test a sale.";
+        sell = check("unknown", why, sellFacts, ascend ? [{ what: "launched on Ascend", tx: ascend.tx, address: ascend.launchpad }] : []);
+      } else {
+        const poolShare = (BigInt(pool.whypeInPool) * BigInt(SAFETY_RULES.roundTrip.maxPoolShareBps)) / 10_000n;
+        const buyWei = SAFETY_RULES.roundTrip.buyWei < poolShare ? SAFETY_RULES.roundTrip.buyWei : poolShare;
+        const sale = holderAddr && testAmount > 0n ? await saleSize(rpc, block, token, testAmount, pool, kalos, SAFETY_RULES.saleMaxPoolShareBps) : 0n;
+        const [h, rt] = await Promise.all([
+          holderAddr && sale > 0n ? holderSell(rpc, block, token, holderAddr, sale, pool, kalos) : Promise.resolve(null),
+          buyWei > 0n ? roundTrip(rpc, block, token, buyWei, pool, kalos) : Promise.resolve(null),
+        ]);
+        sellFacts.holderSell = h;
+        sellFacts.roundTrip = rt ? { buy: rt.buy, sell: rt.sell } : null;
+        if (rt?.setup && rt.buy.received) buyer = { setup: rt.setup, bought: BigInt(rt.buy.received) };
+        sell = sellCheck(sellFacts, pool, holderAddr, taxed);
+      }
+    } catch (err) {
+      sellFacts.error = errText(err);
+      sell = check("unknown", `The sale dry run failed to run (${errText(err)}).`, sellFacts);
     }
-  } catch (err) {
-    sellFacts.error = errText(err);
-    sell = check("unknown", `The sale dry run failed to run (${errText(err)}).`, sellFacts);
   }
 
   // Transfer: from the real holder, or else from the fresh wallet right after its test buy.
   let holder = holding.facts;
   let from = holderAddr && testAmount > 0n ? { address: holderAddr, amount: testAmount, setup: undefined as Setup | undefined, what: "test sender (a real holder)" } : null;
   if (!from && buyer) {
-    from = { address: TEST_WALLETS.buyer, amount: buyer.bought, setup: buyer.setup, what: "test sender (a fresh wallet, right after its test buy on Kalos)" };
+    from = { address: TEST_WALLETS.buyer, amount: buyer.bought, setup: buyer.setup, what: `test sender (a fresh wallet, right after its test buy on ${perpme ? "PerpMe" : "Kalos"})` };
     holder = { holder: TEST_WALLETS.buyer, balance: buyer.bought.toString(), given: false };
   }
   let transfer: Check<TransferFacts>;
@@ -913,4 +961,113 @@ function sellCheck(f: SellFacts, pool: KalosPool, holder: Address | null, taxed:
   const tested = [f.holderSell?.ok ? "a real holder" : null, f.roundTrip?.sell?.ok ? "a fresh wallet that had just bought" : null].filter(Boolean) as string[];
   if (!tested.length) return check("unknown", "The Kalos pool had too little at this price for a test trade to say anything.", f, ev);
   return check("ok", `Test sales on Kalos by ${listText(tested)} went through and paid exactly what Kalos quoted: no buy or sell tax.`, f, ev);
+}
+
+const fmtPct = (fee: number) => `${fee / 10_000}%`;
+const LIQUIDITY = parseAbi(["function liquidity() view returns (uint128)"]);
+
+/**
+ * The sale test for a PerpMe coin, in its own PerpMe pool through PerpMe's router and QuoterV2 (the same
+ * code as Kalos's): a real holder sells for the pool's quote currency, and when that is PerpMe's WHYPE, a
+ * fresh wallet buys with HYPE and sells it all back. The buy stays small next to the coins in the pool and,
+ * while launch protection is on, under half the wallet cap; a second fresh wallet then asks for just over
+ * the cap, which PerpMe refuses by design.
+ */
+async function perpmeSale(
+  rpc: BatchRpc,
+  token: Address,
+  block: Hex,
+  holder: Address | null,
+  amount: bigint,
+  launch: PerpmeLaunchFacts,
+  venue: PerpmeVenue,
+  facts: SellFacts,
+  taxed: (p: number | null) => boolean,
+): Promise<{ sell: Check<SellFacts>; buyer: { setup: Setup; bought: bigint } | null }> {
+  const perpme: PerpmeSale = { launch, protection: null, capProbe: null };
+  facts.perpme = perpme;
+  try {
+    const [[quoteIn, coinsIn, liquidity], protection] = await Promise.all([
+      rpc.many([ethCall(launch.pairToken, balanceOfData(launch.pool), block), ethCall(token, balanceOfData(launch.pool), block), ethCall(launch.pool, encodeFunctionData({ abi: LIQUIDITY, functionName: "liquidity" }), block)]),
+      launchProtection(rpc, block, token, venue),
+    ]);
+    const inPool = wordUint(answerData(quoteIn)) ?? 0n;
+    const coins = wordUint(answerData(coinsIn)) ?? 0n;
+    const pool: KalosPool = { pool: launch.pool, fee: launch.fee, whypeInPool: inPool.toString(), liquidity: (wordUint(answerData(liquidity)) ?? 0n).toString(), quote: launch.pairToken };
+    facts.pool = pool;
+    perpme.protection = protection;
+    const hype = launch.pairToken.toLowerCase() === venue.whype.toLowerCase();
+    const cap = protection.active && protection.maxWallet ? BigInt(protection.maxWallet) : null;
+    const rules = SAFETY_RULES.perpme;
+    const byPool = (coins * BigInt(rules.maxPoolShareBps)) / 10_000n;
+    const maxTokens = cap !== null && (cap * BigInt(rules.maxCapShareBps)) / 10_000n < byPool ? (cap * BigInt(rules.maxCapShareBps)) / 10_000n : byPool;
+    const sale = holder && amount > 0n && inPool > 0n ? await saleSize(rpc, block, token, amount, pool, venue, SAFETY_RULES.saleMaxPoolShareBps) : 0n;
+    const buyWei = hype && maxTokens > 0n ? await buySize(rpc, block, token, SAFETY_RULES.roundTrip.buyWei, pool, venue, maxTokens) : 0n;
+    const [h, rt, probe] = await Promise.all([
+      holder && sale > 0n ? holderSell(rpc, block, token, holder, sale, pool, venue) : Promise.resolve(null),
+      buyWei > 0n ? roundTrip(rpc, block, token, buyWei, pool, venue) : Promise.resolve(null),
+      cap !== null && hype ? capProbe(rpc, block, token, cap, pool, venue, rules.capProbeWei) : Promise.resolve(null),
+    ]);
+    facts.holderSell = h;
+    facts.roundTrip = rt ? { buy: rt.buy, sell: rt.sell } : null;
+    perpme.capProbe = probe;
+    const buyer = rt?.setup && rt.buy.received ? { setup: rt.setup, bought: BigInt(rt.buy.received) } : null;
+    return { sell: perpmeSellCheck(facts, perpme, holder, venue, taxed), buyer };
+  } catch (err) {
+    facts.error = errText(err);
+    return { sell: check("unknown", `The sale dry run on PerpMe failed to run (${errText(err)}).`, facts, [{ what: "launched on PerpMe", tx: launch.tx, address: launch.factory }]), buyer: null };
+  }
+}
+
+/** Launch protection in one sentence: until when, and what it caps. */
+function protectionText(p: LaunchProtection | null): string {
+  if (!p?.active) return "";
+  const left = p.endBlock && p.parentBlock ? BigInt(p.endBlock) - BigInt(p.parentBlock) : null;
+  const when = p.endBlock ? `until parent-chain block ${p.endBlock}${left !== null && left > 0n ? ` (${left} blocks, about ${Math.max(1, Math.ceil(Number(left) / 60))} min)` : ""}` : "for now";
+  return `Buying is restricted by design ${when}: PerpMe's launch protection lets no wallet hold more than 2% of the supply.`;
+}
+
+function perpmeSellCheck(f: SellFacts, p: PerpmeSale, holder: Address | null, venue: PerpmeVenue, taxed: (pct: number | null) => boolean): Check<SellFacts> {
+  const pool = f.pool!;
+  const quote = !pool.quote || pool.quote.toLowerCase() === venue.whype.toLowerCase() ? "HYPE" : pool.quote;
+  const ev: Evidence[] = [
+    { what: `PerpMe pool against ${quote === "HYPE" ? "PerpMe's WHYPE" : short(quote)} (fee ${fmtPct(pool.fee)})`, address: pool.pool },
+    { what: "launched on PerpMe", tx: p.launch.tx, address: p.launch.factory },
+  ];
+  if (holder && f.holderSell) ev.push({ what: "test seller (a real holder)", address: holder });
+  if (f.roundTrip) ev.push({ what: "test buyer (a fresh wallet)", address: TEST_WALLETS.buyer });
+  if (p.capProbe) ev.push({ what: "cap test buyer (a fresh wallet asking for just over 2% of the supply)", address: TEST_WALLETS.probe });
+  const restricted = !!p.protection?.active;
+  const window = protectionText(p.protection);
+  const why = (l: TradeLeg) => (l.revert?.reason ? `: "${visible(l.revert.reason, 80)}"` : l.revert?.data && l.revert.data !== "0x" ? ` (revert data ${l.revert.data.slice(0, 10)})` : "");
+  const failed = [
+    f.holderSell && !f.holderSell.ok ? (["sale by a real holder", f.holderSell] as const) : null,
+    f.roundTrip && !f.roundTrip.buy.ok ? (["buy by a fresh wallet", f.roundTrip.buy] as const) : null,
+    f.roundTrip?.sell && !f.roundTrip.sell.ok ? (["sale by a new buyer", f.roundTrip.sell] as const) : null,
+  ].filter((x) => x !== null);
+  if (failed.length) {
+    const [what, l] = failed[0]!;
+    // Inside the window a refusal may be the cap at work: restricted, not a honeypot. Ask again once it ends.
+    if (restricted) return check("unknown", `${window} A small test ${what} on PerpMe was refused${why(l)}; DELPHI calls that restricted, not a honeypot, and can tell once the window ends.`, f, ev);
+    const iia = l.revert?.reason === "IIA" ? " The pool got fewer coins than it was sent, which is what happens when a coin keeps part of every transfer." : "";
+    return check("risk", `A test ${what} on PerpMe failed${why(l)}.${iia}`, f, ev);
+  }
+  const taxes = [
+    ["sale by a real holder", f.holderSell?.taxPct ?? null],
+    ["buy", f.roundTrip?.buy.taxPct ?? null],
+    ["sale by a new buyer", f.roundTrip?.sell?.taxPct ?? null],
+  ] as const;
+  const hit = taxes.filter(([, pct]) => taxed(pct));
+  if (hit.length) return check("risk", `PerpMe test trades came up short of PerpMe's own quote: ${listText(hit.map(([what, pct]) => `the ${what} by ${pctText(pct!)}`))}. The coin takes a tax.`, f, ev);
+  const tested = [f.holderSell?.ok ? "a real holder" : null, f.roundTrip?.sell?.ok ? "a fresh wallet that had just bought" : null].filter(Boolean) as string[];
+  const cap = p.capProbe ? (p.capProbe.ok ? " A test buy of just over 2% went through, so the cap did not hold." : " A test buy of just over 2% was refused, as designed.") : "";
+  if (!tested.length) {
+    const none =
+      quote !== "HYPE"
+        ? `It is priced in ${short(quote)}, not HYPE, and DELPHI found no holder to sell with, so no sale was tested (a fresh wallet's round trip needs a HYPE-priced pool).`
+        : "The PerpMe pool had too little at this price for a test trade to say anything.";
+    return check("unknown", `${restricted ? `${window} ` : ""}${none}${cap}`, f, ev);
+  }
+  const ok = `Test sales on PerpMe by ${listText(tested)} went through and paid exactly what PerpMe's quoter said: no buy or sell tax.`;
+  return check("ok", restricted ? `${ok} ${window}${cap}` : ok, f, ev);
 }
