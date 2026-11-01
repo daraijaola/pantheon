@@ -3,6 +3,7 @@
 import Fastify from "fastify";
 import { z } from "zod";
 import type { FreshChecks } from "./fresh.ts";
+import type { HistoryReader } from "./history.ts";
 import { NotReady, type HoldingsReader } from "./holdings.ts";
 import type { Verdicts } from "./verdicts.ts";
 
@@ -11,7 +12,7 @@ export const PER_MINUTE = 120;
 
 const Address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 
-export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read"> } = {}) {
+export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read"> } = {}) {
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: "127.0.0.1", bodyLimit: 1024 });
   const now = opts.now ?? Date.now;
   const hits = new Map<string, { n: number; since: number }>();
@@ -41,20 +42,20 @@ export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { log
     return reply.header("cache-control", "no-store").send({ ...coin, checking: opts.fresh?.ask(coin) ?? false });
   });
 
-  const { holdings } = opts;
-  if (holdings) {
-    // A failed read is a 503, never an empty list: "holds nothing" has to be something we actually read.
-    app.get<{ Params: { address: string } }>("/wallets/:address/holdings", async (req, reply) => {
+  // A failed read is a 503, never an empty answer: "holds nothing" has to be something we actually read.
+  const walletRoute = (path: string, reader: { read(wallet: string): Promise<unknown> }) =>
+    app.get<{ Params: { address: string } }>(`/wallets/:address/${path}`, async (req, reply) => {
       const wallet = Address.safeParse(req.params.address);
       if (!wallet.success) return reply.code(400).send({ error: "INVALID_ADDRESS" });
       try {
-        return await reply.header("cache-control", "no-store").send(await holdings.read(wallet.data));
+        return await reply.header("cache-control", "no-store").send(await reader.read(wallet.data));
       } catch (err) {
-        req.log.warn({ error: (err as Error).message.split("\n")[0] }, "couldn't read holdings");
+        req.log.warn({ error: (err as Error).message.split("\n")[0] }, `couldn't read a wallet's ${path}`);
         return reply.code(503).send({ error: err instanceof NotReady ? "NOT_READY" : "CHAIN_UNAVAILABLE" });
       }
     });
-  }
+  if (opts.holdings) walletRoute("holdings", opts.holdings);
+  if (opts.history) walletRoute("history", opts.history);
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: "NOT_FOUND" }));
   app.setErrorHandler((err, req, reply) => {

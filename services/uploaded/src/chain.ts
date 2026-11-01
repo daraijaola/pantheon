@@ -40,7 +40,8 @@ export function politeFetch(opts: { minGapMs?: number; retries?: number; fetch?:
   };
 }
 
-export function makeClient(rpc: string): PublicClient {
+/** `batch`: gather reads made together into one request. For the explorer's node; the public node refuses batches. */
+export function makeClient(rpc: string, opts: { batch?: boolean } = {}): PublicClient {
   const chain = defineChain({
     id: 99_801,
     name: "Elysium testnet",
@@ -48,5 +49,5 @@ export function makeClient(rpc: string): PublicClient {
     rpcUrls: { default: { http: [rpc] } },
     contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
   });
-  return createPublicClient({ chain, transport: http(rpc, { batch: false, retryCount: 3, timeout: 60_000, fetchFn: politeFetch() }) });
+  return createPublicClient({ chain, transport: http(rpc, { batch: opts.batch ? { batchSize: 100, wait: 5 } : false, retryCount: 3, timeout: 60_000, fetchFn: politeFetch() }) });
 }

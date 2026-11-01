@@ -4,7 +4,7 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup, the server, "check any coin" and the holdings reader are done. It listens on this machine only
+Status: the verdict lookup, the server, "check any coin", the holdings reader and wallet history are done. It listens on this machine only
 (`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
@@ -19,6 +19,7 @@ npm start        # settings below; run it from this folder
 |---|---|---|
 | `PORT` | `8791` | Where it listens. Passport has 8787, the indexer 8789, Trials 8790 and the feed 3210. |
 | `ELYSIUM_RPC` | the public testnet node | Where balances are read. |
+| `ARCHIVE_RPC` | the explorer's node | Where wallet history is read: it needs old blocks and batches. |
 | `SCAN_FILE` | `../delphi/out/scan.json` | DELPHI's latest results. Only ever read. |
 | `REFRESH_SEC` | `60` | How often to look for a new scan. |
 | `DELPHI_DIR` | `../delphi` | Where DELPHI's code and cache are. Fresh reads run there. |
@@ -60,6 +61,18 @@ bundled request. The explorer's API has been behind a bot check since Oct 25, so
 - **What it doesn't see:** coins DELPHI hasn't read, and PNTH that's staked (it sits in the staking contract).
 - **One wallet at a time,** to go easy on the public node. A busy launch day will need a paid node.
 - **Private on purpose:** this route must not go public before sign-in is decided.
+
+## Wallet history (`src/history.ts`)
+
+`GET /wallets/{address}/history` answers `{wallet, network, readAt, firstSeen, txsSent, hype, coinsLaunched}`.
+About 3 s the first time, then remembered for a minute. A first day, once found, is kept until restart.
+
+- **First day:** the first block where the wallet had HYPE or had sent a transaction, found by searching past
+  blocks, 16 points a step. On 30 real wallets it matched DELPHI's own funding records exactly (Nov 1).
+- **Funders are not read,** because they're never shown.
+- **Coins launched:** from DELPHI's scan, with each coin's verdict. Coins launched through Covenant name the
+  Covenant factory as their creator (PNTH and COVD do), so the person who launched them gets no credit yet.
+- A wallet that only ever received tokens has no first day, and `firstSeen` is null.
 
 ## Fresh reads (`src/fresh.ts`)
 

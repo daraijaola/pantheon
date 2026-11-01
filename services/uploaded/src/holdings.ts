@@ -4,12 +4,12 @@
 // fails out loud: an empty list always means we read every coin and the wallet holds none of them.
 // Coins DELPHI hasn't read aren't checked, and PNTH that's staked sits in the staking contract, not here.
 import { erc20Abi, formatUnits, type Address, type PublicClient } from "viem";
+import { Remembered } from "./remembered.ts";
 import type { Coin } from "./verdicts.ts";
 
 /** Balance reads per bundled request: well under Elysium's gas limit for one call. */
 const CHUNK = 500;
 const TTL_MS = 30_000;
-const MAX_CACHED = 5_000;
 
 export type Holding = Coin & {
   /** Raw amount, as a decimal string. */
@@ -67,31 +67,19 @@ export class HoldingsReader {
   readonly #coins: KnownCoins;
   readonly #calls: BalanceCalls;
   readonly #now: () => number;
-  readonly #ttlMs: number;
-  readonly #cache = new Map<string, { at: number; value: Holdings }>();
-  readonly #inFlight = new Map<string, Promise<Holdings>>();
+  readonly #remembered: Remembered<Holdings>;
   /** A coin's decimals never change. */
   readonly #decimals = new Map<string, number>();
-  /** One wallet at a time, to go easy on the public node. */
-  #queue: Promise<unknown> = Promise.resolve();
 
   constructor(coins: KnownCoins, calls: BalanceCalls, opts: { now?: () => number; ttlMs?: number } = {}) {
     this.#coins = coins;
     this.#calls = calls;
     this.#now = opts.now ?? Date.now;
-    this.#ttlMs = opts.ttlMs ?? TTL_MS;
+    this.#remembered = new Remembered((w) => this.#read(w), { ttlMs: opts.ttlMs ?? TTL_MS, now: this.#now });
   }
 
   read(wallet: string): Promise<Holdings> {
-    const key = wallet.toLowerCase();
-    const hit = this.#cache.get(key);
-    if (hit && this.#now() - hit.at < this.#ttlMs) return Promise.resolve(hit.value);
-    const running = this.#inFlight.get(key);
-    if (running) return running;
-    const run = this.#queue.then(() => this.#read(key));
-    this.#queue = run.catch(() => undefined);
-    this.#inFlight.set(key, run);
-    return run.finally(() => this.#inFlight.delete(key));
+    return this.#remembered.get(wallet.toLowerCase());
   }
 
   async #read(wallet: string): Promise<Holdings> {
@@ -109,10 +97,7 @@ export class HoldingsReader {
       if (decimals === undefined) unread.push(coin.token);
       else holdings.push({ ...coin, balance: balance.toString(), decimals, amount: formatUnits(balance, decimals) });
     }
-    const value: Holdings = { wallet, network, readAt: new Date(this.#now()).toISOString(), coinsChecked: coins.length, holdings, unread };
-    if (this.#cache.size >= MAX_CACHED) this.#cache.delete(this.#cache.keys().next().value!);
-    this.#cache.set(wallet, { at: this.#now(), value });
-    return value;
+    return { wallet, network, readAt: new Date(this.#now()).toISOString(), coinsChecked: coins.length, holdings, unread };
   }
 
   async #learnDecimals(tokens: readonly string[]) {

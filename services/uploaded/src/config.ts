@@ -7,6 +7,8 @@ const EnvSchema = z.object({
   /** 8787 Passport, 8789 indexer, 8790 Trials, 3210 DELPHI feed. */
   PORT: wholeNumber.pipe(z.number().min(1024).max(65_535)).default(8791),
   ELYSIUM_RPC: z.url({ protocol: /^https?$/ }).default("https://testnet-rpc.elysium.kinetiq.xyz"),
+  /** A node that keeps old blocks and takes batches: the explorer's, as DELPHI uses for heavy reads. */
+  ARCHIVE_RPC: z.url({ protocol: /^https?$/ }).default("https://test-explorer.elysium.kinetiq.xyz/rpc"),
   /** DELPHI's latest results. Only ever read. */
   SCAN_FILE: z.string().min(1).default("../delphi/out/scan.json"),
   /** How often to look for a new scan. */
@@ -19,7 +21,7 @@ const EnvSchema = z.object({
   FRESH_GAP_SEC: wholeNumber.pipe(z.number().min(60)).default(300),
 });
 
-export type Config = Readonly<{ port: number; rpc: string; scanFile: string; refreshSec: number; delphiDir: string; freshReads: boolean; freshGapSec: number }>;
+export type Config = Readonly<{ port: number; rpc: string; archiveRpc: string; scanFile: string; refreshSec: number; delphiDir: string; freshReads: boolean; freshGapSec: number }>;
 
 export class ConfigError extends Error {
   override name = "ConfigError";
@@ -30,5 +32,5 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const p = EnvSchema.safeParse(set);
   if (!p.success) throw new ConfigError(`invalid settings:\n  ${p.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("\n  ")}`);
   const e = p.data;
-  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", freshGapSec: e.FRESH_GAP_SEC });
+  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", freshGapSec: e.FRESH_GAP_SEC });
 }

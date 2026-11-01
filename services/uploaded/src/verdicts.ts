@@ -164,6 +164,13 @@ export class Verdicts {
     };
   }
 
+  /** The coins this wallet launched, as DELPHI's scan names their creators. */
+  launchedBy(wallet: string): CoinVerdict[] {
+    const who = wallet.toLowerCase();
+    const all = new Map([...(this.#loaded?.coins ?? []), ...(this.#fresh?.coins ?? [])]);
+    return [...all].filter(([, r]) => r.coin.creator.toLowerCase() === who).map(([token]) => this.get(token) as CoinVerdict);
+  }
+
   /** Every coin DELPHI has read, and which network they're on. Null until the first scan is loaded. */
   coins(): { network: "testnet" | "mainnet"; coins: Coin[] } | null {
     if (!this.#loaded) return null;

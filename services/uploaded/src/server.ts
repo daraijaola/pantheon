@@ -4,6 +4,7 @@ import { buildApp } from "./api.ts";
 import { makeClient } from "./chain.ts";
 import { loadConfig } from "./config.ts";
 import { FreshChecks, runDelphi } from "./fresh.ts";
+import { chainHistory, HistoryReader } from "./history.ts";
 import { chainBalances, HoldingsReader } from "./holdings.ts";
 import { Verdicts } from "./verdicts.ts";
 
@@ -13,7 +14,8 @@ const fresh = cfg.freshReads
   ? new FreshChecks(verdicts, runDelphi(cfg.delphiDir), { gapMs: cfg.freshGapSec * 1000, log: (msg) => app.log.info(msg) })
   : undefined;
 const holdings = new HoldingsReader(() => verdicts.coins(), chainBalances(makeClient(cfg.rpc)));
-const app = buildApp(verdicts, { logger: true, holdings, ...(fresh ? { fresh } : {}) });
+const history = new HistoryReader(verdicts, chainHistory(makeClient(cfg.archiveRpc, { batch: true })));
+const app = buildApp(verdicts, { logger: true, holdings, history, ...(fresh ? { fresh } : {}) });
 
 let lastSaid: string | null = null;
 function refresh() {
