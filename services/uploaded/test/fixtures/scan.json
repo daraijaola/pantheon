@@ -1,0 +1,291 @@
+{
+  "network": "testnet",
+  "generatedAt": "2026-11-01T01:16:34.118Z",
+  "head": "20269429",
+  "reports": [
+    {
+      "rules": "delphi-v0.5",
+      "generatedAt": "2026-11-01T01:16:34.118Z",
+      "coin": {
+        "token": "0x8444bf31e9648C97e3736560171dEC3180D77645",
+        "name": "SNIPER TEST - DO NOT BUY #1",
+        "symbol": "SNPTEST",
+        "poolId": "0xbf29bb85be35b9ae3244438b1bcb0f49fbaab5ed0f3daf22379818244e6650a3",
+        "creator": "0x1ef5E8Bd5F999De3A9213203892dA191E48F328F",
+        "launchTx": "0xce7e922213d844eb9533e9afb0f94792bb73d7a8b82d0248215fe1d3b691fe72",
+        "launchBlock": "9218113",
+        "launchTime": "2026-10-14T23:51:17.000Z",
+        "url": "https://elysium.kinetiq.xyz/testnet-explorer/token/0x8444bf31e9648C97e3736560171dEC3180D77645",
+        "launchUrl": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0xce7e922213d844eb9533e9afb0f94792bb73d7a8b82d0248215fe1d3b691fe72"
+      },
+      "stats": {
+        "trades": 4,
+        "outsideTrades": 0,
+        "traders": 3,
+        "holders": 2,
+        "links": 2,
+        "fundingMissing": 0
+      },
+      "verdict": "FLAG",
+      "notes": [],
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "findings": [
+        {
+          "detector": "bundle",
+          "severity": "flag",
+          "summary": "3 linked wallets bought 16.8% of the supply within 30 s of launch.",
+          "metrics": {
+            "linkedWallets": 3,
+            "supplyPct": 16.8,
+            "earlyBuyers": 3
+          },
+          "evidence": [
+            {
+              "what": "0x2614…A9F2 bought at launch",
+              "tx": "0x7cab32172a3c95f1910bd69b2b37827c3b64fff2e5f8f274abd8275277dde38c",
+              "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x7cab32172a3c95f1910bd69b2b37827c3b64fff2e5f8f274abd8275277dde38c"
+            },
+            {
+              "what": "0xad17…dB77 bought at launch",
+              "tx": "0x69ca6779ec3a431c79e864752f8aafb06776a6161bc0864f430e73c7519bff7d",
+              "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x69ca6779ec3a431c79e864752f8aafb06776a6161bc0864f430e73c7519bff7d"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rules": "delphi-v0.5",
+      "generatedAt": "2026-11-01T01:16:34.118Z",
+      "coin": {
+        "token": "0x34Cc866cC3a2afD5967334CB36d8E6629a6e5174",
+        "name": "Kittiq",
+        "symbol": "KITTIQ",
+        "poolId": "0x79d81c8ec30a465e4d3645de8aa36fce0e650db6944d8e95d409a79e762ada34",
+        "creator": "0xfE771085bDbb74462cb4378829Da740846B4DE66",
+        "launchTx": "0x0d4f786486cf3ea65a34f978f2e026be77709e3dc0d65e410f9c3cb1005b68db",
+        "launchBlock": "5125132",
+        "launchTime": "2026-10-08T08:11:54.000Z",
+        "url": "https://elysium.kinetiq.xyz/testnet-explorer/token/0x34Cc866cC3a2afD5967334CB36d8E6629a6e5174",
+        "launchUrl": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x0d4f786486cf3ea65a34f978f2e026be77709e3dc0d65e410f9c3cb1005b68db"
+      },
+      "stats": {
+        "trades": 34,
+        "outsideTrades": 12,
+        "traders": 9,
+        "holders": 7,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "verdict": "WATCH",
+      "notes": [
+        "On testnet, makers often test buying and selling their own coin: from mainnet this is a flag."
+      ],
+      "checks": {
+        "bundle": "clear",
+        "wash": "found",
+        "concentration": "clear"
+      },
+      "findings": [
+        {
+          "detector": "wash",
+          "severity": "watch",
+          "summary": "69.58% of trading volume is fast round trips by 1 linked wallet(s), the creator among them, buying and selling the same tokens back within 5 minutes.",
+          "metrics": {
+            "washVolumePct": 69.58,
+            "roundTripWallets": 1,
+            "trades": 34,
+            "roundTripTrades": 8
+          },
+          "evidence": [
+            {
+              "what": "0xfe77…de66 buy",
+              "tx": "0x0d4f786486cf3ea65a34f978f2e026be77709e3dc0d65e410f9c3cb1005b68db",
+              "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x0d4f786486cf3ea65a34f978f2e026be77709e3dc0d65e410f9c3cb1005b68db"
+            },
+            {
+              "what": "0xfe77…de66 sell",
+              "tx": "0x80a4ba6c575aa3f6631bd6b6d6d329acdad5e18adfc2aca160398b08e4476663",
+              "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x80a4ba6c575aa3f6631bd6b6d6d329acdad5e18adfc2aca160398b08e4476663"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rules": "delphi-v0.5",
+      "generatedAt": "2026-11-01T01:16:34.118Z",
+      "coin": {
+        "token": "0x7856a274D83d2F367966b033c757aCf453A19E20",
+        "name": "trololo",
+        "symbol": "TROLOLO",
+        "poolId": "0x63f22ce7867b22ff5ab3bd989196b34cc6dbfb1c50f132df208a689cf1db3780",
+        "creator": "0x8ec7f8e9672c76c798755B35eE24280f1e7105D0",
+        "launchTx": "0xc39c2208133621a6a157dd3622e146639ebb56d54a975766903fe9396a74b71f",
+        "launchBlock": "5191269",
+        "launchTime": "2026-10-08T10:33:35.000Z",
+        "url": "https://elysium.kinetiq.xyz/testnet-explorer/token/0x7856a274D83d2F367966b033c757aCf453A19E20",
+        "launchUrl": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0xc39c2208133621a6a157dd3622e146639ebb56d54a975766903fe9396a74b71f"
+      },
+      "stats": {
+        "trades": 498,
+        "outsideTrades": 0,
+        "traders": 5,
+        "holders": 83,
+        "links": 6,
+        "fundingMissing": 0
+      },
+      "verdict": "CLEAN",
+      "notes": [
+        "One wallet holds 20.85% of the total supply. It also holds 5% or more of 9 other coins, so it trades across the market. An outside trader, not this coin's team.",
+        "Contracts hold 11.45% of the tokens outside the pool (0x30c8…6224 11.45%). DELPHI checks wallets, so tokens in a contract (staking, a locker, a faucet) are nobody's holding and link no one. Check what a contract is before trusting it."
+      ],
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "findings": []
+    },
+    {
+      "rules": "delphi-v0.5",
+      "generatedAt": "2026-11-01T01:16:34.118Z",
+      "coin": {
+        "token": "0x4FAA6142168c6A1126df68CF400839126b3664db",
+        "name": "TestPact",
+        "symbol": "PACT",
+        "poolId": "0xfbd4909ed6aa674282af58ecd613836f24aa3da65db9fad4fbe45ecc5b644fe9",
+        "creator": "0x1fD12b4404cC4d0b2669975b0681630930D1741C",
+        "launchTx": "0x09b8e7a29f9219aaea89745513ef8a109bac743f2ee5f927d4419bc166a33ebc",
+        "launchBlock": "5325468",
+        "launchTime": "2026-10-08T14:50:27.000Z",
+        "url": "https://elysium.kinetiq.xyz/testnet-explorer/token/0x4FAA6142168c6A1126df68CF400839126b3664db",
+        "launchUrl": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x09b8e7a29f9219aaea89745513ef8a109bac743f2ee5f927d4419bc166a33ebc"
+      },
+      "stats": {
+        "trades": 784,
+        "outsideTrades": 134,
+        "traders": 13,
+        "holders": 84,
+        "links": 7,
+        "fundingMissing": 0
+      },
+      "verdict": "CLEAN",
+      "notes": [],
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "findings": []
+    },
+    {
+      "rules": "delphi-v0.5",
+      "generatedAt": "2026-11-01T01:16:34.118Z",
+      "coin": {
+        "token": "0xf1BfF5dBc3Fa6b0185C3295b2Cb1c8dE8be654ce",
+        "name": "Sniper Test 1791283570",
+        "symbol": "SNPT",
+        "poolId": "0xd228a499ab939cd74f917964ff2544faa83844ee3569cf45728d770db118d516",
+        "creator": "0x4230C7C1Fff6CC8f04Ddb4d797fAf4E135660E3D",
+        "launchTx": "0xfd82daa37d2b7ca3fd1d15a0637297376c0a65a64ce15491506c99f4daee4fa9",
+        "launchBlock": "3789159",
+        "launchTime": "2026-10-06T10:46:12.000Z",
+        "url": "https://elysium.kinetiq.xyz/testnet-explorer/token/0xf1BfF5dBc3Fa6b0185C3295b2Cb1c8dE8be654ce",
+        "launchUrl": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0xfd82daa37d2b7ca3fd1d15a0637297376c0a65a64ce15491506c99f4daee4fa9"
+      },
+      "stats": {
+        "trades": 1,
+        "outsideTrades": 0,
+        "traders": 1,
+        "holders": 1,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "verdict": "NOT_ENOUGH_DATA",
+      "notes": [],
+      "checks": {
+        "bundle": "clear",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "findings": []
+    },
+    {
+      "rules": "delphi-v0.5",
+      "generatedAt": "2026-11-01T01:16:34.118Z",
+      "coin": {
+        "token": "0x8a2201953AF29e8BE7700bcB53dA3ce5caD18726",
+        "name": "KALOS",
+        "symbol": "KALOS",
+        "poolId": "0xc826b2a15a7d6bdb0e88f6d72900bf2c2d2e9127",
+        "creator": "0x9332e35e87eAc40a0810813a7a12C458E8043184",
+        "launchTx": "0x14a67625abeacedab3f018f9723a346509b00ede088e52566b7e2d125f7ae846",
+        "launchBlock": "8206747",
+        "launchTime": "2026-10-13T02:22:25.000Z",
+        "url": "https://elysium.kinetiq.xyz/testnet-explorer/token/0x8a2201953AF29e8BE7700bcB53dA3ce5caD18726",
+        "launchUrl": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x14a67625abeacedab3f018f9723a346509b00ede088e52566b7e2d125f7ae846",
+        "market": "kalos"
+      },
+      "stats": {
+        "trades": 110371,
+        "outsideTrades": 0,
+        "traders": 37428,
+        "holders": 35149,
+        "links": 6211,
+        "fundingMissing": 0
+      },
+      "verdict": "CLEAN",
+      "notes": [
+        "The creator's wallet holds 72.55% of the total supply. It owns Kalos's factory: it is Kalos's own wallet. That is the project's own supply, not a hidden whale; it can still be sold.",
+        "24.07% of trading volume is 5 unlinked wallets buying and selling the same tokens back within 5 minutes: that volume is not real demand. On testnet, most likely bots farming points or trading between pools.",
+        "Too busy to read in full: trades and transfers are read at launch and since block 19484464, and holders come from the balances of every wallet seen in those windows. Wash trading describes that recent window.",
+        "Contracts hold 11.98% of the tokens outside the pool (0xa753…5e35 11.93%, 0x3c4f…e5b1 0.05%, 0x40bd…cb5e 0%). DELPHI checks wallets, so tokens in a contract (staking, a locker, a faucet) are nobody's holding and link no one. Check what a contract is before trusting it.",
+        "Too busy to read in full: trades and transfers are its launch (blocks 8128219-8212747) and the last 785000 blocks (from block 19484464, 2026-10-31 00:37 UTC). Holders are the 37,847 addresses seen moving tokens in those windows plus the creator, deployer and LP owners, with balances read from the token at block 20269463: wallets that never moved the token in those windows are not counted."
+      ],
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "findings": []
+    },
+    {
+      "rules": "delphi-v0.5",
+      "generatedAt": "2026-11-01T01:16:34.118Z",
+      "coin": {
+        "token": "0x0b56C35d8Ca0d323F1F871a7e6Ea1b607C1F0e4C",
+        "name": "Header Check",
+        "symbol": "HDRCHK",
+        "poolId": "0xd55312f56042004f2dc9f02a9a059a16048247af",
+        "creator": "0xF8f8c2837bb6C8A0cFa71e441A0Db00D244e1D24",
+        "launchTx": "0x6ba7ac7d548687269f06ffcd5da880160fa1fd6de618d55ad21e127ce405d679",
+        "launchBlock": "13795862",
+        "launchTime": "2026-10-22T21:24:14.000Z",
+        "url": "https://elysium.kinetiq.xyz/testnet-explorer/token/0x0b56C35d8Ca0d323F1F871a7e6Ea1b607C1F0e4C",
+        "launchUrl": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x6ba7ac7d548687269f06ffcd5da880160fa1fd6de618d55ad21e127ce405d679",
+        "market": "perpme"
+      },
+      "stats": {
+        "trades": 0,
+        "outsideTrades": 0,
+        "traders": 0,
+        "holders": 0,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "verdict": "NOT_ENOUGH_DATA",
+      "notes": [],
+      "checks": {
+        "bundle": "clear",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "findings": []
+    }
+  ]
+}
