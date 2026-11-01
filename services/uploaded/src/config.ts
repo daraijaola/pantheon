@@ -6,7 +6,7 @@ const wholeNumber = z.string().trim().regex(/^\d+$/, "must be a whole number").t
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/, "must be an address");
 /** The contracts this service reads, from the file the site reads too. */
-const DeploymentSchema = z.object({ staking: address, passportRegistry: address, pnth: address });
+const DeploymentSchema = z.object({ staking: address, passportRegistry: address, pnth: address, usdc: address });
 
 const EnvSchema = z.object({
   /** 8787 Passport, 8789 indexer, 8790 Trials, 3210 DELPHI feed. */
@@ -15,6 +15,8 @@ const EnvSchema = z.object({
   /** A node that keeps old blocks and takes batches: the explorer's, as DELPHI uses for heavy reads. */
   ARCHIVE_RPC: z.url({ protocol: /^https?$/ }).default("https://test-explorer.elysium.kinetiq.xyz/rpc"),
   DEPLOYMENT_FILE: z.string().min(1).default("../../deployments/elysium-testnet.json"),
+  /** The indexer on this machine: the basket's buys and every claim. */
+  INDEXER_URL: z.url({ protocol: /^https?$/ }).default("http://127.0.0.1:8789"),
   /** DELPHI's latest results. Only ever read. */
   SCAN_FILE: z.string().min(1).default("../delphi/out/scan.json"),
   /** How often to look for a new scan. */
@@ -32,6 +34,7 @@ export type Config = Readonly<{
   rpc: string;
   archiveRpc: string;
   deployment: z.infer<typeof DeploymentSchema>;
+  indexerUrl: string;
   scanFile: string;
   refreshSec: number;
   delphiDir: string;
@@ -54,5 +57,5 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   } catch (err) {
     throw new ConfigError(`can't use ${e.DEPLOYMENT_FILE}: ${(err as Error).message.split("\n")[0]}`);
   }
-  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, deployment, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", freshGapSec: e.FRESH_GAP_SEC });
+  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, deployment, indexerUrl: e.INDEXER_URL, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", freshGapSec: e.FRESH_GAP_SEC });
 }

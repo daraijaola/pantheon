@@ -2,6 +2,7 @@
 // Loads DELPHI's latest verdicts, then looks for a new scan every REFRESH_SEC.
 import { buildApp } from "./api.ts";
 import { BagReader } from "./bag.ts";
+import { BasketReader, chainRewards, indexerCalls } from "./basket.ts";
 import { makeClient } from "./chain.ts";
 import { loadConfig } from "./config.ts";
 import { FreshChecks, runDelphi } from "./fresh.ts";
@@ -22,7 +23,8 @@ const history = new HistoryReader(verdicts, chainHistory(makeClient(cfg.archiveR
 const stake = new StakeReader(() => verdicts.health().network, chainStake(chain, { staking: cfg.deployment.staking, passport: cfg.deployment.passportRegistry }));
 const bag = new BagReader(holdings, verdicts, fresh);
 const scan = (wallet: string) => scanStages(wallet, { history, holdings, bag: (h) => bag.fromHoldings(h), log: (msg) => app.log.warn(msg) });
-const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, stake, ...(fresh ? { fresh } : {}) });
+const basket = new BasketReader({ verdicts, stake, indexer: indexerCalls(cfg.indexerUrl), rewards: chainRewards(chain, cfg.deployment.staking), usdc: cfg.deployment.usdc });
+const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, stake, basket, ...(fresh ? { fresh } : {}) });
 
 let lastSaid: string | null = null;
 function refresh() {

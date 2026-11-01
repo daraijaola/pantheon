@@ -4,7 +4,7 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan and stake data are done. It listens on this machine only
+Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, stake data and basket data are done. It listens on this machine only
 (`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
@@ -21,6 +21,7 @@ npm start        # settings below; run it from this folder
 | `ELYSIUM_RPC` | the public testnet node | Where balances are read. |
 | `ARCHIVE_RPC` | the explorer's node | Where wallet history is read: it needs old blocks and batches. |
 | `DEPLOYMENT_FILE` | `../../deployments/elysium-testnet.json` | The contract addresses, from the file the site reads. |
+| `INDEXER_URL` | `http://127.0.0.1:8789` | The indexer: the basket's buys and every claim. |
 | `SCAN_FILE` | `../delphi/out/scan.json` | DELPHI's latest results. Only ever read. |
 | `REFRESH_SEC` | `60` | How often to look for a new scan. |
 | `DELPHI_DIR` | `../delphi` | Where DELPHI's code and cache are. Fresh reads run there. |
@@ -62,6 +63,21 @@ bundled request. The explorer's API has been behind a bot check since Oct 25, so
 - **What it doesn't see:** coins DELPHI hasn't read, and PNTH that's staked (it sits in the staking contract).
 - **One wallet at a time,** to go easy on the public node. A busy launch day will need a paid node.
 - **Private on purpose:** this route must not go public before sign-in is decided.
+
+## Basket and rewards (`src/basket.ts`)
+
+`GET /basket` answers `{updatedAt, proposal, coins, recentBuys}`: each coin's weight, what was bought and spent, its
+last buy, and DELPHI's verdict, reason and dispute link, plus the 20 newest buys with their transactions.
+
+`GET /wallets/{address}/rewards` answers `{coins, recentClaims, passportBoost, unread, complete}`. Each coin has
+`claimable`, `claimed` and `earned` (both together), and DELPHI's `verdict`, which is null for USDC. Most to claim
+comes first. Both are remembered for 30 s, so `claimable` can be slightly behind: rewards stream every second.
+
+- **Claimable comes from the staking contract, claimed from the indexer.** On Nov 1, claimed totals matched the
+  chain's own claim events on 393 of 393 coins checked, and 150 simulated claims paid what was shown or up to 0.1% more.
+- **If the indexer is down,** claimable still answers, `claimed` and `earned` are null (never 0) and `complete` is false.
+- **The testnet contract predates `retiredTokens`,** so that read may fail. Coins a wallet claimed once are always
+  included, even if they've left the contract's list.
 
 ## Stake data (`src/stake.ts`)
 
