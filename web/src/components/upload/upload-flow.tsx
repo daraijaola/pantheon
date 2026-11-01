@@ -8,12 +8,16 @@
 // signature asked for here is the one that sign-in will check.
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { useConnection, useDisconnect, useSignMessage } from "wagmi";
+import { useMutation } from "@tanstack/react-query";
+import { stringToHex, UserRejectedRequestError } from "viem";
+import { useConfig, useConnection, useDisconnect } from "wagmi";
+import { signMessage } from "wagmi/actions";
 import { Providers } from "@/components/app/providers";
 import { reason } from "@/components/app/shared";
 import { uploadConfig } from "./upload-config";
 import { UploadNext, UploadOrb, type Picked } from "./upload-orb";
-import { CHOICE_KEY, isIos, isMobile, openWallet, store, walletLink, type PeerRedirect } from "./wallet-link";
+import { isRejected } from "./elysium-switch";
+import { CHOICE_KEY, isIos, isMobile, openWallet, signOnSession, store, walletLink, type PeerRedirect, type PhoneProvider } from "./wallet-link";
 
 /** The message the wallet shows. Free: signing it sends nothing and pays no fee. */
 function message(address: string) {
@@ -43,7 +47,22 @@ const onPhone = () => isMobile(navigator.userAgent, navigator.maxTouchPoints);
 function Steps({ children }: { children: ReactNode }) {
   const { address, status, connector } = useConnection();
   const disconnect = useDisconnect();
-  const sign = useSignMessage();
+  const config = useConfig();
+  // Signing needs no chain, so it never switches. wagmi's signMessage would: for a WalletConnect wallet it
+  // asks to switch to the chain the wallet is already on, which fails when that chain (say, Ethereum) isn't
+  // Elysium. So a phone wallet gets personal_sign straight from its provider, on whatever chain its
+  // session is on. Browser wallets sign through wagmi, as before.
+  const sign = useMutation({
+    mutationFn: async ({ message }: { message: string }) => {
+      if (connector?.type !== "walletConnect") return signMessage(config, { message, connector });
+      const provider = (await connector.getProvider()) as PhoneProvider;
+      try {
+        return await signOnSession(provider, { method: "personal_sign", params: [stringToHex(message), address] });
+      } catch (e) {
+        throw isRejected(e) ? new UserRejectedRequestError(e as Error) : e;
+      }
+    },
+  });
   const [signedBy, setSignedBy] = useState<string | null>(null);
   const [picked, setPicked] = useState<{ by: string; bubble: Picked } | null>(null);
   // A phone wallet over WalletConnect signs in its own app: the tap on Sign has to open it (wallet-link.ts).

@@ -73,3 +73,24 @@ export const store = {
     }
   },
 };
+
+/** The bits of WalletConnect's EthereumProvider used to sign. */
+export type PhoneProvider = {
+  chainId?: number;
+  session?: { namespaces?: Record<string, { accounts?: string[] }> };
+  signer?: { request(a: { method: string; params: unknown[] }, chain: string): Promise<unknown> };
+  request(a: { method: string; params: unknown[] }): Promise<unknown>;
+};
+
+/** The eip155 chains the wallet approved in the WalletConnect session ("eip155:1:0xabc…" → 1). */
+export const sessionChains = (p: PhoneProvider) => [
+  ...new Set((p.session?.namespaces?.eip155?.accounts ?? []).map((a) => Number(a.split(":")[1])).filter((n) => Number.isInteger(n) && n > 0)),
+];
+
+/** Send a request that needs no particular chain (personal_sign) on a chain the session has: the one the
+ * provider is on, else the session's first. Never asks the wallet to switch. */
+export function signOnSession(p: PhoneProvider, request: { method: string; params: unknown[] }) {
+  const chains = sessionChains(p);
+  if (!chains.length || chains.includes(Number(p.chainId)) || !p.signer) return p.request(request);
+  return p.signer.request(request, `eip155:${chains[0]}`);
+}
