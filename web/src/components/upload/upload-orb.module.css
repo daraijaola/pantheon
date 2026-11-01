@@ -1,0 +1,335 @@
+/* /upload once a wallet is connected: DELPHI's orb takes the whole page. No header, no rails: the
+   wallet chip top right, the orb, and one line under it. The orb is one WebGL canvas behind the page
+   (orb-renderer.ts); everything here is the HTML on top. */
+.root {
+  --ink: var(--color-ink, #171717);
+  --paper: var(--color-paper, #f9f9f9);
+  --rule: var(--color-rule, #ebebeb);
+  --sans: var(--font-geist-sans, "Geist"), ui-sans-serif, system-ui, sans-serif;
+  --mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, monospace;
+  position: relative;
+  height: 100svh;
+  min-height: 560px;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+/* The wallet, top right on the 1112px frame. The bead is the orb in miniature. */
+.chip {
+  position: absolute;
+  top: 14px;
+  right: max(16px, calc((100% - 1112px) / 2 + 4px));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 36px;
+  padding: 0 14px 0 11px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px var(--rule),
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 12px 32px -8px rgb(0 0 0 / 0.1);
+  font: 400 13px/1 var(--mono);
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bead {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, rgb(255 255 255 / 0.8) 0 9%, rgb(255 255 255 / 0) 15%),
+    radial-gradient(ellipse 72% 20% at 50% 60%, rgb(255 255 255 / 0.95), rgb(251 123 159 / 0.75) 42%, rgb(83 129 230 / 0) 78%),
+    radial-gradient(circle at 50% 44%, #232326, #060606 72%);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.28),
+    inset 0 0 0 0.5px rgb(255 255 255 / 0.2);
+}
+
+/* Without WebGL: the orb as a still. */
+.still {
+  position: absolute;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 58% 8% at 50% 58%, rgb(255 255 255 / 0.92), rgb(251 123 159 / 0.5) 40%, rgb(171 117 223 / 0) 76%),
+    radial-gradient(circle at 50% 42%, #151517 0%, #0b0b0c 55%, #1b1b1e 90%, #0e0e0f 100%);
+  box-shadow:
+    inset 0 1.5px 1px rgb(255 255 255 / 0.5),
+    inset 0 -1px 1px rgb(255 255 255 / 0.22),
+    0 30px 60px -28px rgb(0 0 0 / 0.5);
+}
+
+/* ------------------------------------------------------------------ the line under the orb */
+.label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  opacity: 0;
+  text-align: center;
+  pointer-events: none;
+}
+.lines {
+  position: relative;
+  height: 26px;
+}
+.line {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  white-space: nowrap;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 26px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  opacity: 0;
+  transform: translate(-50%, 9px);
+  will-change: opacity, transform, filter;
+}
+/* DELPHI's light passes along the words, in the orb's own colours. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .line {
+    background-image: linear-gradient(90deg, var(--ink) 0%, var(--ink) 45%, #ff9858 47.2%, #fb7b9f 49%, #ab75df 51%, #5381e6 52.8%, var(--ink) 55%, var(--ink) 100%);
+    background-size: 400% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 3.45s linear infinite;
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
+.meta {
+  min-height: 16px;
+  margin-top: 6px;
+  font: 400 12px/16px var(--mono);
+  color: rgb(23 23 23 / 0.6);
+  font-variant-numeric: tabular-nums;
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ sign */
+.sign {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  opacity: 0;
+  visibility: hidden;
+}
+.signBtn {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--ink);
+  color: #fff;
+  font: 450 15px/1 var(--sans);
+  cursor: pointer;
+  box-shadow:
+    inset 0 -6px 12px rgb(255 255 255 / 0.08),
+    0 2px 4px rgb(0 0 0 / 0.12),
+    0 1px 1px rgb(0 0 0 / 0.12),
+    0 0.5px 0.5px rgb(0 0 0 / 0.16),
+    0 0.25px 0.25px rgb(0 0 0 / 0.2);
+  transition:
+    box-shadow 0.15s,
+    scale 0.15s;
+}
+.signBtn:disabled {
+  cursor: default;
+}
+.signBtn[aria-busy="true"] {
+  color: rgb(255 255 255 / 0.8);
+}
+.signBtn:focus-visible,
+.other:focus-visible,
+.ghost:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.other {
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgb(23 23 23 / 0.6);
+  font: 450 14px/1 var(--sans);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.other:disabled {
+  cursor: default;
+  color: rgb(23 23 23 / 0.4);
+}
+.error {
+  max-width: 340px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+  color: #9a1c1c;
+}
+@media (hover: hover) {
+  .signBtn:not(:disabled):hover {
+    box-shadow:
+      inset 0 -6px 12px rgb(255 255 255 / 0.08),
+      0 4px 8px rgb(0 0 0 / 0.16),
+      0 1px 1px rgb(0 0 0 / 0.12),
+      0 0.5px 0.5px rgb(0 0 0 / 0.16),
+      0 0.25px 0.25px rgb(0 0 0 / 0.2);
+  }
+  .other:not(:disabled):hover {
+    background: rgb(23 23 23 / 0.05);
+    color: var(--ink);
+  }
+  .ghost:hover {
+    background: rgb(23 23 23 / 0.1);
+  }
+}
+.signBtn:not(:disabled):active {
+  scale: 0.995;
+}
+
+/* ------------------------------------------------------------------ the bubbles */
+/* Invisible buttons that follow the bubbles, so a click, a tap or the keyboard can pick one. */
+.hits {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  width: 0;
+  height: 0;
+}
+.hit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.hit:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+/* Without WebGL there are no bubbles to pick: one button instead. */
+.go {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 40px;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+}
+
+/* ------------------------------------------------------------------ after a pick */
+.next {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  text-align: center;
+  animation: rise 0.5s ease-out both;
+}
+.nextTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: -0.01em;
+}
+.nextSub {
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 22px;
+  color: rgb(23 23 23 / 0.65);
+}
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  margin-top: 24px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: rgb(23 23 23 / 0.05);
+  color: var(--ink);
+  font: 450 14px/1 var(--sans);
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Phones: a size smaller. */
+@media (max-width: 640px) {
+  .line {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line {
+    animation: none;
+    will-change: auto;
+  }
+  .signBtn,
+  .other,
+  .ghost {
+    transition: none;
+  }
+  .next {
+    animation: none;
+  }
+}

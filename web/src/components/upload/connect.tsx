@@ -2,13 +2,11 @@
 
 // "Get uploaded", step one: connect a wallet. Two ways in, one primary: the browser wallet (Rabby,
 // MetaMask, any wallet that announces itself), or a phone wallet over WalletConnect. Read-only:
-// nothing is signed or sent here.
+// nothing is signed or sent here. Signing comes next, on DELPHI's page (upload-flow.tsx).
 
 import { useState } from "react";
 import { useConnect, useConnection, useConnectors, useDisconnect, type Connector } from "wagmi";
-import { Providers } from "@/components/app/providers";
 import { reason, short } from "@/components/app/shared";
-import { uploadConfig } from "./upload-config";
 import s from "./upload.module.css";
 
 // 7×7 pixel glyphs, drawn in the text colour.
@@ -160,10 +158,7 @@ function Actions() {
   );
 }
 
+/** Needs the wallet context from UploadApp, which also hands the page over once a wallet connects. */
 export function Connect() {
-  return (
-    <Providers config={uploadConfig}>
-      <Actions />
-    </Providers>
-  );
+  return <Actions />;
 }

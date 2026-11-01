@@ -2,10 +2,22 @@ import Link from "next/link";
 import { CodeWordmark } from "@/components/code-type/code-wordmark";
 import { Connect } from "./connect";
 import { DelphiArt } from "./delphi-art";
+import { UploadFlow } from "./upload-flow";
 import s from "./upload.module.css";
 
-/** /upload, "Get uploaded": connect a wallet. A split page: the call on the left, DELPHI on the right. */
+/**
+ * /upload, "Get uploaded". First connect a wallet: a split page, the call on the left, DELPHI on the
+ * right. Once a wallet is connected, UploadFlow takes the page: sign, DELPHI reads it, your self.
+ */
 export function UploadApp() {
+  return (
+    <UploadFlow>
+      <ConnectPage />
+    </UploadFlow>
+  );
+}
+
+function ConnectPage() {
   return (
     <div className={s.page}>
       <header className={s.header}>
