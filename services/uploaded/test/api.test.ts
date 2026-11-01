@@ -20,7 +20,7 @@ describe("the health check", () => {
     const res = await buildApp(ready()).inject({ url: "/health" });
     expect(res.statusCode).toBe(200);
     expect(res.headers["cache-control"]).toBe("no-store");
-    expect(res.json()).toEqual({ ok: true, coins: 7, network: "testnet", scannedAt: JSON.parse(readFileSync(FIXTURE, "utf8")).generatedAt, stale: false, reading: "ok" });
+    expect(res.json()).toEqual({ ok: true, coins: 7, network: "testnet", scannedAt: JSON.parse(readFileSync(FIXTURE, "utf8")).generatedAt, freshAt: null, stale: false, reading: "ok" });
   });
 
   it("answers 503 until it has verdicts", async () => {
@@ -49,6 +49,47 @@ describe("the health check", () => {
   });
 });
 
+describe("checking a coin", () => {
+  const FLAGGED = "0x8444bf31e9648C97e3736560171dEC3180D77645";
+
+  it("gives the verdict, the reason, the transactions and the dispute link", async () => {
+    const res = await buildApp(ready()).inject({ url: `/coins/${FLAGGED}` });
+    expect(res.statusCode).toBe(200);
+    const coin = res.json();
+    expect(coin).toMatchObject({ known: true, token: FLAGGED.toLowerCase(), verdict: "FLAG", venue: "ascend", network: "testnet" });
+    expect(coin.reason).toBe(coin.findings[0].text);
+    expect(coin.findings[0].evidence[0].url).toContain(coin.findings[0].evidence[0].tx);
+    expect(coin.disputeUrl).toContain(`token=${FLAGGED.toLowerCase()}`);
+  });
+
+  it("answers the same however the address is written", async () => {
+    const app = buildApp(ready());
+    const lower = await app.inject({ url: `/coins/${FLAGGED.toLowerCase()}` });
+    const mixed = await app.inject({ url: `/coins/${FLAGGED}` });
+    expect(lower.body).toBe(mixed.body);
+  });
+
+  it("calls a coin it hasn't read UNKNOWN, as a normal answer", async () => {
+    const res = await buildApp(ready()).inject({ url: "/coins/0x1111111111111111111111111111111111111111" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ known: false, verdict: "UNKNOWN" });
+  });
+
+  it("still says UNKNOWN, not clean, while it has no verdicts at all", async () => {
+    const res = await buildApp(new Verdicts("/nowhere/scan.json")).inject({ url: `/coins/${FLAGGED}` });
+    expect(res.json()).toMatchObject({ known: false, verdict: "UNKNOWN" });
+  });
+
+  it("refuses anything that isn't an address", async () => {
+    const app = buildApp(ready());
+    for (const bad of ["abc", "0x123", `${FLAGGED}00`, "0xZZ44bf31e9648C97e3736560171dEC3180D77645", "..%2Fetc%2Fpasswd"]) {
+      const res = await app.inject({ url: `/coins/${bad}` });
+      expect(res.statusCode, bad).toBe(400);
+      expect(res.json(), bad).toEqual({ error: "INVALID_ADDRESS" });
+    }
+  });
+});
+
 describe("everything else", () => {
   it("answers JSON for an unknown address", async () => {
     const res = await buildApp(ready()).inject({ url: "/nope" });
@@ -63,6 +104,7 @@ describe("everything else", () => {
 
   it("doesn't leak what went wrong inside", async () => {
     const broken = {
+      get: () => ({ known: false as const, token: "", verdict: "UNKNOWN" as const, reason: "" }),
       health: () => {
         throw new Error("secret detail /home/ayinde");
       },

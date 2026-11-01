@@ -1,8 +1,8 @@
 // What DELPHI last said about every coin, held in memory so a lookup never touches the disk. DELPHI's
 // scan rewrites its results file in place, so a read can catch it half-written: a file that doesn't
 // load changes nothing, and the last good copy keeps answering. A coin DELPHI hasn't read comes back
-// UNKNOWN, never CLEAN. The written explanations are left out on purpose: they can be older than the
-// verdicts (17 of 33 on Nov 1).
+// UNKNOWN, never CLEAN. A fresh read (see fresh.ts) sits on top of the scan until a newer scan arrives.
+// The written explanations are left out on purpose: they can be older than the verdicts (17 of 33 on Nov 1).
 import { readFileSync, statSync } from "node:fs";
 import { z } from "zod";
 
@@ -83,11 +83,23 @@ export function reasonOf(r: Pick<Report, "verdict" | "findings" | "notes" | "sta
 
 type Loaded = { network: "testnet" | "mainnet"; scannedAt: string; scannedMs: number; coins: Map<string, Report> };
 
+function parse(json: string): Loaded {
+  const scan = Scan.parse(JSON.parse(json));
+  return {
+    network: scan.network,
+    scannedAt: scan.generatedAt,
+    scannedMs: Date.parse(scan.generatedAt),
+    coins: new Map(scan.reports.map((r) => [r.coin.token.toLowerCase(), r])),
+  };
+}
+
 export class Verdicts {
   readonly #file: string;
   readonly #now: () => number;
   readonly #maxAgeMs: number;
   #loaded: Loaded | null = null;
+  /** The latest fresh read, while it's newer than the scan. */
+  #fresh: Loaded | null = null;
   /** Which version of the file is loaded, so an unchanged file is never re-read. */
   #seen: string | null = null;
   #error: string | null = null;
@@ -104,13 +116,8 @@ export class Verdicts {
       const st = statSync(this.#file);
       const version = `${st.mtimeMs}:${st.size}`;
       if (version === this.#seen) return false;
-      const scan = Scan.parse(JSON.parse(readFileSync(this.#file, "utf8")));
-      this.#loaded = {
-        network: scan.network,
-        scannedAt: scan.generatedAt,
-        scannedMs: Date.parse(scan.generatedAt),
-        coins: new Map(scan.reports.map((r) => [r.coin.token.toLowerCase(), r])),
-      };
+      this.#loaded = parse(readFileSync(this.#file, "utf8"));
+      if (this.#fresh && this.#fresh.scannedMs <= this.#loaded.scannedMs) this.#fresh = null;
       this.#seen = version;
       this.#error = null;
       return true;
@@ -120,10 +127,19 @@ export class Verdicts {
     }
   }
 
+  /** Puts a fresh read on top of the scan. False if it's no newer than what's held. Throws on a bad read. */
+  applyFresh(json: string): boolean {
+    const fresh = parse(json);
+    if (fresh.scannedMs <= Math.max(this.#loaded?.scannedMs ?? 0, this.#fresh?.scannedMs ?? 0)) return false;
+    this.#fresh = fresh;
+    return true;
+  }
+
   get(token: string): CoinVerdict | UnknownCoin {
     const key = token.toLowerCase();
-    const r = this.#loaded?.coins.get(key);
-    if (!this.#loaded || !r) return { known: false, token: key, verdict: "UNKNOWN", reason: "DELPHI hasn't read this coin yet." };
+    const from = this.#fresh?.coins.has(key) ? this.#fresh : this.#loaded;
+    const r = from?.coins.get(key);
+    if (!from || !r) return { known: false, token: key, verdict: "UNKNOWN", reason: "DELPHI hasn't read this coin yet." };
     return {
       known: true,
       token: key,
@@ -132,7 +148,7 @@ export class Verdicts {
       creator: r.coin.creator.toLowerCase(),
       launched: r.coin.launchTime,
       venue: r.coin.market ?? "ascend",
-      network: this.#loaded.network,
+      network: from.network,
       verdict: r.verdict,
       reason: reasonOf(r),
       notes: r.notes,
@@ -142,14 +158,22 @@ export class Verdicts {
       holders: r.stats.holders,
       reportUrl: `${SITE}/delphi/${key}`,
       disputeUrl: `${SITE}/delphi/dispute?token=${key}`,
-      scannedAt: this.#loaded.scannedAt,
-      stale: this.#stale(this.#loaded),
+      scannedAt: from.scannedAt,
+      stale: this.#stale(from),
     };
   }
 
   health() {
     const l = this.#loaded;
-    return { ready: !!l, coins: l?.coins.size ?? 0, network: l?.network ?? null, scannedAt: l?.scannedAt ?? null, stale: l ? this.#stale(l) : null, lastError: this.#error };
+    return {
+      ready: !!l,
+      coins: l?.coins.size ?? 0,
+      network: l?.network ?? null,
+      scannedAt: l?.scannedAt ?? null,
+      freshAt: this.#fresh?.scannedAt ?? null,
+      stale: l ? this.#stale(l) : null,
+      lastError: this.#error,
+    };
   }
 
   #stale(l: Loaded) {

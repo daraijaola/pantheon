@@ -4,8 +4,8 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup and the server are done. It listens on this machine only (`127.0.0.1:8791`) and
-isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
+Status: the verdict lookup, the server and "check any coin" are done. It listens on this machine only
+(`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
 npm install
@@ -20,6 +20,9 @@ npm start        # settings below; run it from this folder
 | `PORT` | `8791` | Where it listens. Passport has 8787, the indexer 8789, Trials 8790 and the feed 3210. |
 | `SCAN_FILE` | `../delphi/out/scan.json` | DELPHI's latest results. Only ever read. |
 | `REFRESH_SEC` | `60` | How often to look for a new scan. |
+| `DELPHI_DIR` | `../delphi` | Where DELPHI's code and cache are. Fresh reads run there. |
+| `FRESH_READS` | `on` | `off` means scans only. |
+| `FRESH_GAP_SEC` | `300` | At most one fresh read this often. |
 
 A wrong value stops it at start.
 
@@ -27,7 +30,8 @@ A wrong value stops it at start.
 
 | Route | Answer |
 |---|---|
-| `GET /health` | `{ok, coins, network, scannedAt, stale, reading}`. 503 until it has verdicts. `reading` is `failing` when the latest file can't be read and it's serving the last good copy. |
+| `GET /health` | `{ok, coins, network, scannedAt, freshAt, stale, reading}`. 503 until it has verdicts. `reading` is `failing` when the latest file can't be read and it's serving the last good copy. |
+| `GET /coins/{address}` | DELPHI's verdict, one-line `reason`, `findings` with their transactions, `notes`, `reportUrl`, `disputeUrl`, `venue`, `network`, `scannedAt`, `stale`, and `checking`. A coin it hasn't read is a normal answer with `verdict: "UNKNOWN"`. 400 `INVALID_ADDRESS` if it isn't an address. |
 
 ## The verdict lookup (`src/verdicts.ts`)
 
@@ -40,3 +44,17 @@ Holds what DELPHI last said about every coin in memory, so a lookup never touche
   The last good copy keeps answering, and `health()` reports the error.
 - **Old verdicts say so.** `stale` turns true when the scan is over 14 hours old.
 - **The written explanations in `out/site.json` are not used.** They can be older than the current verdict.
+
+## Fresh reads (`src/fresh.ts`)
+
+A question always gets an answer from memory, in milliseconds. If the coin is unknown, or its Ascend verdict is
+over 30 minutes old, that answer says `checking: true` and a fresh read starts. Ask again in about 15 seconds
+for the new verdict.
+
+- **Ascend only.** A read of Ascend takes about 11 s and gave the same verdict as the scan on all 208 coins
+  (Nov 1). All three markets take about 3.5 minutes, so Kalos and PerpMe coins wait for the scan and show how
+  old their verdict is. A new Kalos or PerpMe coin stays UNKNOWN until then.
+- **Bounded.** One read at a time, at most one every 5 minutes, however many coins are asked about.
+- **Separate.** The read is DELPHI's own script (`services/delphi/scripts/fresh-read.ts`) in its own process, so
+  a failure can't reach this server. It uses DELPHI's live cache, like `scripts/x.ts --ask`, so this service must
+  run as DELPHI's service user.

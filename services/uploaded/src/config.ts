@@ -10,9 +10,15 @@ const EnvSchema = z.object({
   SCAN_FILE: z.string().min(1).default("../delphi/out/scan.json"),
   /** How often to look for a new scan. */
   REFRESH_SEC: wholeNumber.pipe(z.number().min(5)).default(60),
+  /** Where DELPHI's code and cache are: fresh reads run there, as DELPHI's own script. */
+  DELPHI_DIR: z.string().min(1).default("../delphi"),
+  /** Fresh reads for coins whose verdict is getting old. Off: scans only. */
+  FRESH_READS: z.enum(["on", "off"]).default("on"),
+  /** At most one fresh read this often, however many coins are asked about. */
+  FRESH_GAP_SEC: wholeNumber.pipe(z.number().min(60)).default(300),
 });
 
-export type Config = Readonly<{ port: number; scanFile: string; refreshSec: number }>;
+export type Config = Readonly<{ port: number; scanFile: string; refreshSec: number; delphiDir: string; freshReads: boolean; freshGapSec: number }>;
 
 export class ConfigError extends Error {
   override name = "ConfigError";
@@ -22,5 +28,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const set = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v !== ""));
   const p = EnvSchema.safeParse(set);
   if (!p.success) throw new ConfigError(`invalid settings:\n  ${p.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("\n  ")}`);
-  return Object.freeze({ port: p.data.PORT, scanFile: p.data.SCAN_FILE, refreshSec: p.data.REFRESH_SEC });
+  const e = p.data;
+  return Object.freeze({ port: e.PORT, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", freshGapSec: e.FRESH_GAP_SEC });
 }

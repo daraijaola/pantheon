@@ -361,6 +361,7 @@ Deploying: `deploy/delphi-feed.service` (systemd) and `deploy/Caddyfile.delphi-f
 | `src/detect.ts` | The three detectors: pure functions, exact integer maths |
 | `src/report.ts` | Verdicts, JSON and markdown reports, index |
 | `scripts/scan.ts` | The live scan (run by hand) |
+| `scripts/fresh-read.ts` | One fresh read of every Ascend coin, printed as JSON, for Get uploaded's coin checks |
 | `src/ai/workspace.ts` | The scan plus cached pools and funding, loaded once for the explainer |
 | `src/ai/tools.ts` | The explainer's read-only tools (plain functions, wrapped for Claude) |
 | `src/ai/explain.ts` | Instructions, the `submit_report` checks, the Claude loop, markdown |
