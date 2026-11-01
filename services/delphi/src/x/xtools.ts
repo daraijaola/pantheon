@@ -3,7 +3,7 @@
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { formatUnits, isAddress } from "viem";
 import { z } from "zod";
-import { RULES } from "../config.ts";
+import { RULES, rulesVersion } from "../config.ts";
 import type { LiquidityReport } from "../kalos.ts";
 import type { Workspace } from "../ai/workspace.ts";
 import type { Verdict } from "../types.ts";
@@ -104,7 +104,7 @@ export function delphiStatus(snap: Snapshot) {
   const count = (v: Verdict) => all.filter((r) => r.verdict === v).length;
   const a = age((Date.now() - snap.readAt.getTime()) / 1000);
   return {
-    rules: RULES.version,
+    rules: rulesVersion([...snap.ws.coins.values()][0]?.network),
     dataReadAt: snap.readAt.toISOString(),
     dataAge: { minutes: a.minutes, hours: a.hours },
     upToBlock: snap.head.toString(),

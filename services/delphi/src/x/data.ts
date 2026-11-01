@@ -5,7 +5,7 @@ import { getAddress, type Address, type PublicClient } from "viem";
 import { loadWorkspace } from "../ai/workspace.ts";
 import type { Config } from "../config.ts";
 import { ExplorerBudgetError } from "../explorer.ts";
-import type { FundingSource } from "../funding.ts";
+import { fundingCache, type FundingSource } from "../funding.ts";
 import type { KalosCollected } from "../kalos-collect.ts";
 import type { BatchRpc } from "../rpc.ts";
 import { actorsOf, isSystem } from "../graph.ts";
@@ -27,9 +27,13 @@ export class ChainView {
   private readonly opts: { maxTopUp?: number; kalos?: { rpc: BatchRpc; everyMs: number } | null };
   private kalosRead: { at: number; data: KalosCollected } | null = null;
 
+  /** Where this network's fundings are cached (checked against the funding search's floor). */
+  private readonly cached: string;
+
   constructor(deps: ChainView["deps"], opts: ChainView["opts"] = {}) {
     this.deps = deps;
     this.opts = opts;
+    this.cached = fundingCache(deps.cfg.network, deps.explorer);
   }
 
   snapshot(): Snapshot {
@@ -76,7 +80,7 @@ export class ChainView {
     const { store, explorer, log } = this.deps;
     const missing = [...actorsOf(d.trades, d.transfers, d.system)]
       .map(lc)
-      .filter((w) => !isSystem(d, w) && !d.contracts?.has(w) && store.recall("funding", w) === undefined)
+      .filter((w) => !isSystem(d, w) && !d.contracts?.has(w) && store.recall(this.cached, w) === undefined)
       .slice(0, this.opts.maxTopUp ?? 30);
     const fresh = Date.now() - snap.readAt.getTime() < 60_000;
     if (fresh && missing.length === 0) return snap;
@@ -84,7 +88,7 @@ export class ChainView {
       // All of them at once (about 25 batched reads), then how busy each new funder is.
       try {
         const got = await explorer.fundingsMany(missing.map((w) => getAddress(w)));
-        for (const [w, fs] of got) store.remember("funding", w, fs.map((f) => ({ from: f.from, via: f.via, value: f.value.toString(), tx: f.tx, time: f.time })));
+        for (const [w, fs] of got) store.remember(this.cached, w, fs.map((f) => ({ from: f.from, via: f.via, value: f.value.toString(), tx: f.tx, time: f.time })));
         const funders = [...new Set([...got.values()].flat().map((f) => lc(f.from)))].filter((f) => store.recall<number>("txcount", f) === undefined);
         if (funders.length && explorer.txCounts) for (const [f, n] of await explorer.txCounts(funders.map((f) => getAddress(f)))) store.remember("txcount", f, n);
         if (got.size < missing.length) log(`funding read for ${got.size}/${missing.length} wallets of ${token}`);
@@ -96,7 +100,7 @@ export class ChainView {
       try {
         for (const w of missing) {
           const got = (await explorer.fundings(getAddress(w))).map((f) => ({ from: f.from, via: f.via, value: f.value.toString(), tx: f.tx, time: f.time }));
-          store.remember("funding", w, got);
+          store.remember(this.cached, w, got);
           looked += 1;
           for (const f of got) {
             const funder = lc(f.from) as Address;

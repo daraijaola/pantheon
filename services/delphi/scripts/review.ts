@@ -9,6 +9,7 @@ import { getAddress, isAddress } from "viem";
 import { makeClient } from "../src/chain.ts";
 import { loadConfig, supplyOf } from "../src/config.ts";
 import { balances, pct, roundTrips } from "../src/detect.ts";
+import { fundingCache } from "../src/funding.ts";
 import { clusters, groupsOf, isSystem } from "../src/graph.ts";
 import { collect } from "../src/ingest.ts";
 import { analyze } from "../src/report.ts";
@@ -53,7 +54,7 @@ function caseFile(d: CoinData, verdict: string, findings: string[], allCoins: Co
   const groups = groupsOf(d.links).sort((a, b) => b.members.size - a.members.size);
   const groupOf = new Map<string, number>();
   groups.forEach((g, i) => g.members.forEach((m) => groupOf.has(m) || groupOf.set(m, i)));
-  const funding = (w: string) => store.recall<StoredFunding[]>("funding", w)?.filter((f) => lc(f.from) !== w).sort((a, b) => a.time - b.time)[0];
+  const funding = (w: string) => store.recall<StoredFunding[]>(fundingCache(cfg.network), w)?.filter((f) => lc(f.from) !== w).sort((a, b) => a.time - b.time)[0];
   const launchedBy = (w: string) => allCoins.filter((o) => lc(o.coin.creator) === w).map((o) => o.coin.symbol ?? short(o.coin.token));
   const lines: string[] = [];
   const say = (s = "") => lines.push(s);

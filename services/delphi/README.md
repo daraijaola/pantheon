@@ -37,6 +37,8 @@ Wallets are joined into groups by links, and each link records the transaction(s
 
 **Testnet and mainnet.** The `NETWORK` setting (`testnet` or `mainnet`; by default it follows the RPC and explorer addresses) picks the profile. On testnet, people fund many wallets from one, run distribution bots and farm, all with free test money, so a wallet that paid HYPE to 5 or more tracked wallets which between them traded 5 or more different coins (not counting coins it launched itself) is treated as public too: it spreads wallets over everything rather than seeding them for one coin. A ring seeds its wallets for the coin it pumps, however many there are, so it still links. On mainnet only the faucet list and the 5,000-transaction rule apply.
 
+**A stranger's dust is not a funding (rules v0.6, mainnet).** Mainnet wallets start empty at the same addresses they have on testnet, so a griefer can send a speck of HYPE to dozens of known wallets in one go, before their owners fund them. Read as their first funding, that would make them one group, and two of them buying a new coin at launch would be a bundle. So on mainnet a wallet's funding is the payment in the first block where its HYPE reached 0.01 HYPE (`RULES.funding.dustFloorHype`), and in that block the biggest payment. A wallet that sent transactions before it ever reached the floor ran on the smaller payments, so those count after all: a farm that hands its wallets a little gas money still links them. Mainnet reports say `delphi-v0.6`; testnet's floor is 0, the search is exactly the old one, its cache kind is still `funding`, and its reports still say `delphi-v0.5`. A floor's fundings are cached under their own kind (`funding-floor-<wei>`), so changing the floor reads every wallet again, and a funding search built for the wrong network is refused before it saves anything.
+
 **Infrastructure is never a holder or a trader.** That covers the launchpad and everything it names (vault, pool manager, treasuries, ListingDesk), the burn sink, every router seen swapping, and any outside pool (a contract that answers `token0()` and `token1()`). Since rules v0.2 it covers every
 other contract too (staking, lockers, faucets): before that, everyone who staked PANTHEON was "one actor"
 through the staking contract, and the contract itself counted as a holder with 75% of the supply. A report
@@ -400,6 +402,6 @@ Deploying: `deploy/delphi-feed.service` (systemd) and `deploy/Caddyfile.delphi-f
 ## Limits (v0)
 
 - Trades on Uniswap-V2-style pairs are not counted as trades yet (their balances are still handled correctly).
-- Funding looks at each wallet's earliest 50 incoming transactions and latest 50 contract payments.
+- Funding is each wallet's first payment (on mainnet, the first that brought it to the dust floor). A wallet a griefer funds with 0.01 HYPE or more before its owner does still looks funded by the griefer: raise the floor if that is seen.
 - Testnet trading is thin (a few hundred swaps in total), so most coins come out NOT ENOUGH DATA. That answer is honest, not a failure.
 - Claude's explanations are checked for verdicts, transactions and addresses, not for every number in the text. Spot checks so far match the data.

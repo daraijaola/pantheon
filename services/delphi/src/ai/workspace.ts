@@ -3,6 +3,7 @@
 import { getAddress, parseAbi, type Address, type Hex, type PublicClient } from "viem";
 import { isRevert, launchpadAddresses, type TxCall } from "../chain.ts";
 import { KNOWN_HUBS, RULES, type Config } from "../config.ts";
+import { fundingCache } from "../funding.ts";
 import { actorsOf, fundingKind } from "../graph.ts";
 import { decodeLaunch, decodePool } from "../ingest.ts";
 import type { LiquidityReport } from "../kalos.ts";
@@ -109,11 +110,12 @@ export async function loadWorkspace(deps: {
   const pools = new Map([...pairs].map(([id, [a, b]]) => [id, [asCurrency(a), asCurrency(b)] as const]));
 
   const hubs = new Set(KNOWN_HUBS.map(lc));
+  const kind = fundingCache(cfg.network);
   const fundings = new Map<string, FundingView[]>();
   for (const d of deps.coins) {
     for (const w of actorsOf(d.trades, d.transfers, d.system)) {
       if (fundings.has(lc(w))) continue;
-      const got = store.recall<StoredFunding[]>("funding", w);
+      const got = store.recall<StoredFunding[]>(kind, w);
       if (!got) continue;
       fundings.set(
         lc(w),

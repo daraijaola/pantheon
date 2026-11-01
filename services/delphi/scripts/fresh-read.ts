@@ -47,7 +47,7 @@ function dailyPrices(d: CoinData): Array<[number, number]> {
 const store = new Store(cfg.dbPath);
 try {
   const client = makeClient(cfg.elysiumRpc, (ms, what) => log(`RPC asked us to slow down (${what}): waiting ${ms / 1000} s`));
-  const { coins, head } = await collect({ client, store, cfg, explorer: new ChainFunding(), log });
+  const { coins, head } = await collect({ client, store, cfg, explorer: ChainFunding.forNetwork(cfg.network), log });
   const now = new Date();
   const reports = coins.map((d) => analyze(d, { explorerWeb: cfg.explorerWeb, now }));
   process.stdout.write(JSON.stringify({ network: cfg.network, generatedAt: now.toISOString(), head: head.toString(), reports, creatorSells: coins.flatMap(creatorSells), dailyPrices: Object.fromEntries(coins.map((d) => [lc(d.coin.token), dailyPrices(d)])) }));

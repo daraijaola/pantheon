@@ -47,7 +47,7 @@ if (existsSync(cfg.dbPath)) {
   }
 }
 const store = new Store(cfg.dbPath);
-const funding = new ChainFunding();
+const funding = ChainFunding.forNetwork(cfg.network);
 const client = makeClient(cfg.elysiumRpc, (ms, what) => log(`RPC asked us to slow down (${what}): waiting ${ms / 1000} s`));
 const view = new ChainView({
   client,

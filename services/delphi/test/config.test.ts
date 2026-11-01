@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ConfigError, loadConfig } from "../src/config.ts";
+import { ConfigError, dustFloorOf, loadConfig, RULES, rulesVersion } from "../src/config.ts";
 
 describe("loadConfig", () => {
   it("works with no settings at all (public testnet defaults)", () => {
@@ -28,6 +28,16 @@ describe("loadConfig", () => {
     expect(loadConfig({ NETWORK: "mainnet" }).network).toBe("mainnet");
     expect(loadConfig({ ...main, NETWORK: "testnet" }).network).toBe("testnet");
     expect(() => loadConfig({ NETWORK: "devnet" })).toThrow(/NETWORK/);
+  });
+
+  it("versions the rules per network: mainnet moved to v0.6 with its dust floor, testnet did not", () => {
+    expect(rulesVersion("testnet")).toBe("delphi-v0.5");
+    expect(rulesVersion(undefined)).toBe(RULES.version);
+    expect(rulesVersion("mainnet")).toBe("delphi-v0.6");
+    expect(dustFloorOf("testnet")).toBe(0n);
+    expect(dustFloorOf("mainnet")).toBe(10n ** 16n);
+    // RULES is written into scan.json and the site's data as JSON: it must stay plain
+    expect(JSON.parse(JSON.stringify(RULES))).toEqual(RULES);
   });
 
   it("stops at start on a bad value", () => {

@@ -1,5 +1,5 @@
 // DELPHI: settings and the detection rules' thresholds. Read-only service: no wallet keys, no transactions.
-import { getAddress, isAddress, toFunctionSelector, type Address } from "viem";
+import { getAddress, isAddress, parseEther, toFunctionSelector, type Address } from "viem";
 import { z } from "zod";
 
 const address = z
@@ -118,7 +118,10 @@ export const MULTISEND_SELECTORS: ReadonlySet<string> = new Set(MULTISEND_CALLS.
  * Plain thresholds on purpose: v0 must be explainable to a judge in one sentence each.
  */
 export const RULES = {
+  /** The rules' version on testnet (and for data built without a network). Mainnet's is mainnetVersion: see rulesVersion(). */
   version: "delphi-v0.5",
+  /** v0.6, mainnet only: the dust floor (funding.dustFloorHype). Testnet's rules did not change, so its reports still say v0.5. */
+  mainnetVersion: "delphi-v0.6",
   hub: {
     /**
      * A funder with this many transactions is public (faucet, bridge, exchange) and links nobody, on any
@@ -132,6 +135,18 @@ export const RULES = {
      * wallets for the coin it pumps, however many there are. Seen live: 3 funders match.
      */
     testnetFanout: { wallets: 5, coins: 5 },
+  },
+  funding: {
+    /**
+     * v0.6: a wallet's funding is the payment in the first block where its HYPE reached this floor (in HYPE,
+     * as a decimal string), so a stranger's dust can't make itself the "funder". On mainnet every wallet
+     * starts empty at the address it has on testnet, and one transaction can dust dozens of known wallets:
+     * they would all look first-funded by one wallet, and two of them buying a new coin at launch would be a
+     * bundle. A wallet that sent transactions before it ever reached the floor ran on the smaller payments,
+     * so those count after all (a farm that funds its wallets with a little gas money still links). Testnet:
+     * 0, any HYPE at all, as before.
+     */
+    dustFloorHype: { testnet: "0", mainnet: "0.01" },
   },
   bundle: {
     /** Buys this soon after the launch transaction count as "at launch". */
@@ -187,6 +202,12 @@ export const RULES = {
     notePct: 10,
   },
 } as const;
+
+/** The rules version a report carries: v0.6 on mainnet (the dust floor), RULES.version on testnet or with no network. */
+export const rulesVersion = (network?: Network): string => (network === "mainnet" ? RULES.mainnetVersion : RULES.version);
+
+/** A network's dust floor in wei (RULES.funding): a payment counts as a wallet's funding once its HYPE reached it. */
+export const dustFloorOf = (network: Network): bigint => parseEther(RULES.funding.dustFloorHype[network]);
 
 /** Every launched Ascend token has exactly this supply (AscendLaunchpad TOTAL_SUPPLY). */
 export const TOTAL_SUPPLY = 1_000_000_000n * 10n ** 18n;

@@ -50,7 +50,7 @@ try {
     client,
     store,
     cfg,
-    explorer: args.includes("--no-explorer") ? null : new ChainFunding(),
+    explorer: args.includes("--no-explorer") ? null : ChainFunding.forNetwork(cfg.network),
     kalos: args.includes("--no-kalos") ? null : { rpc },
     perpme: args.includes("--no-perpme") ? null : { rpc },
     log,

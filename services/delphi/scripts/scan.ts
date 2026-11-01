@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAddress, isAddress } from "viem";
 import { makeClient } from "../src/chain.ts";
-import { loadConfig, RULES } from "../src/config.ts";
+import { loadConfig, RULES, rulesVersion } from "../src/config.ts";
 import { ChainFunding } from "../src/funding.ts";
 import { BatchRpc } from "../src/rpc.ts";
 import { safetyFor } from "../src/safety-run.ts";
@@ -29,7 +29,7 @@ const only = onlyArg ? getAddress(onlyArg) : undefined;
 const cfg = loadConfig();
 const store = new Store(cfg.dbPath);
 // Funding is read from the chain itself: the explorer's API sits behind a bot checkpoint since Oct 25.
-const explorer = args.includes("--no-explorer") ? null : new ChainFunding();
+const explorer = args.includes("--no-explorer") ? null : ChainFunding.forNetwork(cfg.network);
 const log = (m: string) => console.error(`[delphi] ${m}`);
 const bigints = (_k: string, v: unknown) => (typeof v === "bigint" ? v.toString() : v);
 
@@ -74,7 +74,7 @@ try {
 
   const count = (v: CoinReport["verdict"]) => reports.filter((r) => r.verdict === v).length;
   log(`done in ${Math.round((Date.now() - started) / 1000)} s, up to block ${head}`);
-  log(`rules ${RULES.version}, ${cfg.network} profile`);
+  log(`rules ${rulesVersion(cfg.network)}, ${cfg.network} profile`);
   const kalosCount = reports.filter((r) => r.coin.market === "kalos").length;
   const perpmeCount = reports.filter((r) => r.coin.market === "perpme").length;
   if (kalosCount || perpmeCount) log(`${kalosCount} of them on Kalos, ${perpmeCount} on PerpMe`);

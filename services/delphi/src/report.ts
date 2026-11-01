@@ -1,6 +1,6 @@
 // Verdicts and reports. A report says what was checked, what was found, and the transactions
 // behind every claim, so anyone can verify it on the explorer without trusting DELPHI.
-import { RULES } from "./config.ts";
+import { RULES, rulesVersion } from "./config.ts";
 import { balances, contractHoldings, detectBundle, detectConcentration, detectWash, type DetectorResult } from "./detect.ts";
 import type { CoinData, Finding, Verdict } from "./types.ts";
 
@@ -78,7 +78,7 @@ export function analyze(d: CoinData, opts: { explorerWeb: string; now?: Date }):
     );
   }
   return {
-    rules: RULES.version,
+    rules: rulesVersion(d.network),
     generatedAt: (opts.now ?? new Date()).toISOString(),
     coin: {
       token: c.token,
@@ -173,7 +173,7 @@ export function toIndexMarkdown(reports: CoinReport[], file: (r: CoinReport) => 
         `| [${mdText(r.coin.symbol, 16)}](${file(r)}) | ${r.verdict.replaceAll("_", " ")} | ${r.stats.trades} | ${r.stats.holders} | ${r.findings[0]?.summary.replaceAll("|", "\\|") ?? ""} |`,
     ),
     "",
-    `_Rules ${RULES.version}. Patterns, not intent: every finding links to its transactions._`,
+    `_Rules ${[...new Set(reports.map((r) => r.rules))].join(", ") || RULES.version}. Patterns, not intent: every finding links to its transactions._`,
     "",
   ].join("\n");
 }

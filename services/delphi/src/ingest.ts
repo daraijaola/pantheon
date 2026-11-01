@@ -17,7 +17,7 @@ import {
 } from "./chain.ts";
 import { KNOWN_HUBS, RULES, STATIC_SYSTEM, supplyOf, type Config } from "./config.ts";
 import { ExplorerBudgetError, type RawFunding } from "./explorer.ts";
-import type { FundingSource } from "./funding.ts";
+import { fundingCache, type FundingSource } from "./funding.ts";
 import { collectKalos, type KalosCollected } from "./kalos-collect.ts";
 import { collectPerpme, type PerpmeCollected } from "./perpme-collect.ts";
 import { PERPME } from "./perpme.ts";
@@ -226,6 +226,8 @@ export async function collect(deps: {
   const { client, store, cfg, explorer } = deps;
   const log = deps.log ?? (() => {});
   const notes: string[] = [];
+  // Where this network's fundings are cached ("funding" on testnet, as always); refuses a search with another floor.
+  const cacheKind = fundingCache(cfg.network, explorer);
 
   const lp = await launchpadAddresses(client, cfg.launchpad);
   const head = await client.getBlockNumber();
@@ -327,8 +329,8 @@ export async function collect(deps: {
   let stopped: string | null = null;
   const todo: string[] = [];
   for (const w of wallets) {
-    const cached = store.recall<StoredFunding[]>("funding", w);
-    const stale = cached !== undefined && cached.length === 0 && store.recall("funding", w, EMPTY_FUNDING_MAX_AGE) === undefined;
+    const cached = store.recall<StoredFunding[]>(cacheKind, w);
+    const stale = cached !== undefined && cached.length === 0 && store.recall(cacheKind, w, EMPTY_FUNDING_MAX_AGE) === undefined;
     if (cached && !(stale && explorer)) fundings.set(w, cached);
     else todo.push(w);
   }
@@ -337,7 +339,7 @@ export async function collect(deps: {
     if (explorer.fundingsMany) {
       try {
         for (const [w, got] of await explorer.fundingsMany(todo.map((w) => getAddress(w)))) {
-          store.remember("funding", w, got.map(toStored));
+          store.remember(cacheKind, w, got.map(toStored));
           fundings.set(w, got.map(toStored));
         }
       } catch (err) {
@@ -348,7 +350,7 @@ export async function collect(deps: {
         if (stopped) return;
         try {
           const got = (await explorer.fundings(getAddress(w))).map(toStored);
-          store.remember("funding", w, got);
+          store.remember(cacheKind, w, got);
           fundings.set(w, got);
         } catch (err) {
           if (!(err instanceof ExplorerBudgetError)) throw err;
@@ -359,7 +361,7 @@ export async function collect(deps: {
   }
   // A wallet asked again but not answered keeps what it had before.
   for (const w of todo) {
-    const old = fundings.has(w) ? undefined : store.recall<StoredFunding[]>("funding", w);
+    const old = fundings.has(w) ? undefined : store.recall<StoredFunding[]>(cacheKind, w);
     if (old) fundings.set(w, old);
   }
   if (stopped) notes.push(stopped);
