@@ -3,6 +3,7 @@
 import { buildApp } from "./api.ts";
 import { BagReader } from "./bag.ts";
 import { BasketReader, chainRewards, indexerCalls } from "./basket.ts";
+import { CampaignReader } from "./campaign.ts";
 import { makeClient } from "./chain.ts";
 import { loadConfig } from "./config.ts";
 import { FreshChecks, runDelphi } from "./fresh.ts";
@@ -38,8 +39,9 @@ const rounds = roundsCalls(cfg.trialsUrl);
 const standing = new StandingReader({ history, stake, indexer, voters: roundVoters(rounds.rounds) });
 const scan = (wallet: string) => scanStages(wallet, { history, holdings, standing, bag: (h) => bag.fromHoldings(h), log: (msg) => app.log.warn(msg) });
 const basket = new BasketReader({ verdicts, stake, indexer, rewards: chainRewards(chain, cfg.deployment.staking), usdc: cfg.deployment.usdc });
+const round = new RoundReader(verdicts, trialsCalls(cfg.trialsUrl));
 const record = new RecordReader(verdicts, rounds, async () => new Set((await basket.basket()).coins.map((c) => c.token)));
-const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, stake, basket, standing, guard: new GuardReader(guard, holdings), round: new RoundReader(verdicts, trialsCalls(cfg.trialsUrl)), record, ...(fresh ? { fresh } : {}) });
+const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, stake, basket, standing, guard: new GuardReader(guard, holdings), round, record, campaigns: new CampaignReader(round), ...(fresh ? { fresh } : {}) });
 
 let lastSaid: string | null = null;
 function refresh() {

@@ -4,7 +4,7 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, stake data, basket data, standing facts, Guard, the Trials round and the voting record are done. It listens on this machine only
+Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, stake data, basket data, standing facts, Guard, the Trials round, the voting record and campaigns are done. It listens on this machine only
 (`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
@@ -81,6 +81,19 @@ DELPHI's `verdict` now, `verdictAtOpen`, `verdictChanged`, `reason`, `reportUrl`
   remembered for 15 s, but the clock and the verdicts are live.
 - On Nov 1, round 5's votes matched a recount from the raw ballots on all 20 candidates. No round was open then, so the
   open and upcoming states are covered by tests, not a real round.
+
+## Campaigns (`src/campaign.ts`)
+
+`GET /trials/campaigns` lists every candidate in the latest round, and `GET /trials/campaigns/{token}` gives one (404
+`NOT_A_CANDIDATE` if it isn't). Each has `votes`, `voters`, `inSeat`, `votesNeeded`, `verdict`, `reason`, `reportUrl`,
+`disputeUrl`, `status`, `secondsLeft` and `share`.
+
+- **`votesNeeded`** is what the coin needs for a seat if nothing else changes: 0 if it's in one, null once voting is
+  over. It follows the Trials count: most votes, then equal votes go to the coin with more real trading. A wallet with
+  a Passport adds more than 1 vote, so this counts votes, not people.
+- **`share`** is the facts for a card: `{title, lines, url}`. How it looks is Micheal's. It always carries DELPHI's
+  verdict, and it never says to buy or to vote for anything.
+- **No referral links or pay.** The link is the same for everyone, and this route doesn't take a wallet.
 
 ## Ballot and voting record (`src/record.ts`)
 

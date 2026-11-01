@@ -1,9 +1,10 @@
 // The HTTP side. Read-only JSON. It listens on this machine only, so it isn't public: nothing here
 // checks who is asking yet. Holdings are meant to be private, so this must not go public before sign-in.
-import Fastify from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { BagReader } from "./bag.ts";
 import type { BasketReader } from "./basket.ts";
+import type { CampaignReader } from "./campaign.ts";
 import type { FreshChecks } from "./fresh.ts";
 import type { HistoryReader } from "./history.ts";
 import type { RecordReader } from "./record.ts";
@@ -20,7 +21,7 @@ export const PER_MINUTE = 120;
 
 const Address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 
-export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent>; stake?: Pick<StakeReader, "read" | "preview">; basket?: Pick<BasketReader, "read" | "basket">; standing?: Pick<StandingReader, "read">; guard?: Pick<GuardReader, "read">; round?: Pick<RoundReader, "read">; record?: Pick<RecordReader, "read" | "ballot"> } = {}) {
+export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent>; stake?: Pick<StakeReader, "read" | "preview">; basket?: Pick<BasketReader, "read" | "basket">; standing?: Pick<StandingReader, "read">; guard?: Pick<GuardReader, "read">; round?: Pick<RoundReader, "read">; record?: Pick<RecordReader, "read" | "ballot">; campaigns?: Pick<CampaignReader, "all" | "one"> } = {}) {
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: "127.0.0.1", bodyLimit: 1024 });
   const now = opts.now ?? Date.now;
   const hits = new Map<string, { n: number; since: number }>();
@@ -83,6 +84,26 @@ export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { log
       });
     trialsRoute("record", (w) => record.read(w));
     trialsRoute("ballot", (w) => record.ballot(w));
+  }
+
+  const { campaigns } = opts;
+  if (campaigns) {
+    const answer = async (req: FastifyRequest, reply: FastifyReply, read: () => Promise<unknown>, missing: string) => {
+      try {
+        const got = await read();
+        if (!got) return await reply.code(404).send({ error: missing });
+        return await reply.header("cache-control", "no-store").send(got);
+      } catch (err) {
+        req.log.warn({ error: (err as Error).message.split("\n")[0] }, "couldn't read a campaign");
+        return reply.code(503).send({ error: "TRIALS_UNAVAILABLE" });
+      }
+    };
+    app.get("/trials/campaigns", (req, reply) => answer(req, reply, () => campaigns.all(), "NO_ROUND"));
+    app.get<{ Params: { token: string } }>("/trials/campaigns/:token", async (req, reply) => {
+      const token = Address.safeParse(req.params.token);
+      if (!token.success) return reply.code(400).send({ error: "INVALID_ADDRESS" });
+      return answer(req, reply, () => campaigns.one(token.data), "NOT_A_CANDIDATE");
+    });
   }
 
   const { round } = opts;
