@@ -49,7 +49,7 @@ type Status = "connect" | "sign" | "read" | "done";
 const STATUS: Record<Status, string> = {
   connect: "Connect a wallet to begin.",
   sign: "Waiting for your signature.",
-  read: "DELPHI is reading your wallet.",
+  read: "Signed. This is a preview of how DELPHI will read your wallet.",
   done: "Your self is uploaded. Pick any bubble to continue.",
 };
 
@@ -529,7 +529,7 @@ export function UploadNext({ address }: { address: string }) {
       <Chip address={address} />
       <div className={s.next}>
         <p className={s.nextTitle}>Your space opens here soon.</p>
-        <p className={s.nextSub}>DELPHI has read your wallet. There’s nothing more to sign.</p>
+        <p className={s.nextSub}>Signed. DELPHI reads this wallet when your space opens. There’s nothing more to sign.</p>
         <Link href="/" className={s.ghost}>
           Back to site
         </Link>

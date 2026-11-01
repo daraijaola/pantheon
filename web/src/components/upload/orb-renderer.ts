@@ -36,7 +36,9 @@ export class OrbRenderer {
   static create(canvas: HTMLCanvasElement): OrbRenderer | null {
     let gl: WebGLRenderingContext | null = null;
     try {
-      gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false, powerPreference: "high-performance" });
+      // The browser picks the GPU: asking for "high-performance" wakes a laptop's second graphics chip
+      // and drains its battery, for an orb the built-in one draws fine.
+      gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false });
     } catch {
       gl = null;
     }
