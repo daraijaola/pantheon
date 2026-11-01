@@ -4,7 +4,7 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history and the bag are done. It listens on this machine only
+Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag and the wallet scan are done. It listens on this machine only
 (`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
@@ -62,6 +62,36 @@ bundled request. The explorer's API has been behind a bot check since Oct 25, so
 - **One wallet at a time,** to go easy on the public node. A busy launch day will need a paid node.
 - **Private on purpose:** this route must not go public before sign-in is decided.
 
+## The wallet scan (`src/scan.ts`)
+
+`GET /wallets/{address}/scan` is the one the upload animation uses. It stays open and sends each stage as soon as
+it's ready, as server-sent events: one `stage` event each, then `done`. Times are from real wallets on Nov 1, for a
+wallet not read in the last minute. A wallet read recently answers in milliseconds.
+
+| Stage | About | `data` |
+|---|---|---|
+| `history` | 0.4 s | The quick part of `/history`: `txsSent`, `hype`, `coinsLaunched`, `network` |
+| `holdings` | 2 s | The same as `/holdings` |
+| `verdicts` | right after holdings | The same as `/bag` |
+| `firstDay` | 3 s | `{firstSeen}`: `{block, time}`, or null if the wallet has never been active |
+| `standing` | | Not built yet: always `{ok: false, error: "NOT_BUILT_YET"}` |
+
+They always come in that order. Each is `{stage, ok: true, data}` or `{stage, ok: false, error}`, where `error` is
+`CHAIN_UNAVAILABLE`, `NOT_READY`, `TIMEOUT` (a stage gives up after 30 s) or `NOT_BUILT_YET`. A failed stage never
+stops the others. `verdicts` fails if `holdings` did. `done` is `{failed: [stage names]}`.
+
+```js
+const es = new EventSource(`/api/uploaded/wallets/${wallet}/scan`); // the site's forwarding isn't set up yet
+es.addEventListener("stage", (e) => {
+  const { stage, ok, data, error } = JSON.parse(e.data);
+  // show this stage, or leave it out if !ok
+});
+es.addEventListener("done", () => es.close()); // close here, or EventSource reconnects and scans again
+```
+
+The first day is its own stage on purpose. Every trip to the node takes about 400 ms and the search needs about 8,
+so inside `history` it would hold back everything behind it, and all the stages would land together.
+
 ## The bag (`src/bag.ts`)
 
 `GET /wallets/{address}/bag` joins holdings and verdicts, worst first: FLAG, WATCH, UNKNOWN, NOT_ENOUGH_DATA, CLEAN.
@@ -81,7 +111,7 @@ one-line `reason`, `findings` with their transactions, `notes`, `reportUrl`, `di
 About 3 s the first time, then remembered for a minute. A first day, once found, is kept until restart.
 
 - **First day:** the first block where the wallet had HYPE or had sent a transaction, found by searching past
-  blocks, 16 points a step. On 30 real wallets it matched DELPHI's own funding records exactly (Nov 1).
+  blocks, 48 points a step. On 30 real wallets it matched DELPHI's own funding records exactly (Nov 1).
 - **Funders are not read,** because they're never shown.
 - **Coins launched:** from DELPHI's scan, with each coin's verdict. Coins launched through Covenant name the
   Covenant factory as their creator (PNTH and COVD do), so the person who launched them gets no credit yet.

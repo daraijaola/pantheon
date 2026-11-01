@@ -62,7 +62,12 @@ export class BagReader {
   }
 
   async read(wallet: string): Promise<Bag> {
+    return this.fromHoldings(await this.#holdings.read(wallet));
+  }
+
+  /** The bag for holdings already read. */
+  fromHoldings(holdings: Holdings): Bag {
     const fresh = this.#fresh;
-    return buildBag(await this.#holdings.read(wallet), (t) => this.#verdicts.get(t), fresh ? (c) => fresh.ask(c) : undefined);
+    return buildBag(holdings, (t) => this.#verdicts.get(t), fresh ? (c) => fresh.ask(c) : undefined);
   }
 }

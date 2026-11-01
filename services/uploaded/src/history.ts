@@ -1,27 +1,36 @@
 // A wallet's story so far: its first day on Elysium, how many transactions it has sent, its HYPE, and
 // the coins it launched. The chain can't say when a wallet started, but it can say what any wallet had
 // at any past block, so the first block where it had HYPE or had sent anything is found by searching
-// (the idea behind DELPHI's funding lookup). Who funded the wallet is deliberately not read: funders are
-// never shown. A wallet that only ever received tokens has no first day here.
+// (the idea behind DELPHI's funding lookup). Every trip to the node takes about 400 ms, so that search takes
+// a few seconds while the rest takes half of one, which is why the two can be asked for separately. Who
+// funded the wallet is deliberately not read: funders are never shown. A wallet that only ever received
+// tokens has no first day here.
 import { formatEther, type Address, type PublicClient } from "viem";
 import { NotReady } from "./holdings.ts";
 import { Remembered } from "./remembered.ts";
 import type { CoinVerdict } from "./verdicts.ts";
 
-/** How many points each step of the search checks, in one request. */
-const WIDTH = 16;
+/** How many points each step of the search checks: 2 reads each, so 96 fit in one batched request. */
+const WIDTH = 48;
 const TTL_MS = 60_000;
 
-export type WalletHistory = {
+/** The first block where the wallet had HYPE or had sent a transaction. */
+export type FirstSeen = { block: string; time: string };
+
+/** The quick part of a wallet's history. */
+export type WalletNow = {
   wallet: string;
   network: "testnet" | "mainnet";
   readAt: string;
-  /** The first block where the wallet had HYPE or had sent a transaction. Null if it never has. */
-  firstSeen: { block: string; time: string } | null;
   txsSent: number;
   /** HYPE held now, as a person reads it. */
   hype: string;
   coinsLaunched: Array<Pick<CoinVerdict, "token" | "symbol" | "venue" | "verdict" | "reason" | "disputeUrl">>;
+};
+
+export type WalletHistory = WalletNow & {
+  /** Null if the wallet has never had HYPE or sent anything. */
+  firstSeen: FirstSeen | null;
 };
 
 /** The chain reads. An address that's never active gives false at every block. */
@@ -77,22 +86,37 @@ export class HistoryReader {
   readonly #verdicts: CoinFacts;
   readonly #calls: HistoryCalls;
   readonly #now: () => number;
-  readonly #remembered: Remembered<WalletHistory>;
+  readonly #quick: Remembered<WalletNow>;
+  readonly #firstDay: Remembered<FirstSeen | null>;
   /** A first day never changes once found. */
-  readonly #first = new Map<string, { block: string; time: string }>();
+  readonly #first = new Map<string, FirstSeen>();
 
   constructor(verdicts: CoinFacts, calls: HistoryCalls, opts: { now?: () => number; ttlMs?: number } = {}) {
     this.#verdicts = verdicts;
     this.#calls = calls;
     this.#now = opts.now ?? Date.now;
-    this.#remembered = new Remembered((w) => this.#read(w), { ttlMs: opts.ttlMs ?? TTL_MS, now: this.#now });
+    const remember = { ttlMs: opts.ttlMs ?? TTL_MS, now: this.#now };
+    this.#quick = new Remembered((w) => this.#readNow(w), remember);
+    this.#firstDay = new Remembered((w) => this.#findFirstDay(w), remember);
   }
 
-  read(wallet: string): Promise<WalletHistory> {
-    return this.#remembered.get(wallet.toLowerCase());
+  /** Everything: both parts together. */
+  async read(wallet: string): Promise<WalletHistory> {
+    const [now, firstSeen] = await Promise.all([this.quick(wallet), this.firstDay(wallet)]);
+    return { ...now, firstSeen };
   }
 
-  async #read(wallet: string): Promise<WalletHistory> {
+  /** Transactions, HYPE and coins launched: about half a second. */
+  quick(wallet: string): Promise<WalletNow> {
+    return this.#quick.get(wallet.toLowerCase());
+  }
+
+  /** The first day: a few seconds the first time. */
+  firstDay(wallet: string): Promise<FirstSeen | null> {
+    return this.#firstDay.get(wallet.toLowerCase());
+  }
+
+  async #readNow(wallet: string): Promise<WalletNow> {
     const { network } = this.#verdicts.health();
     if (!network) throw new NotReady("no coins loaded yet");
     const { hype, txsSent } = await this.#calls.now(wallet);
@@ -100,17 +124,17 @@ export class HistoryReader {
       wallet,
       network,
       readAt: new Date(this.#now()).toISOString(),
-      firstSeen: await this.#firstSeen(wallet, hype > 0n || txsSent > 0),
       txsSent,
       hype: formatEther(hype),
       coinsLaunched: this.#verdicts.launchedBy(wallet).map(({ token, symbol, venue, verdict, reason, disputeUrl }) => ({ token, symbol, venue, verdict, reason, disputeUrl })),
     };
   }
 
-  async #firstSeen(wallet: string, activeNow: boolean) {
+  async #findFirstDay(wallet: string): Promise<FirstSeen | null> {
     const known = this.#first.get(wallet);
     if (known) return known;
-    if (!activeNow) return null;
+    const { txsSent, hype } = await this.quick(wallet);
+    if (txsSent === 0 && hype === "0") return null;
     const head = await this.#calls.head();
     const block = await firstActiveBlock(this.#calls, wallet, head);
     const found = { block: block.toString(), time: new Date((await this.#calls.blockTime(block)) * 1000).toISOString() };

@@ -6,6 +6,7 @@ import type { BagReader } from "./bag.ts";
 import type { FreshChecks } from "./fresh.ts";
 import type { HistoryReader } from "./history.ts";
 import { NotReady, type HoldingsReader } from "./holdings.ts";
+import type { StageEvent } from "./scan.ts";
 import type { Verdicts } from "./verdicts.ts";
 
 /** Requests per minute per visitor. Answers come from memory, so this only stops floods. */
@@ -13,7 +14,7 @@ export const PER_MINUTE = 120;
 
 const Address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 
-export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read"> } = {}) {
+export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent> } = {}) {
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: "127.0.0.1", bodyLimit: 1024 });
   const now = opts.now ?? Date.now;
   const hits = new Map<string, { n: number; since: number }>();
@@ -58,6 +59,32 @@ export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { log
   if (opts.holdings) walletRoute("holdings", opts.holdings);
   if (opts.history) walletRoute("history", opts.history);
   if (opts.bag) walletRoute("bag", opts.bag);
+
+  // The wallet scan, sent as server-sent events: one `stage` event as each stage finishes, then `done`.
+  // no-transform stops anything on the way from compressing the stream, which would hold events back.
+  const { scan } = opts;
+  if (scan) {
+    app.get<{ Params: { address: string } }>("/wallets/:address/scan", async (req, reply) => {
+      const wallet = Address.safeParse(req.params.address);
+      if (!wallet.success) return reply.code(400).send({ error: "INVALID_ADDRESS" });
+      reply.hijack();
+      const out = reply.raw;
+      out.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-cache, no-transform", "x-accel-buffering": "no" });
+      const send = (event: string, data: unknown) => out.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      const failed: string[] = [];
+      try {
+        for await (const stage of scan(wallet.data.toLowerCase())) {
+          if (out.destroyed) return; // they left: the rest would go nowhere
+          if (!stage.ok) failed.push(stage.stage);
+          send("stage", stage);
+        }
+        send("done", { failed });
+      } catch (err) {
+        req.log.error({ err }, "scan failed");
+      }
+      out.end();
+    });
+  }
 
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: "NOT_FOUND" }));
   app.setErrorHandler((err, req, reply) => {

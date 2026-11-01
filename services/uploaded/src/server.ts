@@ -7,6 +7,7 @@ import { loadConfig } from "./config.ts";
 import { FreshChecks, runDelphi } from "./fresh.ts";
 import { chainHistory, HistoryReader } from "./history.ts";
 import { chainBalances, HoldingsReader } from "./holdings.ts";
+import { scanStages } from "./scan.ts";
 import { Verdicts } from "./verdicts.ts";
 
 const cfg = loadConfig();
@@ -17,7 +18,8 @@ const fresh = cfg.freshReads
 const holdings = new HoldingsReader(() => verdicts.coins(), chainBalances(makeClient(cfg.rpc)));
 const history = new HistoryReader(verdicts, chainHistory(makeClient(cfg.archiveRpc, { batch: true })));
 const bag = new BagReader(holdings, verdicts, fresh);
-const app = buildApp(verdicts, { logger: true, holdings, history, bag, ...(fresh ? { fresh } : {}) });
+const scan = (wallet: string) => scanStages(wallet, { history, holdings, bag: (h) => bag.fromHoldings(h), log: (msg) => app.log.warn(msg) });
+const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, ...(fresh ? { fresh } : {}) });
 
 let lastSaid: string | null = null;
 function refresh() {

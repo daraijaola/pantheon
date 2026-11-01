@@ -43,11 +43,13 @@ describe("finding a wallet's first block", () => {
     expect(await firstActiveBlock(chain(3n).calls, WALLET, 5n)).toBe(3n);
   });
 
-  it("takes few requests: 20 million blocks in about 6 rounds", async () => {
+  it("takes few requests: 20 million blocks in 5 rounds, each small enough for one batch", async () => {
     const { calls, asked } = chain(12_345_678n);
-    await firstActiveBlock(calls, WALLET, 20_000_000n);
-    expect(asked.rounds).toBeLessThanOrEqual(7);
-    expect(asked.blocks).toBeLessThanOrEqual(7 * 16);
+    let biggest = 0;
+    const counted: typeof calls = { ...calls, activeAt: (w, b) => ((biggest = Math.max(biggest, b.length * 2)), calls.activeAt(w, b)) };
+    await firstActiveBlock(counted, WALLET, 20_000_000n);
+    expect(asked.rounds).toBeLessThanOrEqual(5);
+    expect(biggest).toBeLessThanOrEqual(100);
   });
 });
 
@@ -126,6 +128,27 @@ describe("reading a wallet's history", () => {
     await expect(r.read(WALLET)).rejects.toThrow("no archive");
     down = false;
     expect((await r.read(WALLET)).firstSeen?.block).toBe("3");
+  });
+});
+
+describe("the two parts", () => {
+  it("gives the quick part without searching at all", async () => {
+    const { calls, asked } = chain(5n, { hype: 1n, txsSent: 2 });
+    const got = await new HistoryReader(loaded(), calls).quick(WALLET);
+    expect(got).toMatchObject({ txsSent: 2, hype: "0.000000000000000001", coinsLaunched: [] });
+    expect("firstSeen" in got).toBe(false);
+    expect(asked.rounds).toBe(0);
+  });
+
+  it("finds the first day on its own, and reads the wallet only once for both", async () => {
+    let nowCalls = 0;
+    const base = chain(5n, { hype: 1n, txsSent: 2 });
+    const calls: HistoryCalls = { ...base.calls, now: async () => (nowCalls++, { hype: 1n, txsSent: 2 }) };
+    const r = new HistoryReader(loaded(), calls);
+    const [quick, day] = await Promise.all([r.quick(WALLET), r.firstDay(WALLET)]);
+    expect(quick.txsSent).toBe(2);
+    expect(day?.block).toBe("5");
+    expect(nowCalls).toBe(1);
   });
 });
 
