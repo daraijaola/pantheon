@@ -6,6 +6,7 @@ import { CodeTouch } from "@/components/code-type/code-touch";
 import { HowItWorks } from "@/components/how-it-works/how-it-works";
 import { LiveNumbers } from "@/components/live/live";
 import { SiteShell } from "@/components/site-shell";
+import { GetUploaded } from "@/components/upload/get-uploaded";
 import { WhatYouGet } from "@/components/what-you-get/what-you-get";
 import type { HeadlineWord } from "@/components/code-type/layout";
 import { deployment } from "@/lib/chain/config";
@@ -37,7 +38,7 @@ export default async function Home() {
       <main>
         <section className="relative overflow-hidden border-b border-rule">
           {/* Falling code stays inside the frame, like Firecrawl keeps its decoration inside the column. */}
-          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-1/2 w-[min(1112px,calc(100%-32px))] -translate-x-1/2 overflow-hidden">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-1/2 w-[min(1112px,calc(100%-32px))] -translate-x-1/2 overflow-hidden opacity-[.35] sm:opacity-100">
             <CodeRain
               source={code}
               className="absolute inset-0"
@@ -51,24 +52,22 @@ export default async function Home() {
           </div>
 
           {/* Firecrawl's rhythm: heading where theirs sits (198px under the header), then sub 16 · buttons 24. */}
-          <div className="relative mx-auto flex w-[min(1112px,calc(100%-32px))] flex-col items-center px-4 pt-24 pb-10 text-center lg:pt-[198px] lg:pb-12">
-            <CodeHeadline words={WORDS} fill={fill} label={SENTENCE} className="w-full" />
+          <div className="relative mx-auto flex w-[min(1112px,calc(100%-32px))] flex-col items-center px-4 pt-14 pb-10 text-center sm:pt-24 lg:pt-[198px] lg:pb-12">
+            <CodeHeadline words={WORDS} fill={fill} label={SENTENCE} maxHeightVh={0.28} className="w-full" />
 
             <p className="rise mt-4 max-w-[560px] text-[16px] leading-6 text-ink/80 [animation-delay:600ms]">
               $PNTH is the index of Ascend. Buys grow a locked basket of its top coins for stakers; sells burn supply.{" "}
               <span className="whitespace-nowrap rounded-md bg-ink/5 px-1.5 py-0.5 font-[450] text-ink">Fees with no owner. Rules locked.</span>
             </p>
 
-            <div className="rise mt-6 flex w-full flex-col gap-3 [animation-delay:750ms] sm:w-auto sm:flex-row">
-              <Link href="/get" className="btn-ink inline-flex h-10 items-center justify-center rounded-[10px] px-4 text-[14px] font-[450] sm:h-9">
+            <div className="rise mt-6 flex w-full flex-col items-center gap-3 [animation-delay:750ms] sm:w-auto sm:flex-row">
+              <GetUploaded />
+              <Link
+                href="/get"
+                className="inline-flex h-11 w-full items-center justify-center rounded-[12px] bg-ink/5 px-5 text-[15px] font-[450] transition-colors hover:bg-ink/10 sm:w-auto"
+              >
                 Get $PNTH
               </Link>
-              <a
-                href="#live"
-                className="inline-flex h-10 items-center justify-center rounded-[10px] bg-ink/5 px-4 text-[14px] font-[450] transition-colors hover:bg-ink/10 sm:h-9"
-              >
-                See the basket
-              </a>
             </div>
 
             {/* The Touch: a human hand and an uploaded one, reaching. Spans the full column width. */}

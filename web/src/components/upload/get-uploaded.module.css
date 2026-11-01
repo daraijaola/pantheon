@@ -1,0 +1,115 @@
+/* "Get uploaded": the hero's main button. A small window onto Caspian in the cloud (code-text art,
+   public/upload/caspian-tile.webp), a soft scan line while idle, a short glitch on hover. */
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  height: 60px;
+  padding: 0 20px 0 6px;
+  border-radius: 14px;
+  background: var(--color-ink, #171717);
+  color: #fff;
+  font: 500 15px/1 var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  box-shadow:
+    inset 0 -6px 12px rgb(255 255 255 / 0.08),
+    0 2px 4px rgb(0 0 0 / 0.12),
+    0 1px 1px rgb(0 0 0 / 0.12),
+    0 0.5px 0.5px rgb(0 0 0 / 0.16);
+  transition: box-shadow 0.1s, scale 0.1s;
+}
+.btn:hover {
+  box-shadow:
+    inset 0 -6px 12px rgb(255 255 255 / 0.08),
+    0 4px 8px rgb(0 0 0 / 0.16),
+    0 1px 1px rgb(0 0 0 / 0.12);
+}
+.btn:active {
+  scale: 0.995;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--color-ink, #171717);
+  outline-offset: 2px;
+}
+.tile {
+  position: relative;
+  flex: none;
+  width: 96px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: 9px;
+  background: #f9f9f9 url("/upload/caspian-tile.webp") center / 100% 100% no-repeat;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12);
+}
+.sweep {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 10px;
+  transform: translateY(-12px);
+  background: linear-gradient(to bottom, transparent, rgb(23 23 23 / 0.16), transparent);
+  animation: sweep 4.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+.label {
+  white-space: nowrap;
+}
+.arrow {
+  margin-left: -4px;
+  font: 14px/1 var(--font-geist-mono), ui-monospace, monospace;
+  opacity: 0.55;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.btn:hover .arrow {
+  transform: translateX(2px);
+  opacity: 0.9;
+}
+.btn:hover .tile {
+  animation: glitch 0.4s steps(1) 1;
+}
+@keyframes sweep {
+  0%,
+  55% {
+    transform: translateY(-12px);
+  }
+  85%,
+  100% {
+    transform: translateY(50px);
+  }
+}
+@keyframes glitch {
+  0% {
+    background-position: calc(50% + 2px) 50%;
+    clip-path: inset(15% 0 50% 0);
+  }
+  33% {
+    background-position: calc(50% - 2px) 50%;
+    clip-path: inset(50% 0 20% 0);
+  }
+  66% {
+    background-position: calc(50% + 1px) 50%;
+    clip-path: none;
+  }
+  100% {
+    background-position: center;
+  }
+}
+@media (max-width: 639px) {
+  .btn {
+    width: 100%;
+  }
+  .label {
+    flex: 1;
+    text-align: center;
+    margin-right: 30px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sweep,
+  .btn:hover .tile {
+    animation: none;
+  }
+  .sweep {
+    display: none;
+  }
+}

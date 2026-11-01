@@ -126,8 +126,8 @@ export function SiteHeader({ code }: { code: string }) {
         <a href={OUT.github} className={m.ghost} {...external(OUT.github)}>
           GitHub
         </a>
-        <A href="/stake" className={m.wallet}>
-          Open app
+        <A href="/upload" className={m.wallet}>
+          Get uploaded
         </A>
         <button type="button" className={m.burger} aria-expanded={open} aria-controls="site-menu" aria-label={open ? "Close menu" : "Open menu"} onClick={() => setOpen((v) => !v)}>
           <span />
