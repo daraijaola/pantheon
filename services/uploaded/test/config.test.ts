@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { ConfigError, loadConfig } from "../src/config.ts";
+import { ConfigError, loadConfig as realLoad } from "../src/config.ts";
+
+const A = "0x" + "a".repeat(40);
+const FILE = JSON.stringify({ staking: A, passportRegistry: A, pnth: A, usdc: A });
+const loadConfig = (env: Record<string, string | undefined>) => realLoad(env, () => FILE);
 
 describe("settings", () => {
   it("can switch fresh reads off", () => {
@@ -7,11 +11,21 @@ describe("settings", () => {
   });
 
   it("has safe defaults", () => {
-    expect(loadConfig({})).toEqual({ port: 8791, rpc: "https://testnet-rpc.elysium.kinetiq.xyz", archiveRpc: "https://test-explorer.elysium.kinetiq.xyz/rpc", scanFile: "../delphi/out/scan.json", refreshSec: 60, delphiDir: "../delphi", freshReads: true, freshGapSec: 300 });
+    expect(loadConfig({})).toEqual({ port: 8791, rpc: "https://testnet-rpc.elysium.kinetiq.xyz", archiveRpc: "https://test-explorer.elysium.kinetiq.xyz/rpc", deployment: { staking: A, passportRegistry: A, pnth: A }, scanFile: "../delphi/out/scan.json", refreshSec: 60, delphiDir: "../delphi", freshReads: true, freshGapSec: 300 });
   });
 
   it("treats an empty value as not set", () => {
     expect(loadConfig({ PORT: "" }).port).toBe(8791);
+  });
+
+  it("stops at start if the contracts file is missing or wrong", () => {
+    expect(() => realLoad({}, () => "{}")).toThrow(ConfigError);
+    expect(() => realLoad({}, () => "not json")).toThrow(ConfigError);
+    expect(() =>
+      realLoad({}, () => {
+        throw new Error("no such file");
+      }),
+    ).toThrow(/no such file/);
   });
 
   it("stops at start on a wrong value, and says which", () => {

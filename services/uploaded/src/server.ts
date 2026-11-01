@@ -8,6 +8,7 @@ import { FreshChecks, runDelphi } from "./fresh.ts";
 import { chainHistory, HistoryReader } from "./history.ts";
 import { chainBalances, HoldingsReader } from "./holdings.ts";
 import { scanStages } from "./scan.ts";
+import { chainStake, StakeReader } from "./stake.ts";
 import { Verdicts } from "./verdicts.ts";
 
 const cfg = loadConfig();
@@ -15,11 +16,13 @@ const verdicts = new Verdicts(cfg.scanFile);
 const fresh = cfg.freshReads
   ? new FreshChecks(verdicts, runDelphi(cfg.delphiDir), { gapMs: cfg.freshGapSec * 1000, log: (msg) => app.log.info(msg) })
   : undefined;
-const holdings = new HoldingsReader(() => verdicts.coins(), chainBalances(makeClient(cfg.rpc)));
+const chain = makeClient(cfg.rpc);
+const holdings = new HoldingsReader(() => verdicts.coins(), chainBalances(chain));
 const history = new HistoryReader(verdicts, chainHistory(makeClient(cfg.archiveRpc, { batch: true })));
+const stake = new StakeReader(() => verdicts.health().network, chainStake(chain, { staking: cfg.deployment.staking, passport: cfg.deployment.passportRegistry }));
 const bag = new BagReader(holdings, verdicts, fresh);
 const scan = (wallet: string) => scanStages(wallet, { history, holdings, bag: (h) => bag.fromHoldings(h), log: (msg) => app.log.warn(msg) });
-const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, ...(fresh ? { fresh } : {}) });
+const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, stake, ...(fresh ? { fresh } : {}) });
 
 let lastSaid: string | null = null;
 function refresh() {

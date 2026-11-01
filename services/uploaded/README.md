@@ -4,7 +4,7 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag and the wallet scan are done. It listens on this machine only
+Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan and stake data are done. It listens on this machine only
 (`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
@@ -20,6 +20,7 @@ npm start        # settings below; run it from this folder
 | `PORT` | `8791` | Where it listens. Passport has 8787, the indexer 8789, Trials 8790 and the feed 3210. |
 | `ELYSIUM_RPC` | the public testnet node | Where balances are read. |
 | `ARCHIVE_RPC` | the explorer's node | Where wallet history is read: it needs old blocks and batches. |
+| `DEPLOYMENT_FILE` | `../../deployments/elysium-testnet.json` | The contract addresses, from the file the site reads. |
 | `SCAN_FILE` | `../delphi/out/scan.json` | DELPHI's latest results. Only ever read. |
 | `REFRESH_SEC` | `60` | How often to look for a new scan. |
 | `DELPHI_DIR` | `../delphi` | Where DELPHI's code and cache are. Fresh reads run there. |
@@ -61,6 +62,24 @@ bundled request. The explorer's API has been behind a bot check since Oct 25, so
 - **What it doesn't see:** coins DELPHI hasn't read, and PNTH that's staked (it sits in the staking contract).
 - **One wallet at a time,** to go easy on the public node. A busy launch day will need a paid node.
 - **Private on purpose:** this route must not go public before sign-in is decided.
+
+## Stake data (`src/stake.ts`)
+
+`GET /wallets/{address}/stake` answers `{staked, cooling, coolEnd, canWithdraw, stakeStart, timeBonus, passportBoost,
+multiplier, needsRefresh}`. `GET /wallets/{address}/stake/unstake-preview?amount={raw PNTH}` answers what signing an
+unstake of that amount would do: `{stakedAfter, coolingAfter, coolEndAfter, restartsCooldown, timeBonus, daysLost,
+working, bonusLost}`, or 400 `ZERO_AMOUNT`, `TOO_MUCH` or `INVALID_AMOUNT`. Both are remembered for 10 s only.
+
+The sums copy `PantheonStaking` exactly. On Nov 1 they matched the contract on 59 of 59 real stakers, and the preview
+matched 48 of 48 unstakes simulated on the node, to the last digit. The screen should say these plainly:
+
+- **Unstaking any amount restarts the time bonus on the whole stake.** Unstaking 1 PNTH of a million sends all of it
+  back to 1.0×. `daysLost` and `bonusLost` are that cost. `bonusLost` is on what stays staked.
+- **`cancelUnstake` doesn't bring the bonus back.** It restarts the clock again. Simulated on the node.
+- **A second unstake restarts the 3 days** on everything already unlocking (`restartsCooldown`).
+- **The bonus shown may not be earning yet.** What earns is a stored number that only moves when the account is
+  touched. `multiplier.earning` is what the stake earns at now, `ifRefreshed` is what it would earn at, and
+  `needsRefresh` says a `poke` would raise it. Anyone can call `poke`, and whoever does pays the gas.
 
 ## The wallet scan (`src/scan.ts`)
 

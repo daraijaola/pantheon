@@ -1,7 +1,12 @@
 // Settings. Read-only: no keys, nothing to sign. A wrong value stops it at start.
+import { readFileSync } from "node:fs";
 import { z } from "zod";
 
 const wholeNumber = z.string().trim().regex(/^\d+$/, "must be a whole number").transform(Number);
+
+const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/, "must be an address");
+/** The contracts this service reads, from the file the site reads too. */
+const DeploymentSchema = z.object({ staking: address, passportRegistry: address, pnth: address });
 
 const EnvSchema = z.object({
   /** 8787 Passport, 8789 indexer, 8790 Trials, 3210 DELPHI feed. */
@@ -9,6 +14,7 @@ const EnvSchema = z.object({
   ELYSIUM_RPC: z.url({ protocol: /^https?$/ }).default("https://testnet-rpc.elysium.kinetiq.xyz"),
   /** A node that keeps old blocks and takes batches: the explorer's, as DELPHI uses for heavy reads. */
   ARCHIVE_RPC: z.url({ protocol: /^https?$/ }).default("https://test-explorer.elysium.kinetiq.xyz/rpc"),
+  DEPLOYMENT_FILE: z.string().min(1).default("../../deployments/elysium-testnet.json"),
   /** DELPHI's latest results. Only ever read. */
   SCAN_FILE: z.string().min(1).default("../delphi/out/scan.json"),
   /** How often to look for a new scan. */
@@ -21,16 +27,32 @@ const EnvSchema = z.object({
   FRESH_GAP_SEC: wholeNumber.pipe(z.number().min(60)).default(300),
 });
 
-export type Config = Readonly<{ port: number; rpc: string; archiveRpc: string; scanFile: string; refreshSec: number; delphiDir: string; freshReads: boolean; freshGapSec: number }>;
+export type Config = Readonly<{
+  port: number;
+  rpc: string;
+  archiveRpc: string;
+  deployment: z.infer<typeof DeploymentSchema>;
+  scanFile: string;
+  refreshSec: number;
+  delphiDir: string;
+  freshReads: boolean;
+  freshGapSec: number;
+}>;
 
 export class ConfigError extends Error {
   override name = "ConfigError";
 }
 
-export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
+export function loadConfig(env: Record<string, string | undefined> = process.env, readFile = (p: string) => readFileSync(p, "utf8")): Config {
   const set = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v !== ""));
   const p = EnvSchema.safeParse(set);
   if (!p.success) throw new ConfigError(`invalid settings:\n  ${p.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("\n  ")}`);
   const e = p.data;
-  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", freshGapSec: e.FRESH_GAP_SEC });
+  let deployment: Config["deployment"];
+  try {
+    deployment = DeploymentSchema.parse(JSON.parse(readFile(e.DEPLOYMENT_FILE)));
+  } catch (err) {
+    throw new ConfigError(`can't use ${e.DEPLOYMENT_FILE}: ${(err as Error).message.split("\n")[0]}`);
+  }
+  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, deployment, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", freshGapSec: e.FRESH_GAP_SEC });
 }
