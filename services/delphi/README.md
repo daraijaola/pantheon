@@ -119,6 +119,48 @@ What the live chain showed (2026-10-31):
   `BatchRpc` now returns that at once instead of waiting. The node answers the calls of a batch side by side, so
   busy streams are read several ranges at a time, and lookups go six requests at a time.
 
+## PerpMe: the coins behind Kalos's Sniper (in progress)
+
+```sh
+node scripts/perpme.ts                  # every PerpMe coin that isn't an xStock: a table
+node scripts/perpme.ts --only SHRF      # one coin (symbol or address); the read still covers every launch
+node scripts/perpme-check.ts            # 20 random coins against balanceOf and PerpMe's own API
+```
+
+Its cache is `DB_PATH` (default `data/perpme-dev.db`; it refuses `data/delphi.db`). The checks run unlinked for
+now: funding and links join when this is merged into the main scan (`collectPerpme` has `collectKalos`'s shape).
+
+- **A coin** is a TokenLaunched on PerpMe's launch factory (the one Kalos's Sniper pins). One transaction makes
+  the token, its pool on PerpMe's own Uniswap V3 copy, a single-sided position with the whole supply, sent to
+  PerpMe's locker, and the creator's first buy. So the launch is that transaction, the creator is the deployer
+  the event names, `devBuyTokens` is its `initialBuyTokens`, and the trades are the V3 Swaps in that one pool.
+- **xStocks are left out**, by Kalos's own rule (`kalos-perpme-feed.js`: a name ending in "xStock"): 1,318 of
+  the 1,530 launches up to Nov 1, all priced in USDC, 1,263 of them on Oct 28. 212 coins are left: 196 priced in
+  HYPE (PerpMe's own WHYPE, not Kalos's), 15 in USDC, 1 in KALOS.
+- **Every coin is read in full.** The busiest, PerpMe's own PERPME, has about 53,000 transfers and 52,600 trades;
+  a coin past 250,000 transfers gets a note. The first run takes about 5 minutes (mostly the senders of 97,000
+  trades), reruns about 20 seconds.
+- **The liquidity summary** says whether the launch position's NFT is in PerpMe's locker (read from the position
+  manager, and replayed from the events), what share of the pool's positions that is, any positions outside it,
+  the pool's reserves, and its HYPE value where the pair is PerpMe's WHYPE.
+
+What the live chain showed (2026-11-01):
+
+- **The sign rule is Kalos's** (a negative coin amount is what the pool paid: a buy). A test pins it on real
+  buys and sells with the coin as token0 and as token1, and the creator's buy read from the launch swap equals
+  `initialBuyTokens` exactly: 165 of 165 launches with a buy.
+- **Holders match the chain exactly.** On 22 coins (20 random plus PERPME and a CHAIR), DELPHI's holders and
+  balances equal `balanceOf` at the same block, every address, and so does the creator's share. PerpMe's own
+  indexer agrees too once its lag is allowed for: it runs about 8 hours behind the chain.
+- **All 212 launch positions sit in PerpMe's locker**; no pool has any other position.
+- **Launch protection** (366 parent-chain blocks, about 6 minutes, no wallet above 2% of the supply) is counted in
+  HyperEVM blocks: an Elysium block header carries it as `l1BlockNumber`, and the coin answers
+  `restrictionsActive()` and `maxWalletAmount()` itself. It starts *after* the creator's own buy: 30 of the 212
+  coins opened with a creator buy above 2%, up to 89%.
+- **PerpMe has more factories than Kalos pins.** Its API lists 1,888 coins: 1,530 from the current factory,
+  268 from the first one (still launching, same events), 87 Uniswap-V4 launches and 4 from test factories.
+  Only the current factory is read (`factories` takes more).
+
 ## The Trials: from DELPHI's scan to a basket proposal
 
 ```sh
@@ -282,6 +324,10 @@ Kalos). Powers hidden behind functions with no known name in unverified code are
 | `src/kalos.ts` | Kalos (Uniswap V3) events → DELPHI's shape: coins, trades, LP positions, liquidity reports (all pure) |
 | `src/kalos-collect.ts` | `collectKalos`: fetches every Kalos pool and coin, busy coins in two windows, cached |
 | `scripts/kalos.ts` | A standalone look at every Kalos coin, checks run unlinked (run by hand) |
+| `src/perpme.ts` | PerpMe launches → DELPHI's shape: launch decoding, xStocks, coins and trades, launch protection, the liquidity summary (all pure) |
+| `src/perpme-collect.ts` | `collectPerpme`: fetches every PerpMe launch, its pool's events, LP owner and reserves, cached |
+| `src/perpme-api.ts` | PerpMe's dex-sync API and indexer, for cross-checks only |
+| `scripts/perpme.ts`, `scripts/perpme-check.ts` | The PerpMe table and the live cross-check (run by hand) |
 | `src/graph.ts` | Hubs, links, clusters (union-find) |
 | `src/detect.ts` | The three detectors: pure functions, exact integer maths |
 | `src/report.ts` | Verdicts, JSON and markdown reports, index |
