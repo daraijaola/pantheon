@@ -195,7 +195,7 @@ export function CovenantCard() {
         </div>
         <div className={c.job} style={line(t, 1300)}>
           <span className={c.when}>Both</span>
-          <span>15% pays the team, fixed forever</span>
+          <span>15% from mainnet, 0% on testnet</span>
         </div>
       </div>
       <div className={s.dash} style={line(t, 1400)} />

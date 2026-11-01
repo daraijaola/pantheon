@@ -127,7 +127,7 @@ export const COVENANT: Feature = {
     },
     {
       title: "It does its jobs",
-      desc: "On buys, 85% of the fee buys the basket for stakers. On sells, 85% burns PNTH. 15% of both pays the team. Every action leaves a public receipt.",
+      desc: "On buys, 85% of the fee buys the basket for stakers. On sells, 85% burns PNTH. 15% of both pays the team. On testnet the team’s share is 0%; the 15% starts at mainnet. Every action leaves a public receipt.",
     },
     { title: "Nobody can change it", desc: "There is no owner, no admin key and no upgrade. Its jobs were set the moment it was created." },
   ],
