@@ -8,7 +8,7 @@ import { getAddress, isAddress, type Address } from "viem";
 import { BallotInput, problem, signer, weightOf, type Ballot, type Standing } from "./ballot.ts";
 import { currentRound, statusOf, type RoundDef } from "./round.ts";
 import type { Ballots } from "./state.ts";
-import { tally, winners } from "./tally.ts";
+import { inByTrading, tally, winners } from "./tally.ts";
 
 /** A wallet's PNTH stake and Passport tier right now, read from the chain. */
 export type StandingOf = (voter: Address) => Promise<Standing>;
@@ -23,6 +23,12 @@ export type Deps = {
 
 const LIMIT = { perIp: 12, windowMs: 60_000 };
 
+/** The round's candidates, each marked if it's in by trading already (never, in rounds 1 to 5). */
+function marked(r: RoundDef) {
+  const fixed = new Set(inByTrading(r).map((t) => t.toLowerCase()));
+  return r.candidates.map((c) => ({ ...c, inByTrading: fixed.has(c.token.toLowerCase()) }));
+}
+
 function view(r: RoundDef, all: Ballot[], nowSec: number) {
   const counts = new Map(tally(r, all).map((c) => [c.token.toLowerCase(), c]));
   return {
@@ -31,9 +37,11 @@ function view(r: RoundDef, all: Ballot[], nowSec: number) {
     opensAt: r.opensAt,
     closesAt: r.closesAt,
     seats: r.seats,
+    // Only in rounds that have it; JSON leaves out a field that's undefined.
+    tradingSeats: r.tradingSeats,
     method: r.method,
     source: r.source,
-    candidates: r.candidates
+    candidates: marked(r)
       .map((c) => ({ ...c, votes: counts.get(c.token.toLowerCase())?.votes ?? 0, voters: counts.get(c.token.toLowerCase())?.voters ?? 0 }))
       .sort((a, b) => b.votes - a.votes || a.rank - b.rank),
     leaders: winners(r, all),
@@ -79,7 +87,7 @@ export function buildApp(deps: Deps, opts: FastifyServerOptions = {}) {
     const r = deps.rounds().find((x) => String(x.round) === req.params.n);
     if (!r) return reply.code(404).send({ error: "NO_ROUND" });
     const all = deps.ballots.of(r.round).sort((a, b) => a.receivedAt - b.receivedAt);
-    return { ...view(r, all, now()), candidates: r.candidates, tally: tally(r, all), ballotList: all };
+    return { ...view(r, all, now()), candidates: marked(r), tally: tally(r, all), ballotList: all };
   });
 
   app.post("/trials/vote", async (req, reply) => {

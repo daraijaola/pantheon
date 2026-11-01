@@ -1,10 +1,13 @@
 // Closes a Trials vote and prepares the round file the curator proposes. Run after the vote closes:
 //   node scripts/close.ts --round 3 [--coins 10]
-//       counts the ballots, picks the list (the vote's winners, then the most independent trading) and
-//       prints the DELPHI command that builds the proposal for exactly that list
+//       counts the ballots, picks the list and prints the DELPHI command that builds the proposal for exactly
+//       that list. A round with `tradingSeats` (from round 6): the coins in by trading, then the vote's
+//       winners, then the most independent trading up to --coins. Rounds 1 to 5: the vote's winners, then
+//       the most independent trading.
 //   node scripts/close.ts --round 3 --rest PACT,DAWN --rest-why "…"
 //       the same, but the curator names the seats the vote didn't fill (candidates only), and the reason
-//       goes into the round file next to the ballots
+//       goes into the round file next to the ballots. The coins in by trading stay: they were promised
+//       when the vote opened.
 //   node scripts/close.ts --round 3 --merge ../delphi/out/trials/round-3.json
 //       checks DELPHI's file holds exactly that list, adds the vote to it (every signed ballot, the count,
 //       the winners) and writes deployments/trials/round-3.json. Proposing it (script/Testnet.s.sol
@@ -13,7 +16,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { Ballot } from "../src/ballot.ts";
 import { loadRounds } from "../src/round.ts";
-import { tally, winners } from "../src/tally.ts";
+import { basketList, tally } from "../src/tally.ts";
 
 const args = process.argv.slice(2);
 const opt = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
@@ -21,6 +24,7 @@ const API = opt("--api") ?? "http://127.0.0.1:8790";
 const ROUNDS = resolve(opt("--rounds") ?? "../../deployments/trials");
 const n = Number(opt("--round"));
 const coins = Number(opt("--coins") ?? 10);
+if (!Number.isInteger(coins) || coins < 1) throw new Error("--coins must be a whole number, 1 or more");
 
 const def = loadRounds(ROUNDS).find((r) => r.round === n);
 if (!def) throw new Error(`no round-${n}.vote.json in ${ROUNDS}`);
@@ -30,8 +34,15 @@ const res = await fetch(`${API}/trials/rounds/${n}`);
 if (!res.ok) throw new Error(`the vote service answered ${res.status}`);
 const ballots = ((await res.json()) as { ballotList: Ballot[] }).ballotList.filter((b) => b.receivedAt < def.closesAt);
 
-const won = winners(def, ballots);
-const wonSet = new Set(won.map((t) => t.toLowerCase()));
+// From round 6, the top coins by trading were in before the vote, and the vote picked its seats from the rest.
+const traded = def.tradingSeats !== undefined;
+const list = basketList(def, ballots, coins);
+const fixed = list.inByTrading;
+const won = list.winners;
+if (traded && coins < Math.min(def.candidates.length, fixed.length + def.seats)) {
+  throw new Error(`--coins ${coins} has no room for the ${fixed.length} coins in by trading and the ${def.seats} vote seats round ${n} promised`);
+}
+const taken = new Set([...fixed, ...won].map((t) => t.toLowerCase()));
 const restArg = opt("--rest");
 const restWhy = opt("--rest-why");
 if (restArg && !restWhy) throw new Error("--rest needs --rest-why: the reason is published with the round");
@@ -40,10 +51,8 @@ const named = restArg?.split(",").map((x) => {
   if (!c) throw new Error(`${x} is not a candidate in round ${n}`);
   return c;
 });
-const rest = named
-  ? named.filter((c) => !wonSet.has(c.token.toLowerCase()))
-  : def.candidates.filter((c) => !wonSet.has(c.token.toLowerCase())).slice(0, Math.max(0, coins - won.length));
-const pick = [...won, ...rest.map((c) => c.token)];
+const rest = named ? named.filter((c) => !taken.has(c.token.toLowerCase())).map((c) => c.token) : list.byTrading;
+const pick = [...fixed, ...won, ...rest];
 const pickSet = new Set(pick.map((t) => t.toLowerCase()));
 const sym = (t: string) => def.candidates.find((c) => c.token.toLowerCase() === t.toLowerCase())?.symbol ?? t;
 
@@ -51,9 +60,20 @@ const merge = opt("--merge");
 if (!merge) {
   console.log(`round ${n}: ${ballots.length} ballots`);
   for (const c of tally(def, ballots).filter((c) => c.votes > 0)) console.log(`  ${sym(c.token).padEnd(10)} ${c.votes} votes from ${c.voters} voters`);
-  console.log(`voted in: ${won.map(sym).join(", ") || "nobody voted: every seat goes by trading"}`);
-  console.log(`${named ? "named by the curator" : "by trading"}: ${rest.map((c) => sym(c.token)).join(", ")}`);
+  if (traded) {
+    console.log(`in by trading (the top ${fixed.length}, fixed when the vote opened): ${fixed.map(sym).join(", ") || "none"}`);
+    console.log(`voted in (${won.length} of ${def.seats} vote seats): ${won.map(sym).join(", ") || "nobody got a vote: the vote seats go by trading"}`);
+    console.log(`${named ? "named by the curator" : "by trading"}: ${rest.map(sym).join(", ") || "none"}`);
+  } else {
+    console.log(`voted in: ${won.map(sym).join(", ") || "nobody voted: every seat goes by trading"}`);
+    console.log(`${named ? "named by the curator" : "by trading"}: ${rest.map(sym).join(", ")}`);
+  }
   if (restWhy) console.log(`why: ${restWhy}`);
+  if (traded) {
+    console.log(`the list, ${pick.length} coins: ${pick.map(sym).join(", ")}`);
+    const promised = Math.min(def.candidates.length, fixed.length + def.seats);
+    if (pick.length < promised) console.log(`note: that's fewer than the ${promised} seats round ${n} promised`);
+  }
   const leaveOut = def.candidates.filter((c) => !pickSet.has(c.token.toLowerCase()));
   console.log("\nBuild the proposal in services/delphi (as ayinde), then run this script again with --merge:");
   console.log(
@@ -81,8 +101,9 @@ if (!merge) {
       opensAt: def.opensAt,
       closesAt: def.closesAt,
       seats: def.seats,
+      ...(traded ? { tradingSeats: def.tradingSeats, inByTrading: fixed } : {}),
       winners: won,
-      ...(named ? { rest: rest.map((c) => c.token), restWhy } : {}),
+      ...(named ? { rest, restWhy } : {}),
       tally: tally(def, ballots),
       ballots,
       candidatesFile: `round-${n}.vote.json`,
@@ -90,6 +111,8 @@ if (!merge) {
   };
   const path = resolve(ROUNDS, `round-${n}.json`);
   writeFileSync(path, `${JSON.stringify(out, null, 2)}\n`);
-  console.log(`wrote ${path}: ${file.tokens.length} coins, ${won.length} voted in, ${ballots.length} ballots. Propose it with:`);
+  console.log(
+    `wrote ${path}: ${file.tokens.length} coins, ${traded ? `${fixed.length} in by trading, ` : ""}${won.length} voted in, ${ballots.length} ballots. Propose it with:`,
+  );
   console.log(`  forge script script/Testnet.s.sol --sig "propose(string)" deployments/trials/round-${n}.json --rpc-url elysium`);
 }

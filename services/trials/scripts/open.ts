@@ -1,9 +1,12 @@
 // Opens a Trials vote: writes deployments/trials/round-N.vote.json from DELPHI's latest data. Commit the
 // file and the vote is live (the service re-reads the folder on every request).
-//   node scripts/open.ts --round 3 --hours 46 [--opens 2026-10-15T12:00:00Z] [--seats 3]
+//   node scripts/open.ts --round 6 --hours 46 [--opens 2026-10-15T12:00:00Z] [--seats 3] [--coins 10]
 // A coin can be voted for if it traded with someone other than its creator, DELPHI never flagged it,
 // it's priced in USDC (DELPHI's round data only holds those), it isn't PNTH, and it will be at least 72
 // hours old (the basket list's MIN_AGE) when the vote closes, so the winners can enter the basket.
+// The basket list will hold --coins coins. All but --seats of them are in by trading before anyone votes
+// (the best ranks), so whenever there are more candidates than --coins, the vote decides --seats coins of
+// its own.
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { getAddress } from "viem";
@@ -21,10 +24,12 @@ const deployment = JSON.parse(readFileSync(resolve(opt("--deployment") ?? "../..
 const round = Number(opt("--round"));
 const hours = Number(opt("--hours") ?? 46);
 const seats = Number(opt("--seats") ?? 3);
+const coins = Number(opt("--coins") ?? 10);
 const opensAt = Math.floor((opt("--opens") ? Date.parse(opt("--opens")!) : Date.now()) / 1000);
 const closesAt = opensAt + Math.round(hours * 3600);
 const MIN_AGE_SEC = 72 * 3600;
 if (!Number.isInteger(round) || round < 1) throw new Error("--round N is required");
+if (!Number.isInteger(coins) || coins < 1) throw new Error("--coins must be a whole number, 1 or more");
 
 // DELPHI's newest round data: one leaf per coin it considered (token, pool, verdict, volumes, rank, …).
 const latest = readdirSync(join(DELPHI_OUT, "trials"))
@@ -59,22 +64,45 @@ const candidates = tree.values
     rank: i + 1,
   }));
 
+// The list holds `coins` coins, or every candidate if there are fewer. The vote decides the last `seats`.
+const tradingSeats = Math.max(0, Math.min(coins, candidates.length) - seats);
+
+// The method, in words, for the round file and the site.
+const count = (n: number, one: string, many: string) => (n === 1 ? one : `${n} ${many}`);
+const data = `by DELPHI's count (round ${delphiRound} data)`;
+const votes = "each pick counts 1 vote for the stake, plus 1, 2 or 3 more for a HYPE Passport (by tier; a Passport alone also votes)";
+const top = `The ${count(seats, "coin", "coins")} with the most votes ${seats === 1 ? "takes" : "take"}`;
+const ties = "equal votes go to the coin with more independent trading";
+const method =
+  tradingSeats > 0
+    ? `The ${count(tradingSeats, "coin", "coins")} with the most independent trading, ${data}, ${tradingSeats === 1 ? "is" : "are"} in round ${round}'s ` +
+      `basket already. Wallets with PNTH staked pick up to ${count(seats, "1 coin", "coins")} from the rest; ${votes}. ${top} the next ` +
+      `${count(seats, "seat", "seats")}; ${ties}. A seat the vote leaves empty goes to the coin with the most independent trading among the rest.`
+    : `Wallets with PNTH staked pick up to ${count(seats, "1 coin", "coins")}; ${votes}. ${top} ${count(seats, "a seat", "seats")} in round ` +
+      `${round}'s basket; ${ties}. A seat the vote leaves empty goes to the coin with the most independent trading, ${data}.`;
+
 const def = RoundDef.parse({
   round,
   chainId: deployment.chainId,
   opensAt,
   closesAt,
   seats,
-  method:
-    `Wallets with PNTH staked pick up to ${seats} coins; each pick counts 1 vote for the stake, plus 1, 2 or 3 more for a HYPE Passport ` +
-    `(by tier; a Passport alone also votes). The ${seats} coins with the most votes ` +
-    `take ${seats} seats in round ${round}'s basket; equal votes go to the coin with more independent trading. The other seats go to the ` +
-    `coins with the most independent trading, by DELPHI's count (round ${delphiRound} data).`,
+  tradingSeats,
+  method,
   source: { delphiRound, scannedAt: delphiFile.scannedAt },
   candidates,
 });
 const file = join(OUT_DIR, `round-${round}.vote.json`);
 writeFileSync(file, `${JSON.stringify(def, null, 2)}\n`);
 console.log(`round ${round}: ${candidates.length} candidates, open ${new Date(opensAt * 1000).toISOString()} to ${new Date(closesAt * 1000).toISOString()}`);
-for (const c of candidates) console.log(`  ${String(c.rank).padStart(2)} ${(c.symbol ?? "?").padEnd(10)} ${c.verdict.padEnd(16)} ${(Number(c.realUsdc) / 1e6).toFixed(2)} USDC`);
+console.log(
+  tradingSeats > 0
+    ? `in by trading: the top ${tradingSeats}. The vote picks ${seats} from the other ${candidates.length - tradingSeats}.`
+    : `none in by trading: the vote picks ${seats} from all ${candidates.length}.`,
+);
+if (candidates.length <= coins) console.log(`note: with no more candidates than --coins ${coins}, every candidate gets a seat whatever the vote`);
+for (const c of candidates) {
+  const tag = c.rank <= tradingSeats ? "  in by trading" : "";
+  console.log(`  ${String(c.rank).padStart(2)} ${(c.symbol ?? "?").padEnd(10)} ${c.verdict.padEnd(16)} ${(Number(c.realUsdc) / 1e6).toFixed(2)} USDC${tag}`);
+}
 console.log(`wrote ${file}`);

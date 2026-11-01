@@ -1,65 +1,13 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getAddress, type Address } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
-import { buildApp } from "../src/api.ts";
-import { domain, MIN_STAKE, problem, signer, types, weightOf, type Ballot, type BallotInput, type Standing } from "../src/ballot.ts";
-import { loadRounds, statusOf, type RoundDef } from "../src/round.ts";
+import { MIN_STAKE, problem, signer, weightOf, type BallotInput } from "../src/ballot.ts";
+import { loadRounds, statusOf } from "../src/round.ts";
 import { Ballots } from "../src/state.ts";
 import { tally, winners } from "../src/tally.ts";
-
-const CHAIN = 99_801;
-const T0 = 1_760_000_000;
-const coin = (n: number): Address => getAddress(`0x${n.toString(16).padStart(40, "0")}`);
-const pool = (n: number) => `0x${n.toString(16).padStart(64, "0")}`;
-const [A, B, C, D] = [coin(0xa1), coin(0xb2), coin(0xc3), coin(0xd4)];
-
-function round(over: Partial<RoundDef> = {}): RoundDef {
-  return {
-    round: 3,
-    chainId: CHAIN,
-    opensAt: T0,
-    closesAt: T0 + 86_400,
-    seats: 3,
-    method: "test",
-    source: { delphiRound: 2, scannedAt: "2026-10-14T22:43:08.000Z" },
-    candidates: [A, B, C, D].map((token, i) => ({
-      token,
-      poolId: pool(i + 1),
-      symbol: `C${i}`,
-      verdict: "NOT_ENOUGH_DATA" as const,
-      realUsdc: String((4 - i) * 1_000_000),
-      launchedAt: T0 - 5 * 86_400,
-      rank: i + 1,
-    })),
-    ...over,
-  };
-}
-
-const ballot = (voter: Address, coins: Address[], weight: number, signedAt = T0 + 10): Ballot => ({
-  voter,
-  coins,
-  weight,
-  staked: "0",
-  tier: weight,
-  signedAt,
-  signature: "0x",
-  receivedAt: signedAt,
-});
-
-async function signed(key: `0x${string}`, coins: Address[], over: Partial<BallotInput> = {}): Promise<BallotInput> {
-  const acct = privateKeyToAccount(key);
-  const msg = { round: 3, voter: acct.address, coins, signedAt: T0 + 100, ...over };
-  const signature = await acct.signTypedData({
-    domain: domain(CHAIN),
-    types,
-    primaryType: "Ballot",
-    message: { round: BigInt(msg.round), voter: msg.voter, coins: msg.coins, signedAt: BigInt(msg.signedAt) },
-  });
-  return { ...msg, signature };
-}
+import { A, app, B, ballot, C, CHAIN, coin, D, round, signed, T0 } from "./fixtures.ts";
 
 describe("round files", () => {
   it("loads rounds oldest first and refuses a file that doesn't match its name or lists a coin twice", () => {
@@ -151,18 +99,6 @@ describe("the ballot box", () => {
 });
 
 describe("the API", () => {
-  function app(wallets: Record<string, Standing> = {}, nowSec = T0 + 100) {
-    const box = new Ballots(join(mkdtempSync(join(tmpdir(), "trials-")), "ballots.json"));
-    const a = buildApp({
-      rounds: () => [round()],
-      ballots: box,
-      standingOf: async (v) => wallets[v.toLowerCase()] ?? { staked: 0n, tier: 0 },
-      chainId: CHAIN,
-      now: () => nowSec,
-    });
-    return { a, box };
-  }
-
   it("takes a signed ballot from a staker with a Passport and counts it", async () => {
     const key = generatePrivateKey();
     const voter = privateKeyToAccount(key).address;

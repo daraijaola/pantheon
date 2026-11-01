@@ -3,6 +3,7 @@
 import { getAddress, isAddress, recoverTypedDataAddress, type Address, type Hex } from "viem";
 import { z } from "zod";
 import type { RoundDef } from "./round.ts";
+import { inByTrading } from "./tally.ts";
 
 export const domain = (chainId: number) => ({ name: "PANTHEON Trials", version: "1", chainId }) as const;
 
@@ -65,6 +66,9 @@ export function problem(r: RoundDef, b: BallotInput, nowSec: number): string | n
   if (new Set(picked).size !== picked.length) return "DUPLICATE_COIN";
   const allowed = new Set(r.candidates.map((c) => c.token.toLowerCase()));
   if (!picked.every((c) => allowed.has(c))) return "NOT_A_CANDIDATE";
+  // A coin in by trading has its seat already; a vote for it would decide nothing.
+  const fixed = new Set(inByTrading(r).map((t) => t.toLowerCase()));
+  if (picked.some((c) => fixed.has(c))) return "ALREADY_IN";
   return null;
 }
 

@@ -23,28 +23,46 @@ Owner: Micheal. It holds no keys and signs nothing; it only reads stakes and Pas
 
 ## How a round works
 
-1. **Open.** `node scripts/open.ts --round 3 --hours 46` writes `deployments/trials/round-3.vote.json` from
+1. **Open.** `node scripts/open.ts --round 6 --hours 46` writes `deployments/trials/round-6.vote.json` from
    DELPHI's latest data. A coin can be voted for if it traded with someone other than its creator, DELPHI
    never flagged it, it's priced in USDC, and it will be 72 hours old when the vote closes (the basket
-   list's own rule). Commit the file: it's the public record of the candidates and the times. The service
-   re-reads the folder on every request, so there's nothing to restart.
-2. **Vote.** pantheonindex.com/trials/vote. Each voter picks up to `seats` coins (3).
-3. **Close.** `node scripts/close.ts --round 3` counts the ballots and picks the list: the vote's winners,
-   then the coins with the most independent trading. It prints the DELPHI command that builds the proposal
-   for exactly that list. `--merge` then checks DELPHI's file and adds the vote to it: every signed ballot,
-   the count and the winners. The result is `deployments/trials/round-3.json`.
+   list's own rule). The basket list will hold `--coins` coins (10). All but `--seats` (3) of them are in
+   by trading before anyone votes: the best ranks, written as `tradingSeats`. So whenever there are more
+   candidates than the list holds, the vote decides 3 coins of its own (with fewer, every candidate gets
+   in anyway). The file says all of it in words too (`method`). Commit the file: it's the public record
+   of the candidates, the rules and the times. The service re-reads the folder on every request, so
+   there's nothing to restart.
+2. **Vote.** pantheonindex.com/trials/vote. Each voter picks up to `seats` coins from the ones not in by
+   trading.
+3. **Close.** `node scripts/close.ts --round 6` counts the ballots and picks the list: the coins in by
+   trading, then the vote's winners, then the most independent trading, up to `--coins`. It prints the
+   DELPHI command that builds the proposal for exactly that list. `--merge` then checks DELPHI's file and
+   adds the vote to it: every signed ballot, the count and the winners. The result is
+   `deployments/trials/round-6.json`.
 4. **Propose.** `script/Testnet.s.sol propose(file)`, run by the curator, stores keccak256 of that file
    on-chain. The ballots are part of what was proposed. The list waits 24 hours, and the guardian can veto
    it.
 
+Rounds 1 to 5 had no `tradingSeats`, and a round file without it is counted exactly as before: the
+vote's seats go to the most-voted coins of all, and `close.ts` takes the winners, then the most
+independent trading. Recounting them gives the same winners.
+
 Anyone can recount: `GET /api/trials/rounds/3` returns every ballot with its signature.
+
+## Round fields
+
+Each newer rule is on only when its field is in the round file. `open.ts` writes it.
+
+| Field | What it does | Without it |
+|---|---|---|
+| `tradingSeats` | The coins with the `tradingSeats` best ranks are in by trading, fixed when the round opens. The vote's `seats` go to the most-voted coins among the rest (at least 1 vote; equal votes go to the better rank). A seat nobody votes for goes to the best rank left. A ballot can't pick a coin in by trading (`ALREADY_IN`) | The vote's seats go to the most-voted coins of all |
 
 ## API (127.0.0.1:8790; the site forwards `/api/trials/*`)
 
 | Route | What it gives |
 |---|---|
-| `GET /trials/current[?voter=0x…]` | The newest round: status, times, candidates with live votes, the leaders, and, with `voter`, that wallet's votes (`weight`), `staked`, `tier` and ballot |
-| `POST /trials/vote` | `{round, voter, coins, signedAt, signature}`. Errors are codes: `NO_VOTES` (no PNTH staked and no Passport), `BAD_SIGNATURE`, `CLOSED`, `NOT_OPEN`, `WRONG_ROUND`, `TOO_MANY_COINS`, `DUPLICATE_COIN`, `NOT_A_CANDIDATE`, `STALE_SIGNATURE` (older than 10 minutes), `OLDER_BALLOT`, `RATE_LIMITED` |
+| `GET /trials/current[?voter=0x…]` | The newest round: status, times, `seats`, `tradingSeats` if it has it, candidates with live votes and `inByTrading` (always false before round 6), the leaders, and, with `voter`, that wallet's votes (`weight`), `staked`, `tier` and ballot |
+| `POST /trials/vote` | `{round, voter, coins, signedAt, signature}`. Errors are codes: `NO_VOTES` (no PNTH staked and no Passport), `ALREADY_IN` (a coin picked is in by trading already), `BAD_SIGNATURE`, `CLOSED`, `NOT_OPEN`, `WRONG_ROUND`, `TOO_MANY_COINS`, `DUPLICATE_COIN`, `NOT_A_CANDIDATE`, `STALE_SIGNATURE` (older than 10 minutes), `OLDER_BALLOT`, `CHAIN_UNAVAILABLE`, `INVALID_BALLOT`, `RATE_LIMITED` |
 | `GET /trials/rounds/:n` | A whole round with every signed ballot |
 | `GET /health` | `{ok, round, status}` |
 

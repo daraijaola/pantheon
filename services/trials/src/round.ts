@@ -1,6 +1,8 @@
 // A Trials round: the coins that can be voted for, when voting opens and closes, and how many basket
 // seats the vote fills. Each round is a file in deployments/trials (round-N.vote.json), committed before
 // it opens, so the candidates and the times are public and can't be changed quietly.
+// Rounds 1 to 5 were counted without the optional fields below, and a file without them is still counted
+// exactly that way, so an old round recounts to the same result. scripts/open.ts writes them all.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAddress, isAddress, isHex } from "viem";
@@ -33,12 +35,18 @@ export const RoundDef = z
     opensAt: z.number().int(),
     closesAt: z.number().int(),
     seats: z.number().int().min(1).max(10),
+    /** How many coins are in the basket by trading before anyone votes: the ones with the best `rank`. The
+     * vote's `seats` then go to the most-voted coins among the rest. Without it, the vote's seats go to the
+     * most-voted coins of all (rounds 1 to 5). */
+    tradingSeats: z.number().int().min(0).optional(),
     method: z.string(),
     source: z.object({ delphiRound: z.number().int(), scannedAt: z.string() }),
     candidates: z.array(Candidate).min(1).max(60),
   })
   .refine((r) => r.closesAt > r.opensAt, "a round must close after it opens")
-  .refine((r) => new Set(r.candidates.map((c) => c.token.toLowerCase())).size === r.candidates.length, "a coin is listed twice");
+  .refine((r) => new Set(r.candidates.map((c) => c.token.toLowerCase())).size === r.candidates.length, "a coin is listed twice")
+  // Which coins are in by trading has to be plain from the file alone.
+  .refine((r) => r.tradingSeats === undefined || new Set(r.candidates.map((c) => c.rank)).size === r.candidates.length, "two coins share a rank");
 export type RoundDef = z.infer<typeof RoundDef>;
 
 export type Status = "upcoming" | "open" | "closed";
