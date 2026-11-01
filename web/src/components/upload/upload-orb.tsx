@@ -127,14 +127,6 @@ export function UploadOrb({
     live.current.onContinue = onContinue;
   });
 
-  // The signature starts the read; the bubbles come when it ends.
-  useEffect(() => {
-    const L = live.current;
-    if (!signed || L.tl.read !== null) return;
-    const read = Math.max((performance.now() - L.t0) / 1000, Math.max(L.connAt ?? 0, T.fall) + 0.6);
-    L.tl = { read, split: read + READ };
-  }, [signed]);
-
   useEffect(() => {
     const el = root.current;
     const cv = canvas.current;
@@ -375,6 +367,15 @@ export function UploadOrb({
     if (was) L.tl = { read: null, split: null };
   }, [address]);
 
+  // The signature starts the read; the bubbles come when it ends. Effects run in order, so this comes
+  // after the start-over above: a wallet that comes back already signed (A, then B, then A) reads again.
+  useEffect(() => {
+    const L = live.current;
+    if (!signed || L.tl.read !== null) return;
+    const read = Math.max((performance.now() - L.t0) / 1000, Math.max(L.connAt ?? 0, T.fall) + 0.6);
+    L.tl = { read, split: read + READ };
+  }, [signed, address]);
+
   // `at` is the click's own timestamp, on the same clock as the animation.
   const pick = (i: number, at: number) => {
     const L = live.current;
@@ -485,7 +486,8 @@ export function UploadOrb({
             {signError}
           </p>
         )}
-        <button type="button" className={s.other} onClick={onOtherWallet} disabled={signing || signed}>
+        {/* Open while the wallet is asking too: a phone wallet that never answers mustn't trap anyone. */}
+        <button type="button" className={s.other} onClick={onOtherWallet} disabled={signed}>
           Use another wallet
         </button>
       </div>

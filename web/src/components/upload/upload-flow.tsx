@@ -144,6 +144,8 @@ function Steps() {
       signError={signError}
       onSign={onSign}
       onOtherWallet={() => {
+        // Lets go of a request still open in the wallet: if it's signed later, nothing here hears it. And
+        // a signature only ever counts for the wallet it was asked of (signedBy, checked against `connected`).
         sign.reset();
         disconnect.mutate();
       }}
