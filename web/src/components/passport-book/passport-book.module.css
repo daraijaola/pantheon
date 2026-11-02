@@ -1,0 +1,205 @@
+/* Your Passport: one floating card on the paper, a liquid-glass lens riding on it, and the stamps page
+   under it. Ink and paper only; colour comes only from the glass splitting light at its rim. */
+
+.book {
+  --ink: var(--color-ink, #171717);
+  --muted: color-mix(in srgb, var(--ink) 52%, transparent);
+  --rule: var(--color-rule, #ebebeb);
+  --mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, monospace;
+  display: grid;
+  justify-items: center;
+  gap: 28px;
+  padding: 40px 0 88px;
+  /* the glass may hang past the card and throw its shadow: clip it at the column, don't scroll sideways */
+  overflow-x: clip;
+}
+.note {
+  margin: 0;
+  max-width: 560px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--muted);
+}
+.note a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.eyebrow {
+  margin: 0;
+  font: 500 11px/16px var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.scene {
+  position: relative;
+  width: var(--w, 760px);
+  height: var(--h, 520px);
+  max-width: 100%;
+  perspective: 1700px;
+}
+.floor {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: -54px;
+  height: 46px;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.26), rgb(0 0 0 / 0));
+  filter: blur(8px);
+  transform: scale(var(--fs, 1));
+  opacity: var(--fo, 1);
+  pointer-events: none;
+}
+.card {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius, 30px);
+  transform: translate3d(0, var(--fy, 0px), 0) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transform-style: preserve-3d;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.1),
+    0 3px 6px -2px rgb(0 0 0 / 0.12),
+    0 22px 40px -16px rgb(0 0 0 / 0.3),
+    0 60px 110px -40px rgb(0 0 0 / 0.42);
+  touch-action: none;
+  outline: none;
+}
+.card:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-paper, #f9f9f9), 0 0 0 5px var(--ink), 0 22px 40px -16px rgb(0 0 0 / 0.3);
+}
+@media (hover: hover) and (pointer: fine) {
+  .card[data-lensing] {
+    cursor: none;
+  }
+}
+.face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  display: block;
+}
+.glass {
+  position: absolute;
+  pointer-events: none;
+  display: block;
+}
+
+.below {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  margin-top: 26px;
+}
+.hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--muted);
+  text-align: center;
+  text-wrap: balance;
+}
+.touch {
+  display: none;
+}
+@media (hover: none) {
+  .mouse {
+    display: none;
+  }
+  .touch {
+    display: inline;
+  }
+}
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgb(23 23 23 / 0.05);
+  box-shadow: inset 0 0 0 1px var(--rule);
+}
+.seg button {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: 500 12px/1 var(--font-geist, inherit);
+  letter-spacing: 0.01em;
+}
+.seg button[aria-checked="true"] {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 0 0 1px rgb(0 0 0 / 0.06);
+}
+
+/* Page two: the stamps, each pressed into the page under its own bubble of glass. */
+.stamps {
+  position: relative;
+  width: var(--w, 760px);
+  height: var(--sh, 488px);
+  max-width: 100%;
+  margin-top: 12px;
+  border-radius: var(--radius, 30px);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.08),
+    0 3px 6px -2px rgb(0 0 0 / 0.08),
+    0 20px 38px -20px rgb(0 0 0 / 0.32);
+  color: var(--st-fg, #fff);
+  touch-action: manipulation;
+}
+.stampsCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+}
+.stampsGlass {
+  pointer-events: none;
+}
+.hits {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.hits button {
+  position: absolute;
+  appearance: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.hits button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 5px;
+  box-shadow: none;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .book {
+    gap: 22px;
+    padding: 28px 0 64px;
+  }
+}
