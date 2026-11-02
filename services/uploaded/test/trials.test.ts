@@ -1,4 +1,5 @@
 // The current Trials round, with a stand-in for the Trials service: no network.
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../src/api.ts";
 import { describeRound, RoundReader, trialsCalls, type TrialsCalls } from "../src/trials.ts";
@@ -11,8 +12,9 @@ const NEVER_READ = "0x1111111111111111111111111111111111111111";
 const OPENS = 1_800_000_000;
 const CLOSES = OPENS + 1_000;
 
+const SCANNED = Date.parse(JSON.parse(readFileSync(FIXTURE, "utf8")).generatedAt);
 const verdicts = () => {
-  const v = new Verdicts(FIXTURE);
+  const v = new Verdicts(FIXTURE, { now: () => SCANNED });
   v.refresh();
   return v;
 };
@@ -70,6 +72,17 @@ describe("the round", () => {
     old.refresh();
     expect(describeRound(current(), old, OPENS).candidates[0]!.stale).toBe(true);
     expect(describeRound(current(), verdicts(), OPENS).candidates[0]!.stale).toBe(false);
+  });
+
+  it("passes on round 6's rules: trading seats, the stake a vote needs, and coins already in", () => {
+    const r = describeRound(current({ tradingSeats: 5, minStake: "1000", minHoldSec: 259_200, candidates: [candidate(PACT, { inByTrading: true }), candidate(KITTIQ)] }), verdicts(), OPENS);
+    expect(r).toMatchObject({ tradingSeats: 5, minStake: "1000", minHoldSec: 259_200 });
+    expect(r.candidates.map((c) => c.inByTrading)).toEqual([true, false]);
+  });
+
+  it("copes with rounds 1 to 5, which have none of those", () => {
+    expect(describeRound(current(), verdicts(), OPENS)).toMatchObject({ tradingSeats: null, minStake: null, minHoldSec: null });
+    expect(describeRound(current(), verdicts(), OPENS).candidates[0]!.inByTrading).toBe(false);
   });
 
   it("calls a coin DELPHI hasn't read unknown, not clean", () => {

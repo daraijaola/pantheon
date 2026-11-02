@@ -16,9 +16,10 @@ const RoundView = z.object({
   seats: z.number(),
   leaders: z.array(z.string()),
   candidates: z.array(z.object({ token: z.string(), symbol: z.string().nullable() })),
-  ballotList: z.array(z.object({ voter: z.string(), coins: z.array(z.string()), weight: z.number(), receivedAt: z.number() })),
+  /** Only once a round has closed: ballots stay private during the vote. */
+  ballotList: z.array(z.object({ voter: z.string(), coins: z.array(z.string()), weight: z.number(), receivedAt: z.number() })).optional(),
 });
-export type RoundResult = z.infer<typeof RoundView>;
+export type RoundResult = Required<z.infer<typeof RoundView>>;
 
 const You = z.object({
   round: z.number(),
@@ -27,6 +28,9 @@ const You = z.object({
   seats: z.number(),
   you: z.object({
     weight: z.number().nullable(),
+    /** Whether the stake counts in this round, and when a stake that's too new will. From round 6. */
+    stakeVote: z.string().nullable().optional(),
+    stakeVoteFrom: z.number().nullable().optional(),
     ballot: z.object({ coins: z.array(z.string()), weight: z.number() }).nullable(),
   }),
 });
@@ -35,7 +39,7 @@ type You = z.infer<typeof You>;
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 export type RoundsCalls = {
-  /** Every round with ballots. A closed round is only read once. */
+  /** Every closed round, with its ballots. Each is only read once: a closed round never changes. */
   rounds(): Promise<RoundResult[]>;
   /** The latest round as this wallet sees it, or null if there's none. */
   you(wallet: string): Promise<You | null>;
@@ -55,9 +59,11 @@ export function roundsCalls(base: string, doFetch: Fetch = globalThis.fetch): Ro
       const out: RoundResult[] = [];
       for (let n = 1; n <= (health?.round ?? 0); n++) {
         const r = closed.get(n) ?? (await get(`/trials/rounds/${n}`, RoundView));
-        if (!r) continue; // rounds before the vote went live have no ballots
-        out.push(r);
-        if (r.status === "closed") closed.set(n, r);
+        // Rounds before the vote went live don't exist, and an open round doesn't list its ballots.
+        if (!r || r.status !== "closed" || !r.ballotList) continue;
+        const done = { ...r, ballotList: r.ballotList };
+        closed.set(n, done);
+        out.push(done);
       }
       return out;
     },
@@ -75,6 +81,10 @@ export type BallotStatus = {
   whyNot: NoVote | null;
   /** Votes on each coin picked. Null if the chain didn't answer. */
   votes: number | null;
+  /** Whether its stake counts this round: "ok", "none", "below_min" or "too_new". Null if unknown or not given. */
+  stakeVote: string | null;
+  /** For a stake that's too new: a round opening at this time or later counts it. */
+  stakeCountsFrom: string | null;
   /** The most coins this wallet can pick. */
   maxPicks: number | null;
   /** What it has already picked this round. Voting again replaces it. */
@@ -83,9 +93,10 @@ export type BallotStatus = {
 };
 
 export function ballotStatus(wallet: string, y: You | null, nowSec: number): BallotStatus {
-  if (!y) return { wallet, round: null, canVote: false, whyNot: "NO_ROUND", votes: null, maxPicks: null, picks: [], closesAt: null };
+  if (!y) return { wallet, round: null, canVote: false, whyNot: "NO_ROUND", votes: null, stakeVote: null, stakeCountsFrom: null, maxPicks: null, picks: [], closesAt: null };
   const whyNot: NoVote | null = nowSec >= y.closesAt ? "CLOSED" : y.status === "upcoming" ? "NOT_OPEN" : y.you.weight === null ? "UNKNOWN" : y.you.weight < 1 ? "NO_VOTES" : null;
-  return { wallet, round: y.round, canVote: whyNot === null, whyNot, votes: y.you.weight, maxPicks: y.seats, picks: (y.you.ballot?.coins ?? []).map((c) => c.toLowerCase()), closesAt: new Date(y.closesAt * 1000).toISOString() };
+  const from = y.you.stakeVoteFrom ?? null;
+  return { wallet, round: y.round, canVote: whyNot === null, whyNot, votes: y.you.weight, stakeVote: y.you.stakeVote ?? null, stakeCountsFrom: from === null ? null : new Date(from * 1000).toISOString(), maxPicks: y.seats, picks: (y.you.ballot?.coins ?? []).map((c) => c.toLowerCase()), closesAt: new Date(y.closesAt * 1000).toISOString() };
 }
 
 export type RecordPick = {

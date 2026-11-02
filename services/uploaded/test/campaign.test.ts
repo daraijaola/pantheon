@@ -51,6 +51,16 @@ describe("votes needed for a seat", () => {
     expect(need("a", [c("a", 0, 1), c("b", 0, 2)])).toBe(1);
   });
 
+  it("leaves coins in by trading out of the vote (from round 6)", () => {
+    const t = (token: string, votes: number, rank: number) => ({ ...c(token, votes, rank), inByTrading: true });
+    const all = [t("t1", 50, 1), t("t2", 0, 2), c("a", 6, 3), c("b", 4, 4), c("d", 1, 5)];
+    expect(need("t1", all, 2)).toBe(0);
+    expect(need("t2", all, 2)).toBe(0);
+    expect(need("a", all, 2)).toBe(0); // the coin in by trading takes no vote seat
+    expect(need("b", all, 2)).toBe(0);
+    expect(need("d", all, 2)).toBe(4); // 1 to 5, past b's 4
+  });
+
   it("is exact on 3,000 random rounds: that many takes the seat, one less doesn't", () => {
     const rand = (n: number) => Math.floor(Math.random() * n);
     for (let i = 0; i < 3_000; i++) {
@@ -76,6 +86,7 @@ const candidate = (over: Partial<Candidate> = {}): Candidate => ({
   voters: 3,
   rank: 2,
   inSeat: false,
+  inByTrading: false,
   launchedAt: "2026-10-01T00:00:00.000Z",
   verdict: "CLEAN",
   verdictAtOpen: "CLEAN",
@@ -93,6 +104,9 @@ const round = (candidates: Candidate[], over: Partial<RoundNow> = {}): RoundNow 
   closesAt: "2026-11-05T00:00:00.000Z",
   secondsLeft: 100,
   seats: 1,
+  tradingSeats: null,
+  minStake: null,
+  minHoldSec: null,
   ballots: 5,
   method: "m",
   candidates,
@@ -129,6 +143,13 @@ describe("a campaign", () => {
     const closed = round([leader, candidate()], { status: "closed", secondsLeft: 0 });
     expect(campaignOf(closed, leader).share.title).toBe("BBB took a seat in Trials round 6");
     expect(campaignOf(closed, candidate()).share.title).toBe("AAA didn't take a seat in Trials round 6");
+  });
+
+  it("writes a card for a coin in by trading, and says it needs no votes", () => {
+    const fixed = candidate({ inByTrading: true });
+    const got = campaignOf(round([leader, fixed]), fixed);
+    expect(got).toMatchObject({ inByTrading: true, votesNeeded: 0 });
+    expect(got.share.title).toBe("AAA is in by trading in Trials round 6");
   });
 
   it("has no votes needed once voting is over", () => {

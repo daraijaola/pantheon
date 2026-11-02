@@ -12,7 +12,12 @@ const Current = z.object({
   status: z.enum(["upcoming", "open", "closed"]),
   opensAt: z.number(),
   closesAt: z.number(),
+  /** Seats the vote fills. Coins in by trading come on top, from round 6. */
   seats: z.number(),
+  tradingSeats: z.number().optional(),
+  /** The stake a vote needs, and how long it must have been in place. From round 6. */
+  minStake: z.string().optional(),
+  minHoldSec: z.number().optional(),
   method: z.string(),
   ballots: z.number(),
   leaders: z.array(z.string()),
@@ -25,6 +30,8 @@ const Current = z.object({
       rank: z.number(),
       votes: z.number(),
       voters: z.number(),
+      /** Already in by trading, so it can't be voted for. From round 6. */
+      inByTrading: z.boolean().optional(),
     }),
   ),
 });
@@ -55,8 +62,10 @@ export type Candidate = {
   voters: number;
   /** Rank by independent trading, 1 = most. It breaks ties between equal votes. */
   rank: number;
-  /** True if it would take a seat as the votes stand. */
+  /** True if it would take a vote seat as the votes stand. */
   inSeat: boolean;
+  /** True if it's already in by trading, so picking it is refused. */
+  inByTrading: boolean;
   launchedAt: string;
   /** DELPHI's verdict now. */
   verdict: string;
@@ -78,6 +87,9 @@ export type RoundNow = {
   /** Until it opens if upcoming, until it closes if open, 0 once closed. */
   secondsLeft: number;
   seats: number;
+  tradingSeats: number | null;
+  minStake: string | null;
+  minHoldSec: number | null;
   ballots: number;
   method: string;
   /** Most votes first, as the Trials service orders them. */
@@ -97,6 +109,9 @@ export function describeRound(r: Current, verdicts: Pick<Verdicts, "get">, nowSe
     closesAt: iso(r.closesAt),
     secondsLeft: status === "upcoming" ? r.opensAt - nowSec : status === "open" ? r.closesAt - nowSec : 0,
     seats: r.seats,
+    tradingSeats: r.tradingSeats ?? null,
+    minStake: r.minStake ?? null,
+    minHoldSec: r.minHoldSec ?? null,
     ballots: r.ballots,
     method: r.method,
     candidates: r.candidates.map((c) => {
@@ -108,6 +123,7 @@ export function describeRound(r: Current, verdicts: Pick<Verdicts, "get">, nowSe
         voters: c.voters,
         rank: c.rank,
         inSeat: leaders.has(c.token.toLowerCase()),
+        inByTrading: c.inByTrading ?? false,
         launchedAt: iso(c.launchedAt),
         verdict: v.verdict,
         verdictAtOpen: c.verdict,

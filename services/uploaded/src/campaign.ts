@@ -7,15 +7,17 @@ import type { Candidate, RoundNow, RoundReader } from "./trials.ts";
 
 const SITE = "https://pantheonindex.com";
 
-type Ranked = Pick<Candidate, "token" | "votes" | "rank">;
+type Ranked = Pick<Candidate, "token" | "votes" | "rank"> & { inByTrading?: boolean };
 
 /**
  * Votes this coin needs to take a seat if nothing else changes, or 0 if it's in one. It follows the
  * Trials service's counting: most votes first, equal votes go to the coin with more independent trading
- * (the lower rank), and a coin needs at least one vote.
+ * (the lower rank), and a coin needs at least one vote. Coins in by trading (from round 6) are outside the
+ * vote: they need nothing, and they take none of the vote's seats.
  */
 export function votesNeeded(coin: Ranked, all: readonly Ranked[], seats: number): number {
-  const order = all.filter((c) => c.votes > 0).sort((a, b) => b.votes - a.votes || a.rank - b.rank);
+  if (coin.inByTrading) return 0;
+  const order = all.filter((c) => c.votes > 0 && !c.inByTrading).sort((a, b) => b.votes - a.votes || a.rank - b.rank);
   const seated = order.slice(0, seats);
   if (seated.some((c) => c.token === coin.token)) return 0;
   // A free seat: one vote takes it, ahead of every coin with none.
@@ -35,6 +37,7 @@ export type Campaign = {
   votes: number;
   voters: number;
   inSeat: boolean;
+  inByTrading: boolean;
   /** Votes needed for a seat, if nothing else changes. 0 if in one. Null once voting is over. */
   votesNeeded: number | null;
   verdict: string;
@@ -49,6 +52,7 @@ export type Campaign = {
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 function headline(name: string, c: Candidate, r: RoundNow, needed: number | null): string {
+  if (c.inByTrading) return `${name} is in by trading in Trials round ${r.round}`;
   if (r.status === "closed") return c.inSeat ? `${name} took a seat in Trials round ${r.round}` : `${name} didn't take a seat in Trials round ${r.round}`;
   if (needed === 0) return `${name} is in a seat in Trials round ${r.round}`;
   return `${name} needs ${plural(needed ?? 0, "more vote")} for a seat in Trials round ${r.round}`;
@@ -68,6 +72,7 @@ export function campaignOf(r: RoundNow, c: Candidate): Campaign {
     votes: c.votes,
     voters: c.voters,
     inSeat: c.inSeat,
+    inByTrading: c.inByTrading,
     votesNeeded: needed,
     verdict: c.verdict,
     verdictChanged: c.verdictChanged,

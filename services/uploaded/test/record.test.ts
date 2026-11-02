@@ -122,7 +122,7 @@ describe("whether a wallet can vote", () => {
   const NOW = CLOSES - 10;
 
   it("says yes with its votes and how many it can pick", () => {
-    expect(ballotStatus(WALLET, you(), NOW)).toEqual({ wallet: WALLET, round: 6, canVote: true, whyNot: null, votes: 2, maxPicks: 3, picks: [], closesAt: new Date(CLOSES * 1000).toISOString() });
+    expect(ballotStatus(WALLET, you(), NOW)).toEqual({ wallet: WALLET, round: 6, canVote: true, whyNot: null, votes: 2, stakeVote: null, stakeCountsFrom: null, maxPicks: 3, picks: [], closesAt: new Date(CLOSES * 1000).toISOString() });
   });
 
   it("shows what it already picked", () => {
@@ -135,6 +135,12 @@ describe("whether a wallet can vote", () => {
     expect(ballotStatus(WALLET, you(), CLOSES).whyNot).toBe("CLOSED");
     expect(ballotStatus(WALLET, you({ status: "closed" }), CLOSES + 1).whyNot).toBe("CLOSED");
     expect(ballotStatus(WALLET, you({}, { weight: 0 }), NOW)).toMatchObject({ canVote: false, whyNot: "NO_VOTES", votes: 0 });
+  });
+
+  it("says when a stake doesn't count yet, and from when it will", () => {
+    const got = ballotStatus(WALLET, you({}, { weight: 0, stakeVote: "too_new", stakeVoteFrom: CLOSES + 500 }), NOW);
+    expect(got).toMatchObject({ canVote: false, whyNot: "NO_VOTES", stakeVote: "too_new", stakeCountsFrom: new Date((CLOSES + 500) * 1000).toISOString() });
+    expect(ballotStatus(WALLET, you(), NOW)).toMatchObject({ stakeVote: null, stakeCountsFrom: null });
   });
 
   it("says unknown when the chain didn't answer, not that it has no votes", () => {
@@ -164,12 +170,27 @@ describe("calling the Trials service", () => {
     expect((await roundsCalls("http://t", f).rounds()).map((r) => r.round)).toEqual([2, 3]);
   });
 
+  it("skips an open round, which lists no ballots, instead of failing for every wallet", async () => {
+    const f = async (u: string) => {
+      const p = new URL(u).pathname;
+      if (p === "/health") return json({ round: 2 });
+      if (p.endsWith("/2")) {
+        const { ballotList: _hidden, ...open } = page(2, "open");
+        return json(open);
+      }
+      return json(page(1, "closed"));
+    };
+    expect((await roundsCalls("http://t", f).rounds()).map((r) => r.round)).toEqual([1]);
+  });
+
   it("reads a closed round once, and an open one every time", async () => {
     const asked: string[] = [];
     const f = async (u: string) => {
       const p = new URL(u).pathname;
       asked.push(p);
-      return p === "/health" ? json({ round: 2 }) : json(page(Number(p.at(-1)), p.endsWith("2") ? "open" : "closed"));
+      if (p === "/health") return json({ round: 2 });
+      const { ballotList: _hidden, ...open } = page(2, "open");
+      return json(p.endsWith("2") ? open : page(1, "closed"));
     };
     const c = roundsCalls("http://t", f);
     await c.rounds();
