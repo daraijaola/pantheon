@@ -9,7 +9,10 @@ function isRateLimited(status: number, body: string): boolean {
     const parsed: unknown = JSON.parse(body);
     return (Array.isArray(parsed) ? parsed : [parsed]).some((m) => {
       const e = (m as { error?: { code?: unknown; message?: unknown } } | null)?.error;
-      return !!e && (RATE_LIMIT_CODES.has(e.code as number) || /rate limit/i.test(String(e.message)));
+      // The same code also means "too many logs": that's a question too big, not a busy node, so waiting
+      // wouldn't help. The caller has to ask for less.
+      if (!e || /logs count limit/i.test(String(e.message))) return false;
+      return RATE_LIMIT_CODES.has(e.code as number) || /rate limit/i.test(String(e.message));
     });
   } catch {
     return false;

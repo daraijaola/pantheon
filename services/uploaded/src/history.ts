@@ -17,6 +17,9 @@ const TTL_MS = 60_000;
 /** The first block where the wallet had HYPE or had sent a transaction. */
 export type FirstSeen = { block: string; time: string };
 
+/** The first transaction the wallet sent. It isn't always its first day: a wallet is usually sent HYPE first. */
+export type FirstTx = { block: string; time: string; tx: string; to: string | null };
+
 /** The quick part of a wallet's history. */
 export type WalletNow = {
   wallet: string;
@@ -31,6 +34,8 @@ export type WalletNow = {
 export type WalletHistory = WalletNow & {
   /** Null if the wallet has never had HYPE or sent anything. */
   firstSeen: FirstSeen | null;
+  /** Null if the wallet has never sent anything. */
+  firstTx: FirstTx | null;
 };
 
 /** The chain reads. An address that's never active gives false at every block. */
@@ -38,6 +43,10 @@ export type HistoryCalls = {
   head(): Promise<bigint>;
   /** Whether the wallet had HYPE or had sent anything by each block, in the order asked. */
   activeAt(wallet: string, blocks: readonly bigint[]): Promise<boolean[]>;
+  /** Whether the wallet had sent anything by each block, in the order asked. */
+  sentAt(wallet: string, blocks: readonly bigint[]): Promise<boolean[]>;
+  /** The wallet's earliest transaction in a block, or null if it has none there. */
+  sentIn(wallet: string, block: bigint): Promise<{ tx: string; to: string | null; time: number } | null>;
   blockTime(block: bigint): Promise<number>;
   now(wallet: string): Promise<{ hype: bigint; txsSent: number }>;
 };
@@ -53,6 +62,12 @@ export function chainHistory(client: Pick<PublicClient, "getBlockNumber" | "getB
           return hype > 0n || sent > 0;
         }),
       ),
+    sentAt: (wallet, blocks) => Promise.all(blocks.map(async (blockNumber) => (await client.getTransactionCount({ address: wallet as Address, blockNumber })) > 0)),
+    sentIn: async (wallet, blockNumber) => {
+      const block = await client.getBlock({ blockNumber, includeTransactions: true });
+      const [first] = block.transactions.filter((t) => t.from.toLowerCase() === wallet).sort((a, b) => a.nonce - b.nonce);
+      return first ? { tx: first.hash, to: first.to?.toLowerCase() ?? null, time: Number(block.timestamp) } : null;
+    },
     blockTime: async (blockNumber) => Number((await client.getBlock({ blockNumber })).timestamp),
     now: async (wallet) => {
       const address = wallet as Address;
@@ -88,8 +103,10 @@ export class HistoryReader {
   readonly #now: () => number;
   readonly #quick: Remembered<WalletNow>;
   readonly #firstDay: Remembered<FirstSeen | null>;
-  /** A first day never changes once found. */
+  readonly #firstTx: Remembered<FirstTx | null>;
+  /** A first day never changes once found, and nor does a first transaction. */
   readonly #first = new Map<string, FirstSeen>();
+  readonly #firstTxs = new Map<string, FirstTx>();
 
   constructor(verdicts: CoinFacts, calls: HistoryCalls, opts: { now?: () => number; ttlMs?: number } = {}) {
     this.#verdicts = verdicts;
@@ -98,12 +115,13 @@ export class HistoryReader {
     const remember = { ttlMs: opts.ttlMs ?? TTL_MS, now: this.#now };
     this.#quick = new Remembered((w) => this.#readNow(w), remember);
     this.#firstDay = new Remembered((w) => this.#findFirstDay(w), remember);
+    this.#firstTx = new Remembered((w) => this.#findFirstTx(w), remember);
   }
 
   /** Everything: both parts together. */
   async read(wallet: string): Promise<WalletHistory> {
-    const [now, firstSeen] = await Promise.all([this.quick(wallet), this.firstDay(wallet)]);
-    return { ...now, firstSeen };
+    const [now, firstSeen, firstTx] = await Promise.all([this.quick(wallet), this.firstDay(wallet), this.firstTx(wallet)]);
+    return { ...now, firstSeen, firstTx };
   }
 
   /** Transactions, HYPE and coins launched: about half a second. */
@@ -114,6 +132,11 @@ export class HistoryReader {
   /** The first day: a few seconds the first time. */
   firstDay(wallet: string): Promise<FirstSeen | null> {
     return this.#firstDay.get(wallet.toLowerCase());
+  }
+
+  /** The first transaction it sent: a few seconds the first time. */
+  firstTx(wallet: string): Promise<FirstTx | null> {
+    return this.#firstTx.get(wallet.toLowerCase());
   }
 
   async #readNow(wallet: string): Promise<WalletNow> {
@@ -139,6 +162,19 @@ export class HistoryReader {
     const block = await firstActiveBlock(this.#calls, wallet, head);
     const found = { block: block.toString(), time: new Date((await this.#calls.blockTime(block)) * 1000).toISOString() };
     this.#first.set(wallet, found);
+    return found;
+  }
+
+  async #findFirstTx(wallet: string): Promise<FirstTx | null> {
+    const known = this.#firstTxs.get(wallet);
+    if (known) return known;
+    if ((await this.quick(wallet)).txsSent === 0) return null;
+    const block = await firstActiveBlock({ activeAt: (w, blocks) => this.#calls.sentAt(w, blocks) }, wallet, await this.#calls.head());
+    const sent = await this.#calls.sentIn(wallet, block);
+    // A contract's count starts at 1 when it's created and grows with what it creates, but it never sends.
+    if (!sent) return null;
+    const found = { block: block.toString(), time: new Date(sent.time * 1000).toISOString(), tx: sent.tx, to: sent.to };
+    this.#firstTxs.set(wallet, found);
     return found;
   }
 }

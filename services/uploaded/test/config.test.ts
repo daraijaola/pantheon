@@ -8,10 +8,11 @@ const loadConfig = (env: Record<string, string | undefined>) => realLoad(env, ()
 describe("settings", () => {
   it("can switch fresh reads off", () => {
     expect(loadConfig({ FRESH_READS: "off" }).freshReads).toBe(false);
+    expect(loadConfig({ ELSEWHERE_READS: "on" }).elsewhereReads).toBe(true);
   });
 
   it("has safe defaults", () => {
-    expect(loadConfig({})).toEqual({ port: 8791, rpc: "https://testnet-rpc.elysium.kinetiq.xyz", archiveRpc: "https://test-explorer.elysium.kinetiq.xyz/rpc", deployment: { staking: A, passportRegistry: A, pnth: A, usdc: A }, indexerUrl: "http://127.0.0.1:8789", trialsUrl: "http://127.0.0.1:8790", scanFile: "../delphi/out/scan.json", refreshSec: 60, delphiDir: "../delphi", freshReads: true, freshGapSec: 300, guardReadSec: 900, guardFile: "data/guard.json" });
+    expect(loadConfig({})).toEqual({ port: 8791, rpc: "https://testnet-rpc.elysium.kinetiq.xyz", archiveRpc: "https://test-explorer.elysium.kinetiq.xyz/rpc", deployment: { staking: A, passportRegistry: A, pnth: A, usdc: A }, indexerUrl: "http://127.0.0.1:8789", trialsUrl: "http://127.0.0.1:8790", scanFile: "../delphi/out/scan.json", refreshSec: 60, delphiDir: "../delphi", freshReads: true, elsewhereReads: false, freshGapSec: 300, guardReadSec: 900, guardFile: "data/guard.json" });
   });
 
   it("treats an empty value as not set", () => {
@@ -34,6 +35,7 @@ describe("settings", () => {
     expect(() => loadConfig({ PORT: "80" })).toThrow(/PORT/);
     expect(() => loadConfig({ REFRESH_SEC: "1" })).toThrow(/REFRESH_SEC/);
     expect(() => loadConfig({ FRESH_READS: "maybe" })).toThrow(/FRESH_READS/);
+    expect(() => loadConfig({ ELSEWHERE_READS: "maybe" })).toThrow(/ELSEWHERE_READS/);
     expect(() => loadConfig({ FRESH_GAP_SEC: "5" })).toThrow(/FRESH_GAP_SEC/);
   });
 });

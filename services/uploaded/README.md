@@ -4,7 +4,7 @@ Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; thi
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.
 
-Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, stake data, basket data, standing facts, Guard, the Trials round, the voting record and campaigns are done. It listens on this machine only
+Status: the verdict lookup, the server, "check any coin", the holdings reader, wallet history, the bag, the wallet scan, the whole-wallet footprint, reads outside Elysium, stake data, basket data, standing facts, Guard, the Trials round, the voting record and campaigns are done. It listens on this machine only
 (`127.0.0.1:8791`) and isn't installed as an always-on service yet. Nothing private may be served until sign-in is decided.
 
 ```sh
@@ -27,6 +27,7 @@ npm start        # settings below; run it from this folder
 | `REFRESH_SEC` | `60` | How often to look for a new scan. |
 | `DELPHI_DIR` | `../delphi` | Where DELPHI's code and cache are. Fresh reads run there. |
 | `FRESH_READS` | `on` | `off` means scans only. |
+| `ELSEWHERE_READS` | `off` | `on` reads Hyperliquid, other chains and ENS. Asking tells those services the address, so keep it off until sign-in. |
 | `FRESH_GAP_SEC` | `300` | At most one fresh read this often. |
 | `GUARD_READ_SEC` | `900` | How often Guard reads on its own. Needs `FRESH_READS` on. |
 | `GUARD_FILE` | `data/guard.json` | What Guard remembers: past verdicts and its alerts. Keep this file: it's the only record of them. |
@@ -63,7 +64,8 @@ bundled request. The explorer's API has been behind a bot check since Oct 25, so
   (`CHAIN_UNAVAILABLE`, or `NOT_READY` before DELPHI's coins load). An empty list always means every coin was read.
 - **One bundle, one request.** `batchSize: 0` matters: by default viem splits a bundle into many small requests at
   once, and the public node refuses some of them.
-- **What it doesn't see:** coins DELPHI hasn't read, and PNTH that's staked (it sits in the staking contract).
+- **What it doesn't see:** coins DELPHI hasn't read (the footprint does), and PNTH that's staked (it sits in the
+  staking contract).
 - **One wallet at a time,** to go easy on the public node. A busy launch day will need a paid node.
 - **Private on purpose:** this route must not go public before sign-in is decided.
 
@@ -193,11 +195,18 @@ wallet not read in the last minute. A wallet read recently answers in millisecon
 | `holdings` | 2 s | The same as `/holdings` |
 | `verdicts` | right after holdings | The same as `/bag` |
 | `firstDay` | 3 s | `{firstSeen}`: `{block, time}`, or null if the wallet has never been active |
+| `firstTx` | 3 to 5 s | `{firstTx}`: `{block, time, tx, to}`, or null if it has never sent anything |
 | `standing` | 3 to 5 s, with the first day | The same as `/standing` |
+| `footprint` | 1 to 20 s, by the wallet's size | The same as `/footprint` |
+| `wholeBag` | right after the footprint | The same as `/bag`: every token, with coins sent in set apart |
+| `elsewhere` | under 1 s; only if `ELSEWHERE_READS` is on | The same as `/elsewhere` |
 
 They always come in that order. Each is `{stage, ok: true, data}` or `{stage, ok: false, error}`, where `error` is
-`CHAIN_UNAVAILABLE`, `NOT_READY` or `TIMEOUT` (a stage gives up after 30 s). A failed stage never
-stops the others. `verdicts` fails if `holdings` did. `done` is `{failed: [stage names]}`.
+`CHAIN_UNAVAILABLE`, `NOT_READY`, `TOO_BIG` or `TIMEOUT` (a stage gives up after 30 s, the footprint after 60 s). A failed stage
+never stops the others. `verdicts` fails if `holdings` did, and `wholeBag` fails if either `holdings` or `footprint`
+did. `done` is `{failed: [stage names]}`.
+
+`verdicts` is the quick bag, DELPHI's coins only, so the reveal can start. When `wholeBag` lands, it replaces it.
 
 ```js
 const es = new EventSource(`/api/uploaded/wallets/${wallet}/scan`); // the site's forwarding isn't set up yet
@@ -214,9 +223,16 @@ so inside `history` it would hold back everything behind it, and all the stages 
 ## The bag (`src/bag.ts`)
 
 `GET /wallets/{address}/bag` joins holdings and verdicts, worst first: FLAG, WATCH, UNKNOWN, NOT_ENOUGH_DATA, CLEAN.
-It answers `{wallet, network, readAt, coins, counts, unread, complete, checking}`. Each coin has its amount, verdict,
-one-line `reason`, `findings` with their transactions, `notes`, `reportUrl`, `disputeUrl`, `scannedAt` and `stale`.
+It answers `{wallet, network, readAt, coins, counts, sentIn, wholeWallet, unread, complete, checking}`. Each coin has its
+amount, verdict, one-line `reason`, `findings` with their transactions, `notes`, `reportUrl`, `disputeUrl`, `scannedAt`
+and `stale`.
 
+- **It's the whole wallet.** Every token it holds is here, read from the footprint. A token DELPHI hasn't read is
+  UNKNOWN, with `venue: null`, and USDC and wrapped HYPE are UNKNOWN too until someone decides otherwise.
+- **`sentIn`** lists coins that only ever arrived in other people's transactions, each with `arrived`. They're not in
+  `coins` or `counts`, even if they're flagged, so a stranger can't change a wallet's bag by sending to it.
+- **`wholeWallet`** is false if the footprint couldn't be read. The bag is then DELPHI's coins only, and coins sent in
+  can't be told apart. That costs the extra, not the answer.
 - **`counts`** are plain coin counts for each verdict. Unread and too-new coins are never counted as clean. Holdings
   are remembered for 30 s, but verdicts aren't, so a verdict is always the latest.
 - **`complete`** is false if any coin couldn't be read, so an Integrity figure shouldn't be shown as final.
@@ -224,13 +240,78 @@ one-line `reason`, `findings` with their transactions, `notes`, `reportUrl`, `di
 - **Integrity isn't worked out here.** The brief says it's "the % of the bag", and that could mean by coin count or
   by value. By value needs prices. That's Micheal's call.
 
+## The whole footprint (`src/footprint.ts`)
+
+`GET /wallets/{address}/footprint` is everything the wallet has done with tokens on Elysium, not only DELPHI's coins. It
+answers `{wallet, network, readAt, isContract, tokens, nfts, approvals, nftOperators, apps, totals, unread, complete}`. A wallet of
+normal size is read in full: the node refuses a question with over 10,000 answers, so a refused range is cut in half.
+
+**A wallet over 30,000 logs isn't read.** That's a platform or a pool, not a person, and reading it would tie the
+service up for minutes. The route answers 422 `TOO_BIG`, the scan's stage fails with `TOO_BIG`, the bag stays DELPHI's
+coins only with `wholeWallet: false`, and that wallet isn't tried again for an hour. Reads run one wallet at a time, so
+a big one makes others wait, and a busy launch day will need a paid node.
+
+**`isContract`** says the address is a contract, not a wallet someone holds a key to. A contract never sends a
+transaction of its own, so `sentIn` and `fromOthers` are null for it and nothing is listed apart. A smart-contract
+wallet would otherwise lose its whole bag. Ascend's vault, with 16,600 logs, took 45 s to read on Nov 2.
+
+- **`tokens`:** every token it ever touched: `balance`, `holdsNow`, `firstSeen`, `lastSeen`, `received`, `sent`,
+  `fromOthers`, `sentIn` and DELPHI's `verdict`. Held tokens first.
+- **`nfts`:** each collection with `heldCount` and up to 50 `held` ids. ERC-1155 isn't read: none was seen on Elysium.
+- **`approvals`:** who can still spend what, with `allowance` (what's left, from the token), `unlimited` and
+  `spenderName`. `nftOperators` is the same for whole collections.
+- **`apps`:** contracts it called, with `txs`, `firstSeen` and `lastSeen`. The node can't list a wallet's transactions,
+  so a call that moved no token and gave no approval isn't seen. Names come from `src/known.ts`, and a contract we can't
+  vouch for stays unnamed.
+- **`totals`** leave out anything sent in, so a stranger can't raise a wallet's numbers.
+
+Any contract can write any log, so logs are leads, not answers:
+
+- **What a wallet holds comes from the token,** never from adding up logs. Planted logs can't add to a balance or an
+  NFT count.
+- **`sentIn` comes from who sent the transaction.** One arrival in its own transaction means it asked for the coin, so
+  a stranger's dust can't turn a real buy into "sent in". A planted transfer "from" the wallet can't hide a coin that
+  was sent in either. If a transaction can't be read, `sentIn` is null, never false.
+- **Zero transfers are ignored.** Anyone can make one "from" any wallet: it's how fake history gets planted.
+- **A stranger's broken token can't mark a wallet unread.** Unread sent-in coins don't affect `complete`.
+- **Unread is never zero.** A balance that can't be read is null, and an approval that can't be read stays listed,
+  because it may still be open.
+- **Names and symbols are strangers' text,** so they're cleaned and capped. Show them as text only.
+
+**What it doesn't catch yet:** approvals of a single NFT, and token approvals made on a fake token show what that token
+claims. A faucet or a team sending you coins is also "sent in", because that's what happened.
+
+Each transaction is looked up one at a time, 600 at once, and kept: they never change. On Nov 2, on 3 real wallets, all 125
+balances and approvals matched the public node, and 14, 60 and 98 held tokens all reached the bag.
+
+## Where else it has been (`src/elsewhere.ts`)
+
+`GET /wallets/{address}/elsewhere` needs `ELSEWHERE_READS=on`. It answers `{wallet, readAt, hyperliquid, chains, ensName,
+unread, complete}`, in under a second, and is remembered for 5 minutes. No keys are needed.
+
+- **`hyperliquid`:** `openPositions` (coin, side, size, leverage), `spot`, `staked` and `trades` (count, coins, first,
+  last). `trades.capped` means Hyperliquid stopped at its 2,000 limit, so `first` isn't the very first.
+- **`chains`:** the coin balance and transactions sent on HyperEVM, Ethereum, Arbitrum, Base, Optimism and BNB Chain.
+  Their tokens need an indexer with a key, so they're not read.
+- **`ensName`:** the name the wallet set for itself on Ethereum.
+- **No dollars or profit, ever.** Account value, entry prices and profit and loss are dropped as they're read, so they
+  can't reach a page by accident. This is the research's rule, and a test checks the whole answer for them.
+- **Each source can fail alone.** A source that fails goes in `unread`, never shown as unused.
+- **These are all mainnets.** Never add them to Elysium testnet numbers.
+- **Owner only.** This must not be served to anyone but the signed-in owner.
+
 ## Wallet history (`src/history.ts`)
 
-`GET /wallets/{address}/history` answers `{wallet, network, readAt, firstSeen, txsSent, hype, coinsLaunched}`.
-About 3 s the first time, then remembered for a minute. A first day, once found, is kept until restart.
+`GET /wallets/{address}/history` answers `{wallet, network, readAt, firstSeen, firstTx, txsSent, hype, coinsLaunched}`.
+About 5 s the first time, then remembered for a minute. A first day or first transaction, once found, is kept until
+restart.
 
 - **First day:** the first block where the wallet had HYPE or had sent a transaction, found by searching past
   blocks, 48 points a step. On 30 real wallets it matched DELPHI's own funding records exactly (Nov 1).
+- **First transaction:** the first block where the wallet had sent anything, then its earliest transaction there. It's
+  usually later than the first day, because wallets are sent HYPE first. `to` is null if it created a contract. On
+  Nov 2 all three real wallets tried came back as nonce 0, confirmed by asking the public node. A contract has no first
+  transaction: its `txsSent` counts what it created, because contracts never send.
 - **Funders are not read,** because they're never shown.
 - **Coins launched:** from DELPHI's scan, with each coin's verdict. Coins launched through Covenant name the
   Covenant factory as their creator (PNTH and COVD do), so the person who launched them gets no credit yet.

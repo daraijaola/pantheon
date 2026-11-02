@@ -6,7 +6,7 @@ const wholeNumber = z.string().trim().regex(/^\d+$/, "must be a whole number").t
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/, "must be an address");
 /** The contracts this service reads, from the file the site reads too. */
-const DeploymentSchema = z.object({ staking: address, passportRegistry: address, pnth: address, usdc: address });
+const DeploymentSchema = z.object({ staking: address, passportRegistry: address, pnth: address, usdc: address, indexVault: address.optional(), covenantFactory: address.optional() });
 
 const EnvSchema = z.object({
   /** 8787 Passport, 8789 indexer, 8790 Trials, 3210 DELPHI feed. */
@@ -27,6 +27,8 @@ const EnvSchema = z.object({
   DELPHI_DIR: z.string().min(1).default("../delphi"),
   /** Fresh reads for coins whose verdict is getting old. Off: scans only. */
   FRESH_READS: z.enum(["on", "off"]).default("on"),
+  /** Asking Hyperliquid and other chains about a wallet tells them its address, so it's off until sign-in. */
+  ELSEWHERE_READS: z.enum(["on", "off"]).default("off"),
   /** At most one fresh read this often, however many coins are asked about. */
   FRESH_GAP_SEC: wholeNumber.pipe(z.number().min(60)).default(300),
   /** How often Guard reads on its own, to see verdicts change and creators sell. */
@@ -46,6 +48,7 @@ export type Config = Readonly<{
   refreshSec: number;
   delphiDir: string;
   freshReads: boolean;
+  elsewhereReads: boolean;
   freshGapSec: number;
   guardReadSec: number;
   guardFile: string;
@@ -66,5 +69,5 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   } catch (err) {
     throw new ConfigError(`can't use ${e.DEPLOYMENT_FILE}: ${(err as Error).message.split("\n")[0]}`);
   }
-  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, deployment, indexerUrl: e.INDEXER_URL, trialsUrl: e.TRIALS_URL, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", freshGapSec: e.FRESH_GAP_SEC, guardReadSec: e.GUARD_READ_SEC, guardFile: e.GUARD_FILE });
+  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, deployment, indexerUrl: e.INDEXER_URL, trialsUrl: e.TRIALS_URL, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", elsewhereReads: e.ELSEWHERE_READS === "on", freshGapSec: e.FRESH_GAP_SEC, guardReadSec: e.GUARD_READ_SEC, guardFile: e.GUARD_FILE });
 }

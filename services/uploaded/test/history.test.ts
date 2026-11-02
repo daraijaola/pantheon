@@ -8,7 +8,9 @@ const FIXTURE = new URL("./fixtures/scan.json", import.meta.url).pathname;
 const WALLET = "0x79a320a02db0c1cbe7a5f2cd47210ea6f3b9f23a";
 
 /** A chain where the wallet became active at this block (null: never). */
-function chain(firstActive: bigint | null, now = { hype: 0n, txsSent: 0 }, head = 20_000_000n) {
+const FIRST_TX = "0x" + "ab".repeat(32);
+
+function chain(firstActive: bigint | null, now = { hype: 0n, txsSent: 0 }, head = 20_000_000n, firstSent: bigint | null = firstActive) {
   const asked = { rounds: 0, blocks: 0, heads: 0 };
   const calls: HistoryCalls = {
     head: async () => (asked.heads++, head),
@@ -17,6 +19,8 @@ function chain(firstActive: bigint | null, now = { hype: 0n, txsSent: 0 }, head 
       asked.blocks += blocks.length;
       return blocks.map((b) => firstActive !== null && b >= firstActive);
     },
+    sentAt: async (_w, blocks) => blocks.map((b) => firstSent !== null && b >= firstSent),
+    sentIn: async (_w, b) => (b === firstSent ? { tx: FIRST_TX, to: "0xbb", time: 1_700_000_000 + Number(b) } : null),
     blockTime: async (b) => 1_700_000_000 + Number(b),
     now: async () => now,
   };
@@ -128,6 +132,44 @@ describe("reading a wallet's history", () => {
     await expect(r.read(WALLET)).rejects.toThrow("no archive");
     down = false;
     expect((await r.read(WALLET)).firstSeen?.block).toBe("3");
+  });
+});
+
+describe("the first transaction", () => {
+  it("is the first thing it sent, which can be later than its first day", async () => {
+    const { calls } = chain(1_000n, { hype: 5n, txsSent: 3 }, 20_000_000n, 7_000n);
+    const h = new HistoryReader(loaded(), calls);
+    const got = await h.read(WALLET);
+    expect(got.firstSeen?.block).toBe("1000");
+    expect(got.firstTx).toEqual({ block: "7000", time: new Date((1_700_000_000 + 7_000) * 1000).toISOString(), tx: FIRST_TX, to: "0xbb" });
+  });
+
+  it("is none for a wallet that has only received, and it doesn't search", async () => {
+    const { calls } = chain(1_000n, { hype: 5n, txsSent: 0 }, 20_000_000n, null);
+    let searched = 0;
+    const counting = { ...calls, sentAt: async (w: string, b: readonly bigint[]) => (searched++, calls.sentAt(w, b)) };
+    expect(await new HistoryReader(loaded(), counting).firstTx(WALLET)).toBeNull();
+    expect(searched).toBe(0);
+  });
+
+  it("searches once ever, because it can't change", async () => {
+    const { calls } = chain(1_000n, { hype: 5n, txsSent: 3 }, 20_000_000n, 7_000n);
+    let searched = 0;
+    const counting = { ...calls, sentAt: async (w: string, b: readonly bigint[]) => (searched++, calls.sentAt(w, b)) };
+    let time = 0;
+    const h = new HistoryReader(loaded(), counting, { now: () => time, ttlMs: 10 });
+    await h.firstTx(WALLET);
+    const rounds = searched;
+    time = 1_000;
+    await h.firstTx(WALLET);
+    expect(searched).toBe(rounds);
+  });
+
+  it("is none for a contract: its count comes from being created, and it never sends", async () => {
+    const { calls } = chain(1_000n, { hype: 0n, txsSent: 1 }, 20_000_000n, 7_000n);
+    const h = new HistoryReader(loaded(), { ...calls, sentIn: async () => null });
+    expect(await h.firstTx(WALLET)).toBeNull();
+    expect(await h.read(WALLET)).toMatchObject({ txsSent: 1, firstTx: null });
   });
 });
 
