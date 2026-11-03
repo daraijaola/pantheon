@@ -687,11 +687,12 @@
 /* Phones: a 16px field, so iOS doesn't zoom in; tighter gutters. */
 @media (max-width: 640px) {
   .header {
-    height: 56px;
+    height: calc(56px + env(safe-area-inset-top));
     padding: 0 16px;
+    padding-top: env(safe-area-inset-top);
   }
   .main {
-    padding: 80px 16px calc(var(--dock) + 32px);
+    padding: calc(80px + env(safe-area-inset-top)) 16px calc(var(--dock) + 32px);
   }
   .heroSpot {
     width: 92px;
@@ -717,8 +718,65 @@
     padding: 9px 9px 9px 16px;
     border-radius: 22px;
   }
+  .send {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+  .newChat {
+    min-height: 40px;
+  }
+  .suggestion {
+    min-height: 40px;
+  }
+  .action {
+    min-height: 40px;
+    padding-inline: 11px;
+  }
+  .latest {
+    width: 40px;
+    height: 40px;
+    margin-left: -20px;
+  }
+  .tx {
+    min-height: 30px;
+    padding: 7px 9px;
+  }
   .dock {
     padding: 0 12px calc(12px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Short phone windows, including the viewport above an open keyboard: keep every first-question
+   suggestion reachable instead of letting the last row fall below the screen. */
+@media (max-width: 640px) and (max-height: 540px) {
+  .empty {
+    top: calc(58px + env(safe-area-inset-top));
+  }
+  .heroSpot {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 14px;
+  }
+  .title {
+    font-size: 20px;
+    line-height: 26px;
+  }
+  .sub {
+    display: none;
+  }
+  .suggestions {
+    gap: 6px;
+  }
+  .suggestion {
+    min-height: 40px;
+    padding-inline: 12px;
+    font-size: 12px;
+  }
+  .field {
+    /* The composer stays below the orb and title; longer drafts scroll inside it until the chat starts. */
+    max-height: 48px;
+    overflow-y: auto;
   }
 }
 

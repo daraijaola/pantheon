@@ -17,7 +17,7 @@ registerHooks({
 const chat = (await import(new URL("./delphi-chat.ts", import.meta.url).href)) as typeof import("./delphi-chat");
 const format = (await import(new URL("../components/delphi-chat/format.ts", import.meta.url).href)) as typeof import("../components/delphi-chat/format");
 
-const ask = (content: string) => ({ role: "user", content });
+const ask = (content: string) => ({ role: "user" as const, content });
 
 /** Runs `f` with only these model keys set, then puts the real ones back. */
 async function withKeys(keys: { ANTHROPIC_API_KEY?: string; XAI_API_KEY?: string }, f: () => void | Promise<void>) {
@@ -141,6 +141,68 @@ test("names and tickers reach the model in quotes, and only the data's hashes ar
   const [point] = format.blocks(`- Five wallets bought first. ${real[0]} ${madeUp}.`, new Set(proofs));
   assert.deepEqual(point.proof, [{ kind: "tx", hash: real[0], n: 5 }], "the real one links");
   assert.deepEqual(point.pieces.at(-1), { kind: "word", text: `${madeUp}.`, n: 6 }, "the made-up one is a word");
+});
+
+test("unknown addresses and duplicate tickers never resolve to the wrong coin", () => {
+  const a = `0x${"1".repeat(40)}`;
+  const b = `0x${"2".repeat(40)}`;
+  const missing = `0x${"9".repeat(40)}`;
+  const data = {
+    generatedAt: "2026-11-01T10:00:00.000Z",
+    scannedAt: null,
+    rules: { version: "r1" },
+    counts: { coins: 2, FLAG: 1, WATCH: 0, CLEAN: 1, NOT_ENOUGH_DATA: 0 },
+    coins: [
+      { token: a, symbol: "SAME", name: "First", verdict: "FLAG", trades: 9, wallets: 3, holders: 3, launched: "2026-10-20T00:00:00Z" },
+      { token: b, symbol: "SAME", name: "Second", verdict: "CLEAN", trades: 7, wallets: 3, holders: 3, launched: "2026-10-21T00:00:00Z" },
+    ],
+    explained: {},
+  } as unknown as Delphi;
+
+  const messages = [ask("Is SAME clean?")];
+  const matches = chat.findCoins(data, messages);
+  assert.deepEqual(matches.map((c) => c.token), [a, b]);
+  assert.equal(chat.ambiguousTicker(matches), true);
+  assert.match(chat.fromReports(data, matches), /Send the contract address/);
+  assert.match(chat.context(data, matches), /Do not choose one/);
+
+  const unknownMessages = [ask(`Check ${missing}`)];
+  const unknown = chat.coinQuery(unknownMessages);
+  assert.equal(unknown, missing);
+  assert.deepEqual(chat.findCoins(data, unknownMessages), []);
+  assert.match(chat.fromReports(data, [], unknown), /haven’t read/);
+  assert.match(chat.context(data, [], unknown), /do not answer about another coin/);
+  assert.equal(chat.coinQuery([ask("Which coins are flagged?")]), null);
+  assert.deepEqual(chat.findCoins(data, [ask("Check SAME"), ask(`Now check ${missing}`)]), [], "an unknown new coin never falls back to an older one");
+  assert.deepEqual(chat.findCoins(data, [ask("Check SAME"), ask("Why?")]).map((c) => c.token), [a, b], "a pronoun follow-up keeps the earlier coin");
+});
+
+test("fallback coin answers stay compact", () => {
+  const token = `0x${"1".repeat(40)}`;
+  const evidence = (n: number) => `0x${String(n).padStart(64, "0")}`;
+  const data = {
+    generatedAt: "2026-11-01T10:00:00.000Z",
+    scannedAt: null,
+    rules: { version: "r1" },
+    counts: { coins: 1, FLAG: 1, WATCH: 0, CLEAN: 0, NOT_ENOUGH_DATA: 0 },
+    coins: [{ token, symbol: "FOO", name: "Foo", verdict: "FLAG", trades: 9, wallets: 3, holders: 3, launched: "2026-10-20T00:00:00Z", headline: "FLAG: Four findings" }],
+    explained: {
+      [token]: {
+        explanation: {
+          headline: "FLAG: Four findings",
+          summary: "The important summary.",
+          points: [1, 2, 3, 4].map((n) => ({ text: `Finding ${n}.`, evidence: [evidence(n)] })),
+          caveats: ["One caveat."],
+        },
+      },
+    },
+  } as unknown as Delphi;
+  const answer = chat.fromReports(data, chat.findCoins(data, [ask("Check FOO")]));
+  assert.match(answer, /^\[FLAG\] FOO: four findings\./);
+  assert.doesNotMatch(answer, /FOO is flagged/);
+  assert.match(answer, /Finding 3/);
+  assert.doesNotMatch(answer, /Finding 4/);
+  assert.match(chat.SYSTEM, /under 120 words/);
 });
 
 test("a cut-off answer ends with a note, from Claude and from Grok", async () => {

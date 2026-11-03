@@ -11,7 +11,7 @@
 // Only JSON from this site is read (415 or 403 otherwise), and a visitor who asks too often gets a 429
 // with Retry-After in seconds.
 
-import { coinRef, context, findCoins, fromReports, hasModel, model, modelBudget, parseMessages, refuse, sign, txsIn, visitor, waitFor } from "@/lib/delphi-chat";
+import { ambiguousTicker, coinQuery, coinRef, context, findCoins, fromReports, hasModel, model, modelBudget, parseMessages, refuse, sign, txsIn, visitor, waitFor } from "@/lib/delphi-chat";
 import { readDelphi } from "@/lib/delphi";
 
 export async function POST(req: Request) {
@@ -30,8 +30,10 @@ export async function POST(req: Request) {
 
   const data = await readDelphi();
   const coins = data ? findCoins(data, messages) : [];
-  const facts = context(data, coins);
-  const useModel = hasModel() && modelBudget();
+  const query = coinQuery(messages);
+  const unknown = query && !coins.length ? query : null;
+  const facts = context(data, coins, unknown);
+  const useModel = hasModel() && !unknown && !ambiguousTicker(coins) && modelBudget();
   const encoder = new TextEncoder();
   const upstream = new AbortController();
   req.signal.addEventListener("abort", () => upstream.abort());
@@ -49,7 +51,7 @@ export async function POST(req: Request) {
       send({ type: "coins", coins: coins.map(coinRef), proofs: txsIn(facts) });
       try {
         if (useModel) for await (const text of model(messages, facts, upstream.signal)) say(text);
-        if (!answer) say(fromReports(data, coins));
+        if (!answer) say(fromReports(data, coins, unknown));
         done();
       } catch (err) {
         if (upstream.signal.aborted) {
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
         } else if (!answer) {
           // The model failed before saying anything: answer from the reports instead.
           console.warn("DELPHI chat: model failed, answering from the reports.", (err as Error).message);
-          say(fromReports(data, coins));
+          say(fromReports(data, coins, unknown));
           done();
         } else {
           send({ type: "error", error: "STREAM_BROKE" });
