@@ -2,7 +2,7 @@
 
 What exists, what the finished product looks like, and what to build in what order.
 Written Nov 3, 2026 from the code on `main` (`ccde39f`), the live site, and @pantheonindex / @AscendLaunch on X.
-**Hard date: Elysium mainnet and Ascend go live Nov 9, 2026** (chain 99901). PNTH launches day one.
+**Hard date (from public posts, not the repo): Elysium mainnet and Ascend go live Nov 9, 2026.** The repo has no mainnet deployment or chain config yet.
 
 Status legend: **DONE** works end to end · **HALF** real code, not wired or not public · **STUB** placeholder · **DEAD** not used by the product.
 
@@ -92,7 +92,7 @@ flowchart LR
 | `AscendSwap` / Swapper, `TestDrip` | testnet helpers | DONE, **testnet-only** |
 | TASKS.md items: `LinearVesting`, `TrialsBallot` (on-chain tally), KNTQ buy-and-burn | — | **Never built** (Trials went off-chain with signed ballots instead). TASKS.md is stale. |
 
-Tests: 26 Foundry tests (7 fork against live Ascend, 1 fuzz). CI runs `forge fmt/build/test` only; **no CI for web or services**.
+Tests: ~39 Foundry test functions in `test/` (unit, Passport, fork). CI runs `forge fmt/build/test` only; **no CI for web or services**.
 
 ### 2.3 Services (`services/`)
 
@@ -169,7 +169,7 @@ sequenceDiagram
 1. **One wallet identity across the site.** Today each app screen mounts its own `Providers`; `/upload` has its own wagmi config with WalletConnect. Target: one config (injected + WalletConnect), one connect button, one session.
 2. **One sign-in.** The "Get uploaded" signature becomes **SIWE-style sign-in** (EIP-4361 message, nonce, httpOnly session cookie). Everything owner-only (`elsewhere`, `footprint` approvals, `guard`, `record`) is behind it.
 3. **One public gateway.** The browser only ever calls `/api/*` on pantheonindex.com. Next rewrites to services; owner-only routes go through a Next route handler that checks the session and adds the wallet itself (the browser never chooses whose data it gets).
-4. **Network is a setting, not a code change.** `NEXT_PUBLIC_DEPLOYMENT=elysium-mainnet` picks chain 99901, addresses, explorer, RPC. Testnet-only screens hide themselves.
+4. **Network is a setting, not a code change.** `NEXT_PUBLIC_DEPLOYMENT=elysium-mainnet` picks the mainnet chain id (confirm from Elysium docs), addresses, explorer, RPC. Testnet-only screens hide themselves.
 5. **Real data or say "example".** Landing sections read the live basket.
 
 ### 3.2 Target system
@@ -184,7 +184,7 @@ flowchart LR
   DS[delphi scan] -->|publishes| FEED
   DS --> FILE[(scan.json / site.json)]
   UPL --> FILE
-  KEEP[keeper LIVE] --> CHAIN[(Elysium mainnet 99901)]
+  KEEP[keeper LIVE] --> CHAIN[(Elysium mainnet)]
   IDX & TRI & PAS & UPL --> CHAIN
   GUARD[Guard notifier] --> X[(X DM / Telegram / email - TBD)]
   UPL --> GUARD
@@ -257,7 +257,7 @@ Client state: wagmi (wallet/chain), react-query (server data, keys like `['me','
 
 | # | Gap | Blocks |
 |---|---|---|
-| 0.1 | `deployments/elysium-mainnet.json` + `web/.../deployments` entry; web `elysium` chain from deployment (id 99901, RPC, explorer), `deployedFrom` per network | every screen on mainnet |
+| 0.1 | `deployments/elysium-mainnet.json` + `web/.../deployments` entry; web `elysium` chain built from the deployment (id, RPC, explorer), not hardcoded `99801`, `deployedFrom` per network | every screen on mainnet |
 | 0.2 | Run `Deploy.s.sol` on mainnet (Passport registry, factory, PNTH via Covenant with `TEAM_BPS=1500`, registry, staking, vault), verify, update `/security` | 0.3–0.5 |
 | 0.3 | Point indexer, passport, trials, keeper, delphi at mainnet; keeper to `KEEPER_MODE=live` with funded gas key | live numbers, basket buys, boosts |
 | 0.4 | Hide testnet-only UI on mainnet (`/get` drip, Swapper, "test USDC" copy); `/get` → link to PNTH on Ascend / fomo | `/get` |
@@ -309,7 +309,7 @@ flowchart TD
 | 3.1 | DELPHI feed producer: scan writes into `FeedStore` so `/v1/*` serves real records; then web reads the feed instead of a file on disk (lets web and delphi live on different boxes) |
 | 3.2 | Trials: stop `/trials/current?voter=` exposing a ballot during an open round (or accept it as public by design) |
 | 3.3 | Paid RPC for uploaded/indexer before launch-day load (READMEs warn the public node refuses batches) |
-| 3.4 | Update `TASKS.md` (still the Oct 11 plan), replace `web/README.md`, add uploaded to root README table |
+| 3.4 | Update `TASKS.md` (still the Oct 18 submission plan), replace `web/README.md`, add uploaded to root README table |
 | 3.5 | Keep `lab/touch` out of builds; delete copied-but-unused lab components when the site versions diverge |
 | 3.6 | Outside audit of the five core contracts (LAUNCH.md) |
 
