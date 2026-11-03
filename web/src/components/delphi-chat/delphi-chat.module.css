@@ -92,17 +92,24 @@
   color: var(--ink);
 }
 .newChat {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   height: 34px;
   padding: 0 13px 0 11px;
   border: 0;
-  border-radius: 10px;
-  background: #fff;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.42));
+  -webkit-backdrop-filter: blur(16px) saturate(1.16);
+  backdrop-filter: blur(16px) saturate(1.16);
   box-shadow:
-    0 0 0 1px rgb(23 23 23 / 0.1),
-    0 1px 2px rgb(0 0 0 / 0.04);
+    inset 0 1px 0 rgb(255 255 255 / 0.86),
+    inset 0 -1px 0 rgb(255 255 255 / 0.2),
+    0 0 0 1px rgb(23 23 23 / 0.09),
+    0 8px 24px -16px rgb(0 0 0 / 0.28);
   color: var(--ink);
   font: 450 14px/1 var(--sans);
   cursor: pointer;
@@ -112,6 +119,49 @@
     opacity 0.3s,
     visibility 0s 0.3s,
     box-shadow 0.15s;
+}
+.newChat::before,
+.composer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(120% 80% at 12% -10%, rgb(255 255 255 / 0.88), transparent 48%),
+    linear-gradient(100deg, rgb(255 152 88 / 0.08), transparent 28%, transparent 70%, rgb(83 129 230 / 0.08));
+  pointer-events: none;
+}
+.composer::after {
+  z-index: 0;
+}
+.newChatLabel {
+  position: relative;
+  z-index: 1;
+}
+.plusMark {
+  position: relative;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  opacity: 0.72;
+}
+.plusMark::before,
+.plusMark::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+.plusMark::before {
+  width: 10px;
+  height: 1.5px;
+}
+.plusMark::after {
+  width: 1.5px;
+  height: 10px;
 }
 .page[data-started] .newChat {
   opacity: 1;
@@ -207,7 +257,7 @@
   min-height: 40px;
 }
 
-/* Thinking: the orb sits in .spot; her line rises in, in the orb's light, beside a timer. */
+/* Thinking: the orb sits in .spot and the line changes quietly while the full answer arrives. */
 .think {
   position: absolute;
   top: -2px;
@@ -246,34 +296,18 @@
   color: var(--ink);
   animation: lineIn 0.9s var(--ease) both;
 }
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .thinkLine {
-    background-image: linear-gradient(90deg, var(--ink) 0%, var(--ink) 45%, #ff9858 47.2%, #fb7b9f 49%, #ab75df 51%, #5381e6 52.8%, var(--ink) 55%, var(--ink) 100%);
-    background-size: 400% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation:
-      lineIn 0.9s var(--ease) both,
-      shimmer 4.2s linear infinite;
-  }
-}
-/* Small grey text is ink at 0.62 or more: at least 4.5:1 on the paper (0.55 was 3.9:1). */
-.timer {
-  font: 400 12px/16px var(--mono);
-  color: rgb(23 23 23 / 0.62);
-  font-variant-numeric: tabular-nums;
-}
 
-/* Her answer. Each word is drawn as the orb writes it; the page inks it in (delphi-chat.tsx). */
+/* Her answer appears as one calm page once the stream is complete. */
 .answer {
   position: relative;
+}
+.answer[data-ready] {
+  animation: answerIn 0.32s var(--ease) both;
 }
 .word {
   display: inline-block;
   /* A hash that isn't a proof link stays a word: it may wrap rather than run past a phone's edge. */
   overflow-wrap: anywhere;
-  animation: settle 0.55s ease-out both;
 }
 .head {
   margin: 0 0 10px;
@@ -434,6 +468,8 @@
 }
 .composer {
   position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: flex;
   align-items: flex-end;
   gap: 10px;
@@ -441,23 +477,27 @@
   margin: 0 auto;
   padding: 11px 11px 11px 20px;
   border-radius: 24px;
-  background: #fff;
+  background: linear-gradient(145deg, rgb(255 255 255 / 0.76), rgb(255 255 255 / 0.48));
+  -webkit-backdrop-filter: blur(22px) saturate(1.14);
+  backdrop-filter: blur(22px) saturate(1.14);
   box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.92),
+    inset 0 -1px 0 rgb(255 255 255 / 0.24),
     0 0 0 1px rgb(23 23 23 / 0.08),
-    0 1px 2px rgb(0 0 0 / 0.04),
-    0 2px 6px -2px rgb(0 0 0 / 0.05),
-    0 18px 40px -16px rgb(0 0 0 / 0.18);
+    0 18px 42px -18px rgb(0 0 0 / 0.25);
   pointer-events: auto;
   transition: box-shadow 0.2s;
 }
 .composer:focus-within {
   box-shadow:
-    0 0 0 1px rgb(23 23 23 / 0.2),
-    0 1px 2px rgb(0 0 0 / 0.05),
-    0 2px 6px -2px rgb(0 0 0 / 0.06),
-    0 22px 48px -18px rgb(0 0 0 / 0.24);
+    inset 0 1px 0 rgb(255 255 255 / 0.96),
+    inset 0 -1px 0 rgb(255 255 255 / 0.28),
+    0 0 0 1px rgb(23 23 23 / 0.18),
+    0 22px 50px -18px rgb(0 0 0 / 0.3);
 }
 .field {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
   min-height: 22px;
@@ -479,10 +519,11 @@
   box-shadow: none;
 }
 
-/* Send: a small block of ink glass, lit from above, with a pixel arrow. Empty, it's paper; the ink
+/* Send: a small block of ink glass, lit from above. Empty, it's paper; the ink
    fades in with the first letter you type. */
 .send {
   position: relative;
+  z-index: 1;
   isolation: isolate;
   flex: none;
   display: grid;
@@ -520,8 +561,49 @@
     opacity 0.2s,
     box-shadow 0.18s;
 }
-.send svg {
+.send::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  border-radius: inherit;
+  background:
+    radial-gradient(90% 60% at 30% 0%, rgb(255 255 255 / 0.34), transparent 54%),
+    linear-gradient(110deg, rgb(255 152 88 / 0.1), transparent 36%, rgb(83 129 230 / 0.1));
+  pointer-events: none;
+}
+.sendMark {
+  position: relative;
+  width: 14px;
+  height: 15px;
   transition: transform 0.18s var(--ease);
+}
+.sendMark::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 1.5px;
+  height: 11px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.sendMark::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 2px;
+  width: 7px;
+  height: 7px;
+  border-top: 1.5px solid currentColor;
+  border-left: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+.stopMark {
+  width: 9px;
+  height: 9px;
+  border-radius: 2.5px;
+  background: currentColor;
 }
 .send:disabled {
   cursor: default;
@@ -529,6 +611,9 @@
 }
 .send:disabled::before {
   opacity: 0;
+}
+.send:disabled::after {
+  opacity: 0.45;
 }
 .send:not(:disabled):active {
   transform: scale(0.94);
@@ -631,7 +716,7 @@
       0 2px 4px rgb(0 0 0 / 0.25),
       0 12px 22px -10px rgb(0 0 0 / 0.6);
   }
-  .send:not(:disabled):hover svg {
+  .send:not(:disabled):hover .sendMark {
     transform: translateY(-1px);
   }
   .suggestion:hover {
@@ -663,9 +748,10 @@
     transform: scale(0.92);
   }
 }
-@keyframes settle {
+@keyframes answerIn {
   from {
-    filter: blur(1.6px);
+    opacity: 0;
+    transform: translateY(6px);
   }
 }
 @keyframes lineIn {
@@ -675,15 +761,6 @@
     transform: translateY(8px);
   }
 }
-@keyframes shimmer {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: 0% 0;
-  }
-}
-
 /* Phones: a 16px field, so iOS doesn't zoom in; tighter gutters. */
 @media (max-width: 640px) {
   .header {
@@ -745,6 +822,11 @@
   .dock {
     padding: 0 12px calc(12px + env(safe-area-inset-bottom));
   }
+  /* Before the first question, long drafts scroll inside the composer instead of covering the title. */
+  .page:not([data-started]) .field {
+    max-height: 72px;
+    overflow-y: auto;
+  }
 }
 
 /* Short phone windows, including the viewport above an open keyboard: keep every first-question
@@ -773,7 +855,7 @@
     padding-inline: 12px;
     font-size: 12px;
   }
-  .field {
+  .page:not([data-started]) .field {
     /* The composer stays below the orb and title; longer drafts scroll inside it until the chat starts. */
     max-height: 48px;
     overflow-y: auto;
@@ -782,7 +864,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .you,
-  .word,
+  .answer[data-ready],
   .tx,
   .pill,
   .actions,
@@ -795,7 +877,7 @@
   .think,
   .send,
   .send::before,
-  .send svg,
+  .sendMark,
   .suggestion {
     transition: none;
   }
