@@ -1,17 +1,15 @@
 "use client";
 
 // DELPHI's chat. One orb is DELPHI. Before the first question it sits above the composer and listens:
-// each key you type lifts its light. Ask, and it flies beside your question and thinks. When her answer
-// streams in, it shrinks to a bead and writes it, word by word, each word inked as the orb passes over
-// it; at a line's end it drops to the next line first, so it never crosses what it just wrote. Then it
-// rests at the end of the answer until the next question lifts it.
-// Answers stream from /api/ask-delphi (src/app/api/ask-delphi/route.ts).
+// each key you type lifts its light. Ask, and it flies beside your question while the answer streams
+// privately from /api/ask-delphi. Once the answer is complete, the page reveals it at once and the orb
+// rests at its end. The visitor never has to wait for a decorative word-by-word writing pass.
 
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { CodeWordmark } from "@/components/code-type/code-wordmark";
-import { blocks, LABEL, nextWord, plain, shortHash, type Block, type Piece, type Verdict } from "./format";
-import { AGAIN, CHECK, COPY, DOWN, PLUS, Pixels, SEND, STOP } from "./glyphs";
+import { blocks, LABEL, plain, shortHash, type Block, type Piece, type Verdict } from "./format";
+import { AGAIN, CHECK, COPY, DOWN, Pixels } from "./glyphs";
 import { ChatOrb } from "./orb";
 import s from "./delphi-chat.module.css";
 
@@ -19,22 +17,21 @@ type Coin = { symbol: string | null; token: string; verdict: Verdict; market: "a
 type Turn = {
   id: number;
   question: string;
-  /** Her answer as written on the page so far: always cut at a word. */
+  /** Her complete answer, revealed only after its stream ends. */
   text: string;
   coins: Coin[];
   /** The transactions in her data for this answer (lowercase): the only hashes drawn as proof links. */
   proofs: ReadonlySet<string>;
-  status: "thinking" | "writing" | "done" | "error";
+  status: "thinking" | "done" | "error";
   error?: string;
   /** When it was asked (performance.now). */
   at: number;
 };
 
 const THINK_MIN = 1.4; // seconds she thinks, however fast the answer comes
-const CPS = 38; // characters a second she writes at; faster only when the answer is far ahead of her
 const LINE_EVERY = 2200; // ms each thinking line stays
 const RECENT = 6; // earlier questions and answers sent with each question (the server keeps 12 messages at most)
-const R = { hero: 56, heroPhone: 46, think: 20, pen: 7.5, rest: 7 };
+const R = { hero: 56, heroPhone: 46, think: 20, rest: 7 };
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const smooth = (a: number, b: number, v: number) => {
@@ -68,7 +65,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
   const [lift, setLift] = useState(0);
   const [clock, setClock] = useState(0);
   const started = turns.length > 0;
-  const busy = turns.some((t) => t.status === "thinking" || t.status === "writing");
+  const busy = turns.some((t) => t.status === "thinking");
 
   const canvas = useRef<HTMLCanvasElement>(null);
   const bead = useRef<HTMLDivElement>(null);
@@ -93,10 +90,8 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     sigs: new Map<number, string>(), // her signature on each whole answer, sent back with it
     ended: new Set<number>(), // answers whose stream is over
     errors: new Map<number, string>(), // why an answer failed, if it did
-    pen: { id: -1, end: 0, start: 0, delay: 0, dur: 0, tail: 0 },
     keys: [] as number[], // when keys were typed (seconds), so the orb can hear them
     stuck: true,
-    inked: null as HTMLElement | null,
   });
   useEffect(() => {
     live.current.turns = turns;
@@ -167,7 +162,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
       }
       L.ended.add(id);
     } catch (err) {
-      // Stopped: she finishes writing what came (or says she stopped). Failed: the loop below says so.
+      // Stopped: the complete answer stays hidden. Failed: the loop below says so.
       L.errors.set(id, ctrl.signal.aborted ? ERRORS.STOPPED : (ERRORS[(err as Error).message] ?? ERRORS.FAILED));
       L.ended.add(id);
     } finally {
@@ -180,8 +175,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     const L = live.current;
     const cur = L.turns.at(-1);
     if (cur) {
-      L.full.set(cur.id, L.pen.id === cur.id ? (L.full.get(cur.id) ?? "").slice(0, L.pen.end) : "");
-      // What's left isn't the answer she signed, so it won't count as hers.
+      L.full.set(cur.id, "");
       L.sigs.delete(cur.id);
       L.errors.set(cur.id, ERRORS.STOPPED);
       L.ended.add(cur.id);
@@ -201,7 +195,6 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     L.sigs.clear();
     L.ended.clear();
     L.errors.clear();
-    L.pen.id = -1;
     busyRef.current = false;
     setTurns([]);
     setDraft("");
@@ -250,7 +243,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     }
   };
 
-  // The thinking line and its timer move on once a second.
+  // The thinking line moves on while she reads.
   useEffect(() => {
     if (!busy) return;
     const id = setInterval(() => setClock(performance.now()), 250);
@@ -286,12 +279,20 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     liftRef.current = lift;
   }, [lift]);
 
-  // When an answer ends, bring its actions up above the composer (unless you've scrolled away).
+  // When an answer ends, bring it into view (unless you've scrolled away): its actions if it's short,
+  // its first lines if it's long, so a long answer is read from the verdict down.
   const last = turns.at(-1);
   const lastEnded = last && (last.status === "done" || last.status === "error") ? last.id : null;
   useEffect(() => {
     if (lastEnded == null || !live.current.stuck) return;
-    const id = setTimeout(() => scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }), 350);
+    const id = setTimeout(() => {
+      const sc = scroller.current;
+      if (!sc) return;
+      const end = sc.scrollHeight - sc.clientHeight;
+      const answer = answers.current.get(lastEnded);
+      const start = answer ? sc.scrollTop + answer.getBoundingClientRect().top - sc.getBoundingClientRect().top - 96 : end;
+      sc.scrollTo({ top: Math.max(sc.scrollTop, Math.min(end, start)), behavior: "smooth" });
+    }, 350);
     return () => clearTimeout(id);
   }, [lastEnded]);
 
@@ -324,7 +325,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     return () => ro.disconnect();
   }, []);
 
-  // ------------------------------------------------------------------ the orb and the pen
+  // ------------------------------------------------------------------ the orb
   useEffect(() => {
     const cv = canvas.current;
     if (!cv) return;
@@ -343,17 +344,9 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
       const off = cv.getBoundingClientRect();
       return { left: r.left - off.left, right: r.right - off.left, top: r.top - off.top, width: r.width, height: r.height };
     };
-    const lastPieces = (id: number) => {
+    const lastPiece = (id: number) => {
       const all = answers.current.get(id)?.querySelectorAll<HTMLElement>("[data-w]");
-      if (!all?.length) return [null, null] as const;
-      return [all[all.length - 1], all.length > 1 ? all[all.length - 2] : null] as const;
-    };
-    const unink = () => {
-      if (L.inked) {
-        L.inked.style.maskImage = "";
-        L.inked.style.webkitMaskImage = "";
-        L.inked = null;
-      }
+      return all?.length ? all[all.length - 1] : null;
     };
 
     const frame = () => {
@@ -370,42 +363,19 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
       const top = cv.getBoundingClientRect().top;
       const phone = W < 640;
 
-      // ---- the pen: give the next word when the last one is written
-      if (cur && (cur.status === "thinking" || cur.status === "writing")) {
+      // ---- reveal the complete answer once its stream ends
+      if (cur?.status === "thinking") {
         const full = L.full.get(cur.id) ?? "";
         const ended = L.ended.has(cur.id);
-        const P = L.pen;
-        if (P.id !== cur.id) Object.assign(P, { id: cur.id, end: 0, start: 0, delay: 0, dur: 0, tail: 0 });
-        // She thinks a moment however fast the answer comes, unless it ended with nothing to write.
         const thoughtEnough = (ended && !full.trim()) || now - cur.at / 1000 >= (reduced ? 0.2 : THINK_MIN);
-        const due = P.start + P.delay + P.dur + P.tail;
-        if (now >= due && thoughtEnough) {
-          const w = nextWord(full, P.end, ended);
-          if (w) {
-            // A steady pace, character by character: the stream arrives in uneven pieces, the page
-            // doesn't. She speeds up, gently (up to 1.6x), only when the answer is very far ahead of her.
-            const ahead = full.length - w.end;
-            const speed = 1 + clamp((ahead - 700) / 1400, 0, 0.6);
-            // A transaction or an address is drawn short (0x1234…abcd), so it takes the time of what shows.
-            const shown = /^0x[0-9a-fA-F]{40,64}/.test(w.word) ? 12 : w.word.length;
-            const chars = Math.max(1, shown + (w.end - P.end - w.word.length));
-            P.end = w.end;
-            // Start where the last word ended, not where this frame landed, so the pace never drifts.
-            P.start = cur.status === "thinking" ? now : Math.max(due, now - 0.05);
-            P.delay = cur.status === "thinking" ? 0.45 : w.breaks ? 0.28 : 0;
-            P.dur = reduced ? 0.012 : chars / (CPS * speed);
-            P.tail = reduced ? 0 : (/[.!?]$/.test(w.word) ? 0.24 : /[,:;]$/.test(w.word) ? 0.1 : 0) / Math.min(speed, 2);
-            const text = full.slice(0, w.end);
-            setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, text, status: "writing" } : x)));
-          } else if (ended && now >= P.start + P.delay + P.dur + 0.05) {
-            const error = L.errors.get(cur.id);
-            if (error) {
-              setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, text: full.slice(0, Math.max(P.end, full.trimEnd().length)), status: "error", error } : x)));
-            } else if (full.trim()) {
-              setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, text: full.slice(0, Math.max(P.end, full.trimEnd().length)), status: "done" } : x)));
-            } else {
-              setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, status: "error", error: ERRORS.FAILED } : x)));
-            }
+        if (ended && thoughtEnough) {
+          const error = L.errors.get(cur.id);
+          if (error) {
+            setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, text: "", status: "error", error } : x)));
+          } else if (full.trim()) {
+            setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, text: full.trimEnd(), status: "done" } : x)));
+          } else {
+            setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, status: "error", error: ERRORS.FAILED } : x)));
           }
         }
       }
@@ -414,9 +384,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
       let tx = W / 2;
       let ty = H * 0.3;
       let tr = phone ? R.heroPhone : R.hero;
-      let mode: "hero" | "think" | "pen" | "rest" = "hero";
-      let ink = 0;
-      let inkEl: HTMLElement | null = null;
+      let mode: "hero" | "think" | "rest" = "hero";
       if (!cur) {
         const h = rect(heroSpot.current);
         if (h) {
@@ -425,10 +393,9 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
           tr = h.width / 2;
         }
       } else {
-        const P = L.pen;
-        const [el, prev] = lastPieces(cur.id);
+        const el = lastPiece(cur.id);
         const spot = rect(spots.current.get(cur.id));
-        if ((cur.status === "thinking" || (cur.status === "writing" && !el)) && spot) {
+        if (cur.status === "thinking" && spot) {
           mode = "think";
           tx = spot.left + spot.width / 2;
           ty = spot.top + spot.height / 2;
@@ -440,30 +407,16 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
           tr = R.rest;
         } else if (el) {
           const r = rect(el);
-          const p = rect(prev);
           if (r) {
-            const writing = cur.status === "writing";
-            mode = writing ? "pen" : "rest";
-            tr = writing ? R.pen : R.rest;
-            ink = writing ? clamp((now - P.start - P.delay) / Math.max(P.dur, 0.001), 0, 1) : 1;
-            const sameLine = !!p && Math.abs(p.top + p.height / 2 - (r.top + r.height / 2)) < 4 && el.dataset.kind === "word";
-            tx = (writing && sameLine ? r.left + r.width * ink : r.right) + 5 + tr;
+            mode = "rest";
+            tr = R.rest;
+            tx = r.right + 5 + tr;
             ty = r.top + r.height / 2;
-            if (writing && sameLine && !reduced) inkEl = el;
           }
         }
       }
 
-      // ---- the ink: the word being written shows up to the orb
-      if (inkEl !== L.inked) unink();
-      if (inkEl && ink < 1) {
-        const m = `linear-gradient(90deg, #000 ${(ink * 118 - 18).toFixed(1)}%, transparent ${(ink * 118 + 4).toFixed(1)}%)`;
-        inkEl.style.maskImage = m;
-        inkEl.style.webkitMaskImage = m;
-        L.inked = inkEl;
-      } else if (inkEl) unink();
-
-      // ---- springs; on the line it's writing it follows the pen exactly
+      // ---- springs
       const dt = sim.last ? Math.min(0.05, now - sim.last) : 1 / 60;
       sim.last = now;
       // Scrolling carries the orb with the page, so it never trails what it sits on. A jump of more
@@ -476,30 +429,15 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
         const steps = Math.max(1, Math.round(dt / (1 / 120)));
         const h = dt / steps;
         for (let i = 0; i < steps; i++) {
-          // Calm glides between places; tight only while it follows the pen.
-          const wx = mode === "pen" ? 26 : 8.5;
-          const wy = mode === "pen" ? 36 : 8.5;
+          const wx = 8.5;
+          const wy = 8.5;
           sim.vr += (56 * (tr - sim.r) - 15 * sim.vr) * h;
           sim.r += sim.vr * h;
-          if (mode === "pen" && Math.abs(ty - sim.y) < 1.5 && Math.abs(sim.vy) < 40) {
-            sim.vx += ((tx - sim.x) / h - sim.vx) * 0.25;
-            sim.x = tx;
-            sim.vy = 0;
-            sim.y = ty;
-          } else {
-            sim.vx += (wx * wx * (tx - sim.x) - 2 * wx * sim.vx) * h;
-            sim.vy += (wy * wy * (ty - sim.y) - 2 * wy * sim.vy) * h;
-            sim.x += sim.vx * h;
-            sim.y += sim.vy * h;
-          }
+          sim.vx += (wx * wx * (tx - sim.x) - 2 * wx * sim.vx) * h;
+          sim.vy += (wy * wy * (ty - sim.y) - 2 * wy * sim.vy) * h;
+          sim.x += sim.vx * h;
+          sim.y += sim.vy * h;
         }
-      }
-
-      // ---- keep the pen in view while she writes, unless you've scrolled up
-      if (L.stuck && cur && (cur.status === "thinking" || cur.status === "writing")) {
-        const dockTop = (dock.current?.querySelector<HTMLElement>("[data-composer]")?.getBoundingClientRect().top ?? H + top) - top;
-        const over = ty + 48 - dockTop;
-        if (over > 0 && scroller.current) scroller.current.scrollTop += Math.ceil(over * (reduced ? 1 : 0.18));
       }
 
       // ---- how the light behaves
@@ -511,8 +449,6 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
         think = smooth(cur.at / 1000 + 0.15, cur.at / 1000 + 1.3, now);
         energy = 0.5 + 0.3 * voice(t);
         pulse = Math.exp(-(((now - cur.at / 1000) % 1.8) * 3));
-      } else if (mode === "pen") {
-        energy = 0.62 + 0.36 * voice(t * 1.6);
       } else if (mode === "rest") {
         energy = 0.12 + 0.1 * voice(t * 0.7) + 0.5 * kick;
       } else {
@@ -538,15 +474,12 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
       }
     };
     raf = requestAnimationFrame(frame);
-    return () => {
-      cancelAnimationFrame(raf);
-      unink();
-    };
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   // ------------------------------------------------------------------ the page
   const cur = turns.at(-1);
-  const announce = !cur ? "" : cur.status === "thinking" || cur.status === "writing" ? "DELPHI is answering." : cur.status === "error" ? (cur.error ?? "") : plain(cur.text);
+  const announce = !cur ? "" : cur.status === "thinking" ? "DELPHI is answering." : cur.status === "error" ? (cur.error ?? "") : plain(cur.text);
 
   return (
     <div ref={page} className={s.page} data-started={started || undefined}>
@@ -558,8 +491,8 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
           <CodeWordmark text="PANTHEON" module={2.2} />
         </Link>
         <button type="button" className={s.newChat} onClick={newChat} tabIndex={started ? 0 : -1} aria-hidden={!started}>
-          <Pixels d={PLUS} size={12} />
-          New chat
+          <span className={s.plusMark} aria-hidden="true" />
+          <span className={s.newChatLabel}>New chat</span>
         </button>
       </header>
 
@@ -575,7 +508,6 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
           {turns.map((t, i) => {
             const lines = thinking(t.coins);
             const since = Math.max(0, clock - t.at);
-            const secs = Math.floor(since / 1000);
             const line = lines[Math.min(lines.length - 1, Math.floor(since / LINE_EVERY))];
             const one = t.coins.length === 1 ? t.coins[0] : null;
             return (
@@ -583,7 +515,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
                 <div className={s.you}>
                   <p className={s.bubble}>{t.question}</p>
                 </div>
-                <div className={s.delphi} aria-busy={t.status === "thinking" || t.status === "writing"}>
+                <div className={s.delphi} aria-busy={t.status === "thinking"}>
                   <div className={s.think} data-on={t.status === "thinking" || undefined} aria-hidden="true">
                     <span
                       className={s.spot}
@@ -594,10 +526,10 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
                     <span key={line} className={s.thinkLine}>
                       {line}…
                     </span>
-                    <span className={s.timer}>{secs}s</span>
                   </div>
                   <div
                     className={s.answer}
+                    data-ready={t.status === "done" || undefined}
                     ref={(el) => {
                       answers.current.set(t.id, el);
                     }}
@@ -680,11 +612,11 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
           />
           {busy ? (
             <button type="button" className={s.send} onClick={stop} aria-label="Stop">
-              <Pixels d={STOP} size={12} />
+              <span className={s.stopMark} aria-hidden="true" />
             </button>
           ) : (
             <button type="button" className={s.send} onClick={() => void ask(draft)} disabled={!draft.trim()} aria-label="Send">
-              <Pixels d={SEND} size={14} />
+              <span className={s.sendMark} aria-hidden="true" />
             </button>
           )}
         </div>
