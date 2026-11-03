@@ -279,12 +279,20 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     liftRef.current = lift;
   }, [lift]);
 
-  // When an answer ends, bring its actions up above the composer (unless you've scrolled away).
+  // When an answer ends, bring it into view (unless you've scrolled away): its actions if it's short,
+  // its first lines if it's long, so a long answer is read from the verdict down.
   const last = turns.at(-1);
   const lastEnded = last && (last.status === "done" || last.status === "error") ? last.id : null;
   useEffect(() => {
     if (lastEnded == null || !live.current.stuck) return;
-    const id = setTimeout(() => scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" }), 350);
+    const id = setTimeout(() => {
+      const sc = scroller.current;
+      if (!sc) return;
+      const end = sc.scrollHeight - sc.clientHeight;
+      const answer = answers.current.get(lastEnded);
+      const start = answer ? sc.scrollTop + answer.getBoundingClientRect().top - sc.getBoundingClientRect().top - 96 : end;
+      sc.scrollTo({ top: Math.max(sc.scrollTop, Math.min(end, start)), behavior: "smooth" });
+    }, 350);
     return () => clearTimeout(id);
   }, [lastEnded]);
 
