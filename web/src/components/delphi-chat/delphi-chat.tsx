@@ -55,7 +55,7 @@ const ERRORS: Record<string, string> = {
   RATE_LIMITED: "You’re asking faster than I can read. Wait a minute, then ask again.",
   HOUR_LIMIT: "You’ve asked me a lot this hour. Wait a while, then ask again.",
   FAILED: "I couldn’t answer that just now.",
-  STOPPED: "Stopped before I answered.",
+  STOPPED: "Stopped here.",
 };
 
 export function DelphiChat({ explorer, suggestions }: { explorer: string; suggestions: string[] }) {
@@ -63,6 +63,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
   const [draft, setDraft] = useState("");
   const [stuck, setStuck] = useState(true);
   const [copied, setCopied] = useState<number | null>(null);
+  const [shared, setShared] = useState<number | null>(null);
   const [noGL, setNoGL] = useState(false);
   const [lift, setLift] = useState(0);
   const [clock, setClock] = useState(0);
@@ -74,6 +75,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
   const heroSpot = useRef<HTMLDivElement>(null);
   const empty = useRef<HTMLDivElement>(null);
   const dock = useRef<HTMLDivElement>(null);
+  const suggestionRow = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const page = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -82,6 +84,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
   const answers = useRef(new Map<number, HTMLDivElement | null>());
   const nextId = useRef(0);
   const abort = useRef<AbortController | null>(null);
+  const busyRef = useRef(false);
 
   // What the animation reads, kept current without restarting it.
   const live = useRef({
@@ -98,13 +101,17 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
   useEffect(() => {
     live.current.turns = turns;
   }, [turns]);
+  useEffect(() => {
+    busyRef.current = busy;
+  }, [busy]);
 
   const setTurn = (id: number, f: (t: Turn) => Turn) => setTurns((ts) => ts.map((t) => (t.id === id ? f(t) : t)));
 
   // ------------------------------------------------------------------ asking
   const ask = async (question: string, without?: number) => {
     const q = question.trim();
-    if (!q || busy) return;
+    if (!q || busyRef.current) return;
+    busyRef.current = true;
     const id = ++nextId.current;
     const L = live.current;
     // Her earlier answers go back exactly as they came, with her signature: the server ignores any
@@ -176,6 +183,8 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
       L.full.set(cur.id, L.pen.id === cur.id ? (L.full.get(cur.id) ?? "").slice(0, L.pen.end) : "");
       // What's left isn't the answer she signed, so it won't count as hers.
       L.sigs.delete(cur.id);
+      L.errors.set(cur.id, ERRORS.STOPPED);
+      L.ended.add(cur.id);
     }
     abort.current?.abort();
   };
@@ -193,6 +202,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     L.ended.clear();
     L.errors.clear();
     L.pen.id = -1;
+    busyRef.current = false;
     setTurns([]);
     setDraft("");
     scroller.current?.scrollTo({ top: 0 });
@@ -206,6 +216,28 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
       setTimeout(() => setCopied((c) => (c === t.id ? null : c)), 1600);
     } catch {
       // No clipboard here (an insecure page or a denied permission): nothing to do.
+    }
+  };
+
+  const share = async (t: Turn, coin: Coin | null) => {
+    const answer = plain(live.current.full.get(t.id) ?? t.text);
+    const url = coin ? (coin.market === "ascend" ? `${window.location.origin}/delphi/${coin.token}` : `${explorer}/token/${coin.token}`) : window.location.href;
+    const text = `${answer}\n\n${url}`;
+    try {
+      if (navigator.share) await navigator.share({ title: "DELPHI · PANTHEON", text: answer, url });
+      else await navigator.clipboard.writeText(text);
+      setShared(t.id);
+      setTimeout(() => setShared((id) => (id === t.id ? null : id)), 1600);
+    } catch (err) {
+      if ((err as DOMException).name !== "AbortError") {
+        try {
+          await navigator.clipboard.writeText(text);
+          setShared(t.id);
+          setTimeout(() => setShared((id) => (id === t.id ? null : id)), 1600);
+        } catch {
+          // Sharing and clipboard access can both be denied; leave the page unchanged.
+        }
+      }
     }
   };
 
@@ -240,7 +272,10 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
       const e = empty.current.getBoundingClientRect();
       const b = box.current.getBoundingClientRect();
       const docked = b.top + (liftRef.current || 0); // where it sits with no lift
-      setLift(Math.max(0, docked - (e.bottom + 28)));
+      const tips = suggestionRow.current?.getBoundingClientRect();
+      const tipsBottom = tips ? tips.bottom + (liftRef.current || 0) : b.bottom + (liftRef.current || 0);
+      const bottom = (page.current?.getBoundingClientRect().bottom ?? window.innerHeight) - 12;
+      setLift(Math.max(0, docked - (e.bottom + 28), tipsBottom - bottom));
     };
     place();
     window.addEventListener("resize", place);
@@ -363,8 +398,14 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
             const text = full.slice(0, w.end);
             setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, text, status: "writing" } : x)));
           } else if (ended && now >= P.start + P.delay + P.dur + 0.05) {
-            if (full.trim()) setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, text: full.slice(0, Math.max(P.end, full.trimEnd().length)), status: "done" } : x)));
-            else setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, status: "error", error: L.errors.get(cur.id) ?? ERRORS.FAILED } : x)));
+            const error = L.errors.get(cur.id);
+            if (error) {
+              setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, text: full.slice(0, Math.max(P.end, full.trimEnd().length)), status: "error", error } : x)));
+            } else if (full.trim()) {
+              setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, text: full.slice(0, Math.max(P.end, full.trimEnd().length)), status: "done" } : x)));
+            } else {
+              setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, status: "error", error: ERRORS.FAILED } : x)));
+            }
           }
         }
       }
@@ -581,6 +622,11 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
                           {copied === t.id ? "Copied" : "Copy"}
                         </button>
                       )}
+                      {t.status === "done" && (
+                        <button type="button" className={s.action} onClick={() => void share(t, one)}>
+                          {shared === t.id ? "Shared" : "Share"}
+                        </button>
+                      )}
                       {one && t.status === "done" &&
                         (one.market === "ascend" ? (
                           <Link href={`/delphi/${one.token}`} className={s.action}>
@@ -591,6 +637,11 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
                             View token ↗
                           </a>
                         ))}
+                      {one && t.status === "done" && (
+                        <Link href={`/delphi/dispute?token=${one.token}`} className={s.action}>
+                          Dispute
+                        </Link>
+                      )}
                       {i === turns.length - 1 && (
                         <button type="button" className={s.action} onClick={() => again(t)}>
                           <Pixels d={AGAIN} size={12} />
@@ -637,7 +688,7 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
             </button>
           )}
         </div>
-        <div className={s.suggestions} aria-hidden={started}>
+        <div ref={suggestionRow} className={s.suggestions} aria-hidden={started}>
           {suggestions.map((q) => (
             <button key={q} type="button" className={s.suggestion} onClick={() => void ask(q)} tabIndex={started ? -1 : 0}>
               {q}

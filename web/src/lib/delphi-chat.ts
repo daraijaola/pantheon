@@ -100,9 +100,31 @@ function everyCoin(data: Delphi): Coin[] {
 // Words that are tickers on some launchpad but are far more often just words in a question.
 const COMMON = new Set(
   ("A I AM AN AND ANY ARE AS AT BE BUT BUY BY CAN COIN COINS DO FOR FROM GET HAS HE HOW IF IN IS IT ITS ME MY NO NOT NOW OF OK ON OR OUT SELL SO THAT THE THEM THEN THEY THIS TO UP US WAS WE WHAT WHEN WHO WHY WITH YES YOU " +
-    "ABOUT ALL BEST CLEAN COULD DELPHI FLAG FLAGGED GIVE GOOD HELLO HEY HI LIST MOST NEW RUG SAFE SHOULD SHOW TELL THANKS TOP WATCH WHERE WHICH WOULD").split(" "),
+    "ABOUT ADDRESS ALL ANALYZE BEST CHECK CLEAN COIN CONTRACT COULD DELPHI EXPLAIN FLAG FLAGGED GIVE GOOD HELLO HEY HI LIST MOST NEW PLEASE REPORT RISK RUG SAFE SHOULD SHOW SUMMARY TELL THANKS TICKER TOKEN TOP VERDICT WATCH WHERE WHICH WOULD").split(" "),
 );
 const ADDRESS = /0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/g;
+
+function explicitCoinQuery(content: string): string | null {
+  const address = content.match(ADDRESS)?.[0];
+  if (address) return address;
+  for (const word of content.match(/\$?[A-Za-z0-9]{2,12}/g) ?? []) {
+    const ticker = word.replace("$", "");
+    const key = ticker.toUpperCase();
+    if (COMMON.has(key)) continue;
+    if (word.startsWith("$") || (ticker === key && /[A-Z]/.test(ticker))) return word;
+  }
+  return null;
+}
+
+/** An address or deliberately marked ticker in the newest questions, whether DELPHI knows it or not. */
+export function coinQuery(messages: ChatMessage[]): string | null {
+  const asked = messages.filter((m) => m.role === "user").slice(-3).reverse();
+  for (const m of asked) {
+    const query = explicitCoinQuery(m.content);
+    if (query) return query;
+  }
+  return null;
+}
 
 /**
  * The coins a conversation is about, from the newest question that names one: by address, "$TICKER"
@@ -111,19 +133,21 @@ const ADDRESS = /0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/g;
 export function findCoins(data: Delphi, messages: ChatMessage[]): Coin[] {
   const all = everyCoin(data);
   const byToken = new Map(all.map((c) => [c.token.toLowerCase(), c]));
-  const bySymbol = new Map<string, Coin>();
+  const bySymbol = new Map<string, Coin[]>();
   for (const c of all) {
     if (!c.symbol) continue;
     const key = c.symbol.toUpperCase();
-    const seen = bySymbol.get(key);
-    if (!seen || c.trades > seen.trades) bySymbol.set(key, c);
+    bySymbol.set(key, [...(bySymbol.get(key) ?? []), c]);
   }
+  for (const coins of bySymbol.values()) coins.sort((a, b) => b.trades - a.trades);
   const asked = messages.filter((m) => m.role === "user").slice(-3).reverse();
   for (const m of asked) {
     const sure: Coin[] = [];
     const maybe: Coin[] = [];
-    const add = (to: Coin[], c: Coin | undefined) => {
-      if (c && !sure.includes(c) && !maybe.includes(c)) to.push(c);
+    const add = (to: Coin[], coins: Coin | Coin[] | undefined) => {
+      for (const c of Array.isArray(coins) ? coins : coins ? [coins] : []) {
+        if (!sure.includes(c) && !maybe.includes(c)) to.push(c);
+      }
     };
     for (const a of m.content.match(ADDRESS) ?? []) add(sure, byToken.get(a.toLowerCase()));
     for (const w of m.content.replace(ADDRESS, " ").match(/\$?[A-Za-z0-9]{2,12}/g) ?? []) {
@@ -136,11 +160,20 @@ export function findCoins(data: Delphi, messages: ChatMessage[]): Coin[] {
     }
     const found = [...sure, ...maybe];
     if (found.length) return found.slice(0, 3);
+    // A deliberate address or ticker in the newest question is unknown. Do not silently answer
+    // about a coin named in an older turn; older turns are consulted only for pronoun follow-ups.
+    if (explicitCoinQuery(m.content)) return [];
   }
   return [];
 }
 
 export const coinRef = (c: Coin): CoinRef => ({ symbol: c.symbol, token: c.token, verdict: c.verdict, market: c.market });
+
+/** More than one contract using the same ticker needs an address before DELPHI can answer safely. */
+export function ambiguousTicker(coins: Coin[]): boolean {
+  const ticker = coins[0]?.symbol?.toUpperCase();
+  return !!ticker && coins.length > 1 && coins.every((c) => c.symbol?.toUpperCase() === ticker) && new Set(coins.map((c) => c.token.toLowerCase())).size > 1;
+}
 
 // ------------------------------------------------------------------ what DELPHI knows
 
@@ -175,7 +208,7 @@ export function txsIn(data: string): string[] {
 }
 
 /** DELPHI's data for the model: the scan, then each coin asked about, or the flagged lists. */
-export function context(data: Delphi | null, coins: Coin[]): string {
+export function context(data: Delphi | null, coins: Coin[], unknown: string | null = null): string {
   if (!data) return "DELPHI has not published a scan yet. You have no coin data: say so plainly.";
   const n = data.counts;
   const k = data.kalos?.counts;
@@ -184,6 +217,13 @@ export function context(data: Delphi | null, coins: Coin[]): string {
     `Ascend: ${n.coins} coins. ${n.FLAG} flagged, ${n.WATCH} on watch, ${n.CLEAN} clean, ${n.NOT_ENOUGH_DATA} without enough data.`,
   ];
   if (k) lines.push(`Kalos and PerpMe: ${k.coins} coins. ${k.FLAG} flagged, ${k.WATCH} on watch, ${k.CLEAN} clean, ${k.NOT_ENOUGH_DATA} without enough data.`);
+  if (unknown) lines.push(`The person asked about ${quoted(unknown)}, but no coin with that address or ticker is in this scan. Say you have not read it; do not answer about another coin.`);
+  if (ambiguousTicker(coins)) {
+    lines.push(
+      `The ticker ${quoted(coins[0].symbol ?? "")} belongs to more than one coin. Do not choose one. Ask for the contract address.`,
+      ...coins.map((c) => `${c.token}: ${c.verdict}, ${c.trades} trades, on ${c.market}.`),
+    );
+  }
   for (const c of coins) {
     const e = data.explained[c.token.toLowerCase()];
     lines.push(
@@ -249,21 +289,28 @@ Rules:
 - Every number you give must come from the data. Never estimate one.
 - End each finding with the transaction hashes behind it, copied in full from the data. If the data has none, cite none. Never make one up.
 - Write plainly: short declarative sentences, no hype, no exclamation marks, no emoji. Talk to "you". Write PANTHEON, DELPHI, HYPE and USDC in capitals.
+- If a ticker belongs to several contracts, do not pick one. Ask for the contract address.
 - About one coin, use exactly this shape:
-[VERDICT] One line: the coin and its verdict, in plain words.
+[VERDICT] One line: the coin and the main reason, in plain words. Do not repeat the verdict after the tag.
 One or two sentences on what that means.
 ## What I saw
-- One finding per line, ending with its transaction hashes.
+- Up to three important findings, one per line, ending with its transaction hashes.
 > One caveat, if the data has one.
   where [VERDICT] is [FLAG], [WATCH], [CLEAN] or [NOT ENOUGH DATA].
 - Anything else: one to three short paragraphs.
-- Keep every answer under 150 words.`;
+- Keep every answer under 120 words.`;
 
 // ------------------------------------------------------------------ answers
 
 /** An answer written straight from DELPHI's data: no model needed. */
-export function fromReports(data: Delphi | null, coins: Coin[]): string {
+export function fromReports(data: Delphi | null, coins: Coin[], unknown: string | null = null): string {
   if (!data) return "I haven’t published a scan yet, so I can’t check coins right now. Try again soon.";
+  if (unknown) return `I haven’t read ${unknown} in this scan. Check the contract address, or try again after DELPHI’s next scan.`;
+  if (ambiguousTicker(coins)) {
+    const ticker = coins[0].symbol ?? "That ticker";
+    const rows = coins.map((c) => `- ${c.token}: ${SAYS[c.verdict]} on ${c.market}.`);
+    return [`I found more than one coin using ${ticker}. Send the contract address so I don’t show you the wrong one.`, ...rows].join("\n");
+  }
   if (!coins.length) {
     const k = data.kalos?.counts;
     const read = k ? `I’ve read ${data.counts.coins} coins on Ascend and ${k.coins} on Kalos and PerpMe.` : `I’ve read ${data.counts.coins} coins on Ascend.`;
@@ -287,14 +334,15 @@ export function fromReports(data: Delphi | null, coins: Coin[]): string {
   const e = data.explained[first.token.toLowerCase()];
   const out: string[] = [];
   if (e) {
-    out.push(`${TAG[first.verdict]} ${name} ${SAYS[first.verdict]}: ${stop(lowerFirst(headline(e.explanation.headline)))}`);
+    const reason = headline(e.explanation.headline).replace(/^(FLAG|WATCH|CLEAN|NOT ENOUGH DATA)\s*[:—–-]\s*/i, "");
+    out.push(`${TAG[first.verdict]} ${name}: ${stop(lowerFirst(reason))}`);
     out.push(e.explanation.summary);
     if (e.explanation.points.length) {
-      out.push(["## What I saw", ...e.explanation.points.map((p) => `- ${p.text}${p.evidence.length ? ` ${p.evidence.join(" ")}` : ""}`)].join("\n"));
+      out.push(["## What I saw", ...e.explanation.points.slice(0, 3).map((p) => `- ${p.text}${p.evidence.length ? ` ${p.evidence.join(" ")}` : ""}`)].join("\n"));
     }
     if (e.explanation.caveats[0]) out.push(`> ${e.explanation.caveats[0]}`);
   } else if (first.market !== "ascend") {
-    out.push(`${TAG[first.verdict]} ${name} ${SAYS[first.verdict]}.`);
+    out.push(`${TAG[first.verdict]} ${name}.`);
     const seen = [...(first.findings ?? []).map((f) => f.summary), ...contractRisks(first)];
     out.push(
       `${venue(first)} ${
@@ -305,7 +353,7 @@ export function fromReports(data: Delphi | null, coins: Coin[]): string {
     const note = notesOf(first)[0];
     if (note) out.push(`> ${note}`);
   } else {
-    out.push(`${TAG[first.verdict]} ${name} ${SAYS[first.verdict]}.`);
+    out.push(`${TAG[first.verdict]} ${name}.`);
     out.push(first.headline ? stop(headline(first.headline)) : "I haven’t written a full report on it yet, so there are no transactions to show you.");
   }
   for (const c of rest) out.push(`${c.symbol ?? c.token} ${SAYS[c.verdict]} too. Ask me about it on its own for the details.`);
