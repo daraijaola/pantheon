@@ -13,9 +13,7 @@ import { useMutation } from "@tanstack/react-query";
 import { stringToHex, UserRejectedRequestError } from "viem";
 import { useConfig, useConnection, useDisconnect } from "wagmi";
 import { signMessage } from "wagmi/actions";
-import { Providers } from "@/components/app/providers";
 import { reason } from "@/components/app/shared";
-import { uploadConfig } from "./upload-config";
 import { UploadNext, UploadOrb, type Picked } from "./upload-orb";
 import { isRejected } from "./elysium-switch";
 import { useConnectWallet } from "./use-connect-wallet";
@@ -36,11 +34,7 @@ function message(address: string) {
 
 /** The wallet context for all of /upload, and the step it's on. */
 export function UploadFlow() {
-  return (
-    <Providers config={uploadConfig}>
-      <Steps />
-    </Providers>
-  );
+  return <Steps />;
 }
 
 const noSubscribe = () => () => {};

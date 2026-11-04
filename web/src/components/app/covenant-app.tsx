@@ -12,18 +12,13 @@ import { useConnection, usePublicClient, useReadContract, useReadContracts } fro
 import { covenantFactoryAbi, covenantRouterAbi } from "@/lib/chain/abi";
 import { deployedFrom, deployment, elysium, explorer } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
-import { Providers } from "./providers";
-import { NotLive, Row, short, TxNote, useTx, WalletBar, type Hex } from "./shared";
+import { NotLive, Row, short, TxNote, useTx, type Hex } from "./shared";
 import s from "./app.module.css";
 import c from "./covenant.module.css";
 
 export function CovenantLaunchApp() {
   if (!deployment) return <NotLive title="Launch on Covenant" line="Covenant isn’t live on testnet yet. Launches open here the moment it is." />;
-  return (
-    <Providers>
-      <Launch d={deployment} />
-    </Providers>
-  );
+  return <Launch d={deployment} />;
 }
 
 // ------------------------------------------------------------------ the rules a creator can pick
@@ -140,7 +135,6 @@ function Launch({ d }: { d: Deployment }) {
             Your coin launches on Ascend like any other. Its creator fees go to a contract that follows the rules you pick here, and nobody can change them later, including you.
           </p>
         </div>
-        <WalletBar />
       </header>
 
       {done && (

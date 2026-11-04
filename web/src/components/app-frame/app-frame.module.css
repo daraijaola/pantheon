@@ -1,0 +1,130 @@
+.frame {
+  min-height: 100dvh;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  font-family: var(--font-geist);
+}
+.bar, .chip, .popover, .mobileNav {
+  background: linear-gradient(145deg, rgb(255 255 255 / 0.76), rgb(255 255 255 / 0.48));
+  -webkit-backdrop-filter: blur(22px) saturate(1.14);
+  backdrop-filter: blur(22px) saturate(1.14);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.92), inset 0 -1px 0 rgb(255 255 255 / 0.24), 0 0 0 1px rgb(23 23 23 / 0.08), 0 18px 42px -24px rgb(0 0 0 / 0.2);
+}
+.bar::before, .chip::before, .popover::before, .mobileNav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(120% 80% at 12% -10%, rgb(255 255 255 / 0.88), transparent 48%), linear-gradient(100deg, rgb(255 152 88 / 0.08), transparent 28%, transparent 70%, rgb(83 129 230 / 0.08));
+  pointer-events: none;
+  z-index: -1;
+}
+.bar {
+  position: relative;
+  isolation: isolate;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+}
+.mark {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  flex-shrink: 0;
+  color: inherit;
+}
+.desktopNav { display: flex; gap: 4px; }
+.tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 14px;
+}
+.tab[aria-current="page"] { background: rgb(23 23 23 / 0.07); font-weight: 600; }
+.soon { color: #737373; }
+.soon small { font-size: 9px; line-height: 14px; padding: 0 4px; border: 1px solid rgb(23 23 23 / 0.12); border-radius: 4px; }
+.actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.disclosure { position: relative; }
+.chip {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 12px;
+  color: inherit;
+  font: 450 14px/1.2 var(--font-geist);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chip:disabled { cursor: wait; opacity: 0.6; }
+.chevron { width: 6px; height: 6px; border-right: 1px solid; border-bottom: 1px solid; transform: translateY(-2px) rotate(45deg); }
+/* Inside the bar's own glass a second backdrop blur can't see the page, so the menu is nearly solid. */
+.popover {
+  position: absolute;
+  isolation: isolate;
+  background: linear-gradient(145deg, rgb(255 255 255 / 0.97), rgb(250 250 250 / 0.94));
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 180px;
+  padding: 6px;
+  border-radius: 14px;
+}
+.popover a, .popover button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.popover a:hover, .popover button:hover, .tab[href]:hover { background: rgb(23 23 23 / 0.05); }
+.frame :focus-visible { outline: 2px solid var(--color-ink); outline-offset: 3px; box-shadow: none; }
+.error { position: absolute; right: 0; top: 100%; width: 240px; padding: 12px; border: 1px solid var(--color-rule); border-radius: 12px; background: var(--color-paper); font-size: 13px; }
+.content { padding-bottom: 32px; }
+.mobileNav { display: none; }
+@media (min-width: 641px) and (max-width: 1000px) {
+  .bar { flex-wrap: wrap; gap: 4px 16px; }
+  .desktopNav { order: 3; width: 100%; justify-content: center; }
+}
+@media (max-width: 640px) {
+  .bar { gap: 8px; padding: 8px 12px; }
+  .mark svg { width: 100px; height: auto; }
+  .actions { gap: 4px; }
+  .chip { padding: 0 7px; font-size: 11px; gap: 5px; }
+  .desktopNav { display: none; }
+  .content { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .mobileNav {
+    position: fixed;
+    isolation: isolate;
+    z-index: 30;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  .tab { flex-direction: column; gap: 1px; min-height: 52px; padding: 4px 0; font-size: 12px; }
+}
