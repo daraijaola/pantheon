@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { TrialsApp } from "@/components/app/trials-app";
-import { SiteShell } from "@/components/site-shell";
 
 export const metadata: Metadata = {
   title: "Vote · The Trials · PANTHEON",
@@ -8,9 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return (
-    <SiteShell quiet>
-      <TrialsApp />
-    </SiteShell>
-  );
+  return <TrialsApp />;
 }

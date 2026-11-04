@@ -11,8 +11,7 @@ import { useConnection, useReadContracts } from "wagmi";
 import { hypePassportRegistryAbi } from "@/lib/chain/abi";
 import { deployment, elysium } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
-import { Providers } from "@/components/app/providers";
-import { WalletBar, type Hex } from "@/components/app/shared";
+import { type Hex } from "@/components/app/shared";
 import a from "@/components/app/app.module.css";
 import { createCard, type Layout } from "./card";
 import { createStamps } from "./stamps";
@@ -21,7 +20,7 @@ import { EXAMPLE, TIER_NAMES, dmy, stampNames, type PassportView } from "./view"
 import s from "./passport-book.module.css";
 
 export function PassportBook() {
-  return <Providers>{deployment ? <Live d={deployment} /> : <Book view={null} note="PANTHEON isn’t live on testnet yet, so this is an example passport." />}</Providers>;
+  return deployment ? <Live d={deployment} /> : <Book view={null} note="PANTHEON isn’t live on testnet yet, so this is an example passport." />;
 }
 
 function Live({ d }: { d: Deployment }) {
@@ -61,7 +60,7 @@ function Live({ d }: { d: Deployment }) {
         : view
           ? null
           : "This wallet has no passport yet, so this is an example.";
-  return <Book view={view} note={note} wallet getOne={onChain && !chain.isPending && !view} />;
+  return <Book view={view} note={note} getOne={onChain && !chain.isPending && !view} />;
 }
 
 const FINISHES: FinishName[] = ["ink", "paper"];
@@ -76,7 +75,7 @@ function layoutFor(width: number, screenH: number, dpr: number): Layout {
   return { tall, W, s: W / LW, dpr: Math.min(dpr || 1, 3) };
 }
 
-function Book({ view, note, wallet = false, getOne = false }: { view: PassportView | null; note: string | null; wallet?: boolean; getOne?: boolean }) {
+function Book({ view, note, getOne = false }: { view: PassportView | null; note: string | null; getOne?: boolean }) {
   const shown = view ?? EXAMPLE;
   const [finish, setFinish] = useState<FinishName>("ink");
   const wrap = useRef<HTMLDivElement>(null);
@@ -162,7 +161,6 @@ function Book({ view, note, wallet = false, getOne = false }: { view: PassportVi
           <h1 className={a.h1}>Your Passport</h1>
           <p className={a.sub}>Your HYPE Passport and the stamps it carries, read from the chain. Only your tier and stamps are on it, never your Hyperliquid address or balance.</p>
         </div>
-        {wallet && <WalletBar />}
       </header>
 
       <div ref={wrap} className={s.book}>

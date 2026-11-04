@@ -9,18 +9,13 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useConnection, useSignTypedData } from "wagmi";
 import { deployment, elysium } from "@/lib/chain/config";
-import { Providers } from "./providers";
-import { NotLive, until, useNow, WalletBar, type Hex } from "./shared";
+import { NotLive, until, useNow, type Hex } from "./shared";
 import s from "./app.module.css";
 import t from "./trials.module.css";
 
 export function TrialsApp() {
   if (!deployment) return <NotLive title="The Trials" line="The vote opens here as soon as PANTHEON is live on testnet." />;
-  return (
-    <Providers>
-      <Trials />
-    </Providers>
-  );
+  return <Trials />;
 }
 
 // ------------------------------------------------------------------ what the service sends
@@ -177,7 +172,6 @@ function Trials() {
             seats go to the coins with the most real trading. Voting is a free signature.
           </p>
         </div>
-        <WalletBar />
       </header>
 
       <div className={s.grid}>
@@ -316,7 +310,6 @@ function Shell({ sub }: { sub: string }) {
           <h1 className={s.h1}>Vote on the next basket</h1>
           <p className={s.sub}>{sub}</p>
         </div>
-        <WalletBar />
       </header>
     </main>
   );

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { CovenantLaunchApp } from "@/components/app/covenant-app";
-import { SiteShell } from "@/components/site-shell";
 
 export const metadata: Metadata = {
   title: "Launch on Covenant · PANTHEON",
@@ -8,9 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return (
-    <SiteShell quiet>
-      <CovenantLaunchApp />
-    </SiteShell>
-  );
+  return <CovenantLaunchApp />;
 }

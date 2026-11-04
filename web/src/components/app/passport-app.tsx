@@ -15,8 +15,7 @@ import { useConnection, useReadContracts, useSignTypedData } from "wagmi";
 import { hypePassportRegistryAbi, pantheonStakingAbi } from "@/lib/chain/abi";
 import { deployment, elysium, explorer } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
-import { Providers } from "./providers";
-import { NotLive, short, TxNote, until, useChainNow, useTx, WalletBar, type Hex } from "./shared";
+import { NotLive, short, TxNote, until, useChainNow, useTx, type Hex } from "./shared";
 import s from "./app.module.css";
 
 const PORTRAITS = [
@@ -77,11 +76,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
 
 export function PassportApp() {
   if (!deployment) return <NotLive title="HYPE Passport" line="PANTHEON isn’t live on testnet yet. Passports open here the moment it is." />;
-  return (
-    <Providers>
-      <Passport d={deployment} />
-    </Providers>
-  );
+  return <Passport d={deployment} />;
 }
 
 function Passport({ d }: { d: Deployment }) {
@@ -118,7 +113,6 @@ function Passport({ d }: { d: Deployment }) {
           <h1 className={s.h1}>HYPE Passport</h1>
           <p className={s.sub}>Prove you hold HYPE with one signature. Nothing leaves your wallet, and your address stays private.</p>
         </div>
-        <WalletBar />
       </header>
 
       <div className={s.grid}>

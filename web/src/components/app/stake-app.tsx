@@ -10,8 +10,7 @@ import { useConnection, useReadContracts } from "wagmi";
 import { constituentRegistryAbi, hypePassportRegistryAbi, pantheonStakingAbi } from "@/lib/chain/abi";
 import { deployment, elysium, explorer } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
-import { Providers } from "./providers";
-import { fmt, NotLive, parse, Row, short, Stat, TxNote, until, useChainNow, useTx, WalletBar, type Hex } from "./shared";
+import { fmt, NotLive, parse, Row, short, Stat, TxNote, until, useChainNow, useTx, type Hex } from "./shared";
 import s from "./app.module.css";
 const ONE = 10n ** 18n;
 const AGE_RAMP = 30 * 86_400;
@@ -20,11 +19,7 @@ export type BasketSnapshot = { token: string; symbol: string; weightPct: number 
 
 export function StakeApp({ initialBasket = null }: { initialBasket?: BasketSnapshot[] | null }) {
   if (!deployment) return <NotLive title="Stake PNTH" line="PANTHEON isn’t live on testnet yet. Staking opens here the moment it is." />;
-  return (
-    <Providers>
-      <Stake d={deployment} initialBasket={initialBasket} />
-    </Providers>
-  );
+  return <Stake d={deployment} initialBasket={initialBasket} />;
 }
 
 // ------------------------------------------------------------------ the screen
@@ -106,7 +101,6 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
           <h1 className={s.h1}>Stake PNTH</h1>
           <p className={s.sub}>Every coin the basket buys streams to stakers over a day. Unstaking takes 3 days.</p>
         </div>
-        <WalletBar />
       </header>
 
       <div className={s.grid}>
@@ -361,4 +355,3 @@ function ClaimButton({ d, enabled }: { d: Deployment; enabled: boolean }) {
 }
 
 // ------------------------------------------------------------------ wallet
-
