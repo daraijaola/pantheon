@@ -88,6 +88,9 @@
   pointer-events: none;
   display: block;
 }
+.glassHost {
+  display: contents;
+}
 
 .below {
   display: grid;

@@ -83,10 +83,10 @@ function Book({ view, note, getOne = false }: { view: PassportView | null; note:
   const floor = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const face = useRef<HTMLCanvasElement>(null);
-  const glass = useRef<HTMLCanvasElement>(null);
+  const glass = useRef<HTMLDivElement>(null);
   const stamps = useRef<HTMLElement>(null);
   const stampsFace = useRef<HTMLCanvasElement>(null);
-  const stampsGlass = useRef<HTMLCanvasElement>(null);
+  const stampsGlass = useRef<HTMLDivElement>(null);
   const hits = useRef<HTMLDivElement>(null);
   const engines = useRef<{ card: ReturnType<typeof createCard>; stamps: ReturnType<typeof createStamps> } | null>(null);
   const latest = useRef({ view: shown, finish });
@@ -103,7 +103,13 @@ function Book({ view, note, getOne = false }: { view: PassportView | null; note:
   useEffect(() => {
     const els = { wrap: wrap.current, scene: scene.current, floor: floor.current, card: card.current, face: face.current, glass: glass.current, stamps: stamps.current, stampsFace: stampsFace.current, stampsGlass: stampsGlass.current, hits: hits.current };
     if (Object.values(els).some((e) => !e)) return;
-    const { wrap: w, scene: sc, floor: fl, card: cd, face: fc, glass: gl, stamps: st, stampsFace: sf, stampsGlass: sg, hits: ht } = els as { [K in keyof typeof els]: NonNullable<(typeof els)[K]> };
+    const { wrap: w, scene: sc, floor: fl, card: cd, face: fc, glass: glassHost, stamps: st, stampsFace: sf, stampsGlass: stampsGlassHost, hits: ht } = els as { [K in keyof typeof els]: NonNullable<(typeof els)[K]> };
+    // Activity preserves DOM but restarts effects; a released WebGL canvas cannot be reused.
+    const gl = document.createElement("canvas"), sg = document.createElement("canvas");
+    gl.className = s.glass;
+    sg.className = `${s.stampsCanvas} ${s.stampsGlass}`;
+    glassHost.appendChild(gl);
+    stampsGlassHost.appendChild(sg);
     const fonts = readFonts();
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let dead = false, timer = 0, lastW = 0, lastH = 0;
@@ -140,6 +146,8 @@ function Book({ view, note, getOne = false }: { view: PassportView | null; note:
       engines.current?.card.destroy();
       engines.current?.stamps.destroy();
       engines.current = null;
+      gl.remove();
+      sg.remove();
     };
   }, []);
 
@@ -180,7 +188,7 @@ function Book({ view, note, getOne = false }: { view: PassportView | null; note:
           <div ref={floor} className={s.floor} />
           <div ref={card} className={s.card} tabIndex={0} role="img" aria-label={cardLabel}>
             <canvas ref={face} className={s.face} />
-            <canvas ref={glass} className={s.glass} />
+            <div ref={glass} className={s.glassHost} />
           </div>
         </div>
         <div className={s.below}>
@@ -201,7 +209,7 @@ function Book({ view, note, getOne = false }: { view: PassportView | null; note:
             Stamps: {shown.stamps.length} of 8
           </h2>
           <canvas ref={stampsFace} className={s.stampsCanvas} aria-hidden="true" />
-          <canvas ref={stampsGlass} className={`${s.stampsCanvas} ${s.stampsGlass}`} aria-hidden="true" />
+          <div ref={stampsGlass} className={s.glassHost} aria-hidden="true" />
           <div ref={hits} className={s.hits} />
         </section>
       </div>
