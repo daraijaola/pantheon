@@ -103,10 +103,10 @@ export function AppFrame({ children }: { children: ReactNode }) {
         <Link className={s.mark} href="/" aria-label="PANTHEON home"><CodeWordmark text="PANTHEON" module={2.2} /></Link>
         <nav className={s.desktopNav} aria-label="App"><Navigation pathname={pathname} /></nav>
         <div className={s.actions}>
-          <Disclosure key={pathname} label="Create">
+          <Disclosure key={`create:${pathname}`} label="Create">
             {(close) => <Link href="/covenant/launch" onClick={close}>Launch a coin</Link>}
           </Disclosure>
-          <WalletIdentity key={pathname} />
+          <WalletIdentity key={`wallet:${pathname}`} />
         </div>
       </header>
       <div className={s.content}>{children}</div>
