@@ -60,6 +60,7 @@ export function YourSpace() {
                 example={example}
                 wallet={sp.wallet}
                 partial={[sp.rewards, sp.ballot, sp.stake].some((p) => p.state === "unread")}
+                reading={[sp.rewards, sp.ballot, sp.stake, sp.guard].some((p) => p.state === "loading")}
                 onCoin={(token, from) => {
                   const i = bag?.coins.findIndex((c) => c.token === token) ?? -1;
                   if (i >= 0) openCoin(i, from);
@@ -344,7 +345,7 @@ export function Pill({ v }: { v: Verdict }) {
 
 // ------------------------------------------------------------------ for you: at most three things to do
 
-function Now({ items, example, wallet, partial, onCoin }: { items: Todo[]; example: boolean; wallet: string; partial: boolean; onCoin: (token: string, from: From) => void }) {
+function Now({ items, example, wallet, partial, reading, onCoin }: { items: Todo[]; example: boolean; wallet: string; partial: boolean; reading: boolean; onCoin: (token: string, from: From) => void }) {
   const tx = useTx();
   const refresh = () => deployment && tx.run("Refreshing", [{ address: deployment.staking, abi: pantheonStakingAbi, functionName: "poke", args: [[wallet as Hex]] } as const]);
   return (
@@ -392,6 +393,18 @@ function Now({ items, example, wallet, partial, onCoin }: { items: Todo[]; examp
               </li>
             );
           })}
+        </ul>
+      ) : reading ? (
+        <ul className={s.todos} aria-label="Reading">
+          {[0, 1].map((i) => (
+            <li key={i} className={s.todoSkel}>
+              <span className={s.glyph} />
+              <span>
+                <i />
+                <i />
+              </span>
+            </li>
+          ))}
         </ul>
       ) : (
         <p className={s.calm}>

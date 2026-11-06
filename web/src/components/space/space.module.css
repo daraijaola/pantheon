@@ -518,6 +518,34 @@
 .todo[aria-disabled] .actInk {
   opacity: 0.45;
 }
+/* reading: two quiet rows where the things to do will be */
+.todoSkel {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 12px 10px;
+}
+.todoSkel > span:last-child {
+  display: grid;
+  gap: 7px;
+}
+.todoSkel i {
+  display: block;
+  height: 10px;
+  width: 70%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgb(23 23 23 / 0.05), rgb(23 23 23 / 0.09), rgb(23 23 23 / 0.05)) 0 0 / 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.todoSkel i + i {
+  width: 45%;
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
 .calm {
   display: flex;
   align-items: center;
@@ -969,7 +997,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .rise {
+  .rise,
+  .todoSkel i {
     animation: none;
   }
 }
