@@ -9,28 +9,17 @@
 // signature asked for here is the one that sign-in will check.
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { stringToHex, UserRejectedRequestError } from "viem";
 import { useConfig, useConnection, useDisconnect } from "wagmi";
 import { signMessage } from "wagmi/actions";
 import { reason } from "@/components/app/shared";
+import { useSession } from "@/components/app/auth-session";
+import { logoutSession, prepareSignIn, verifySignIn } from "@/lib/auth-client";
 import { UploadNext, UploadOrb, type Picked } from "./upload-orb";
 import { isRejected } from "./elysium-switch";
 import { useConnectWallet } from "./use-connect-wallet";
 import { CHOICE_KEY, isIos, isMobile, openWallet, signOnSession, store, walletLink, type PeerRedirect, type PhoneProvider } from "./wallet-link";
-
-/** The message the wallet shows. Free: signing it sends nothing and pays no fee. */
-function message(address: string) {
-  return [
-    "PANTHEON · Get uploaded",
-    "",
-    "Sign to let DELPHI read this wallet and build your space.",
-    "Free: nothing is sent and no fee is paid.",
-    "",
-    `Wallet: ${address}`,
-    `Time: ${new Date().toISOString()}`,
-  ].join("\n");
-}
 
 /** The wallet context for all of /upload, and the step it's on. */
 export function UploadFlow() {
@@ -45,22 +34,50 @@ function Steps() {
   const disconnect = useDisconnect();
   const wallet = useConnectWallet();
   const config = useConfig();
+  const client = useQueryClient();
+  const session = useSession();
+  const attempt = useRef(0);
+  useEffect(() => {
+    attempt.current++;
+    if (!address) return;
+    void client.prefetchQuery({ queryKey: ["auth", "nonce", address], queryFn: () => prepareSignIn(address), staleTime: 120_000 });
+  }, [address, client]);
   // Signing needs no chain, so it never switches. wagmi's signMessage would: for a WalletConnect wallet it
   // asks to switch to the chain the wallet is already on, which fails when that chain (say, Ethereum) isn't
   // Elysium. So a phone wallet gets personal_sign straight from its provider, on whatever chain its
   // session is on. Browser wallets sign through wagmi, as before.
   const sign = useMutation({
-    mutationFn: async ({ message }: { message: string }) => {
-      if (connector?.type !== "walletConnect") return signMessage(config, { message, connector });
-      const provider = (await connector.getProvider()) as PhoneProvider;
+    mutationFn: async ({ by }: { by: `0x${string}` }) => {
+      const id = ++attempt.current;
+      const current = () => {
+        const state = config.state;
+        return attempt.current === id && state.connections.get(state.current ?? "")?.accounts[0]?.toLowerCase() === by.toLowerCase();
+      };
+      const message = await client.fetchQuery({ queryKey: ["auth", "nonce", by], queryFn: () => prepareSignIn(by), staleTime: 120_000 });
+      if (!current()) throw new Error("Wallet changed. Sign again to go on.");
+      let signature: string;
       try {
-        return await signOnSession(provider, { method: "personal_sign", params: [stringToHex(message), address] });
+        if (connector?.type !== "walletConnect") signature = await signMessage(config, { message, connector });
+        else {
+          const provider = (await connector.getProvider()) as PhoneProvider;
+          const result = await signOnSession(provider, { method: "personal_sign", params: [stringToHex(message), by] });
+          if (typeof result !== "string") throw new Error("Wallet returned an invalid signature.");
+          signature = result;
+        }
       } catch (e) {
         throw isRejected(e) ? new UserRejectedRequestError(e as Error) : e;
       }
+      if (!current()) throw new Error("Wallet changed. Sign again to go on.");
+      const verified = await verifySignIn(message, signature);
+      if (!current()) {
+        await logoutSession();
+        throw new Error("Wallet changed. Sign again to go on.");
+      }
+      client.setQueryData(["me", "session"], verified.wallet);
+      await client.invalidateQueries({ queryKey: ["me"] });
     },
+    onSettled: () => client.removeQueries({ queryKey: ["auth", "nonce"] }),
   });
-  const [signedBy, setSignedBy] = useState<string | null>(null);
   const [picked, setPicked] = useState<{ by: string; bubble: Picked } | null>(null);
   // A phone wallet over WalletConnect signs in its own app: the tap on Sign has to open it (wallet-link.ts).
   // Browser wallets, and wallets' in-app browsers, are injected and sign in place, as before.
@@ -85,9 +102,8 @@ function Steps() {
   }, [viaApp, connector, address]);
 
   const connected = status === "connected" && address ? address : null;
-  if (connected && picked?.by === connected) return <UploadNext address={connected} />;
-
-  const signed = !!connected && signedBy === connected;
+  const signed = !!connected && session.data?.toLowerCase() === connected.toLowerCase();
+  if (connected && signed && picked?.by === connected) return <UploadNext address={connected} />;
   // Closing the wallet's window is a choice, not a failure, but say what happens next.
   const signError = sign.error
     ? reason(sign.error).replace("You cancelled it in your wallet.", "You closed it in your wallet. Sign to go on.")
@@ -109,9 +125,8 @@ function Steps() {
     const choice = link ? store.get(CHOICE_KEY) : null;
     if (choice) store.remove(CHOICE_KEY);
     sign.mutate(
-      { message: message(connected) },
+      { by: connected },
       {
-        onSuccess: () => setSignedBy(connected),
         onSettled: () => {
           if (choice && !store.get(CHOICE_KEY)) store.set(CHOICE_KEY, choice);
         },
@@ -139,8 +154,9 @@ function Steps() {
       onSign={onSign}
       onOtherWallet={() => {
         // Lets go of a request still open in the wallet: if it's signed later, nothing here hears it. And
-        // a signature only ever counts for the wallet it was asked of (signedBy, checked against `connected`).
+        // a signature only ever counts for the wallet it was asked of, checked against the current connection.
         sign.reset();
+        attempt.current++;
         disconnect.mutate();
       }}
       onContinue={(bubble) => connected && setPicked({ by: connected, bubble })}
