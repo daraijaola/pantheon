@@ -8,6 +8,7 @@
 // (data.ts says where the real answers will come from).
 
 import Link from "next/link";
+import { useConnection } from "wagmi";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { readFonts } from "@/components/passport-book/draw";
 import { pantheonStakingAbi } from "@/lib/chain/abi";
@@ -347,8 +348,9 @@ export function Pill({ v }: { v: Verdict }) {
 // ------------------------------------------------------------------ for you: at most three things to do
 
 function Now({ items, example, wallet, partial, reading, inBag, onCoin }: { items: Todo[]; example: boolean; wallet: string; partial: boolean; reading: boolean; inBag: (token: string) => boolean; onCoin: (token: string, from: From) => void }) {
+  const { address } = useConnection();
   const tx = useTx();
-  const refresh = () => deployment && tx.run("Refreshing", [{ address: deployment.staking, abi: pantheonStakingAbi, functionName: "poke", args: [[wallet as Hex]] } as const]);
+  const refresh = () => address && deployment && tx.run("Refreshing", [{ address: deployment.staking, abi: pantheonStakingAbi, functionName: "poke", args: [[wallet as Hex]] } as const]);
   return (
     <section className={`${s.box} ${s.rise}`} style={at(3)} aria-labelledby="todo-title">
       <h2 id="todo-title" className={s.boxTitle}>
@@ -384,7 +386,7 @@ function Now({ items, example, wallet, partial, reading, inBag, onCoin }: { item
                   <button
                     type="button"
                     className={s.todo}
-                    disabled={!example && (!deployment || !!tx.busy)}
+                    disabled={!example && (!address || !deployment || !!tx.busy)}
                     aria-disabled={example || undefined}
                     title={example ? "An example: there’s nothing to refresh" : undefined}
                     onClick={example ? undefined : refresh}
