@@ -1,0 +1,33 @@
+{
+  "rules": "delphi-v0.5",
+  "generatedAt": "2026-11-04T00:23:23.405Z",
+  "coin": {
+    "token": "0x0b56C35d8Ca0d323F1F871a7e6Ea1b607C1F0e4C",
+    "name": "Header Check",
+    "symbol": "HDRCHK",
+    "poolId": "0xd55312f56042004f2dc9f02a9a059a16048247af",
+    "creator": "0xF8f8c2837bb6C8A0cFa71e441A0Db00D244e1D24",
+    "launchTx": "0x6ba7ac7d548687269f06ffcd5da880160fa1fd6de618d55ad21e127ce405d679",
+    "launchBlock": "13795862",
+    "launchTime": "2026-10-22T21:24:14.000Z",
+    "url": "https://elysium.kinetiq.xyz/testnet-explorer/token/0x0b56C35d8Ca0d323F1F871a7e6Ea1b607C1F0e4C",
+    "launchUrl": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x6ba7ac7d548687269f06ffcd5da880160fa1fd6de618d55ad21e127ce405d679",
+    "market": "perpme"
+  },
+  "stats": {
+    "trades": 0,
+    "outsideTrades": 0,
+    "traders": 0,
+    "holders": 0,
+    "links": 0,
+    "fundingMissing": 0
+  },
+  "verdict": "NOT_ENOUGH_DATA",
+  "notes": [],
+  "checks": {
+    "bundle": "clear",
+    "wash": "not-enough-data",
+    "concentration": "not-enough-data"
+  },
+  "findings": []
+}

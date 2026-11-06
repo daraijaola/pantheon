@@ -104,7 +104,7 @@ export const ENDPOINTS = [
   { method: "GET", path: "/v1/tokens?ids=a,b,c", returns: "{v, items:[{stale, record}], missing:[address], servedAtMs}. Up to 50 ids, answered in the order asked, repeats once." },
   { method: "GET", path: "/v1/new?venue=perpme|kalos|ascend&limit=50&before={block}", returns: "{v, venue, items:[{stale, record}], next, servedAtMs}. Newest launches first; venue optional; limit 1–100 (default 50)." },
   { method: "GET", path: "/v1/history/{address}", returns: "{v, token, items:[{atMs, verdict, rules, why}], servedAtMs}. Every verdict the coin has had, oldest first: DELPHI's public record." },
-  { method: "GET", path: "/v1/health", returns: "{v, ok, version, newestUpdateMs, servedAtMs}. Never cached." },
+  { method: "GET", path: "/v1/health", returns: "{v, ok, version, newestUpdateMs, newestUpdateAgeMs, recordCount, empty, stale, servedAtMs}. Never cached. ok means database readable; stale means empty or the newest record has expired." },
   { method: "GET", path: "/v1/format", returns: "This description." },
   {
     method: "POST",

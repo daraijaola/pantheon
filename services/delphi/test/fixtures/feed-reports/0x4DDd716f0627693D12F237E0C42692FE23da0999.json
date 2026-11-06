@@ -1,0 +1,35 @@
+{
+  "rules": "delphi-v0.5",
+  "generatedAt": "2026-11-04T00:23:23.405Z",
+  "coin": {
+    "token": "0x4DDd716f0627693D12F237E0C42692FE23da0999",
+    "name": "WHY DOGE",
+    "symbol": "$WHY",
+    "poolId": "0x7e3fa460573a5dd46b5c4af7701a08483655a4ce",
+    "creator": "0x41145ba8C2a9e84548Eaf80ee0313e41EC227896",
+    "launchTx": "0x62b7dcb2e455411dba64329b62d86a8aed4daa01039ae6bb6806a7225402715a",
+    "launchBlock": "13816777",
+    "launchTime": "2026-10-22T22:02:51.000Z",
+    "url": "https://elysium.kinetiq.xyz/testnet-explorer/token/0x4DDd716f0627693D12F237E0C42692FE23da0999",
+    "launchUrl": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x62b7dcb2e455411dba64329b62d86a8aed4daa01039ae6bb6806a7225402715a",
+    "market": "perpme"
+  },
+  "stats": {
+    "trades": 45,
+    "outsideTrades": 0,
+    "traders": 9,
+    "holders": 7,
+    "links": 0,
+    "fundingMissing": 0
+  },
+  "verdict": "CLEAN",
+  "notes": [
+    "72.6% of trading volume is 3 unlinked wallets buying and selling the same tokens back within 5 minutes: that volume is not real demand. On testnet, most likely bots farming points or trading between pools."
+  ],
+  "checks": {
+    "bundle": "clear",
+    "wash": "clear",
+    "concentration": "clear"
+  },
+  "findings": []
+}
