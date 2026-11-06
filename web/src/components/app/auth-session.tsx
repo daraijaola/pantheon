@@ -1,21 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useConnection } from "wagmi";
 import { clearSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/use-session";
 
-export function useSession() {
-  return useQuery({
-    queryKey: ["me", "session"],
-    queryFn: async () => {
-      const res = await fetch("/api/auth/me", { cache: "no-store" });
-      const body = res.ok ? await res.json() as { wallet: string | null } : null;
-      return body?.wallet ?? null;
-    },
-    retry: false, staleTime: 60_000,
-  });
-}
+export { useSession };
 export function AuthSession() {
   const { address, status } = useConnection();
   const client = useQueryClient();

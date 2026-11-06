@@ -5,7 +5,8 @@
 // signed in, and `GET /api/me/<path>` forwards to uploaded's `/wallets/<the session's wallet>/<path>`,
 // so the browser never chooses whose data it gets. Until those exist, the page shows a labelled example.
 
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
+import { useSession } from "@/lib/use-session";
 
 export type Verdict = "FLAG" | "WATCH" | "CLEAN" | "NOT_ENOUGH_DATA" | "UNKNOWN";
 export type Venue = "ascend" | "kalos" | "perpme";
@@ -140,17 +141,7 @@ async function json<T>(url: string): Promise<T> {
 
 /** The signed-in wallet's space, or the example. */
 export function useSpace(): Space {
-  const session = useQuery({
-    queryKey: ["me", "session"],
-    queryFn: async () => {
-      const res = await fetch("/api/auth/me");
-      if (!res.ok) return null; // no session, or sign-in isn't live yet
-      const body = (await res.json().catch(() => null)) as { wallet?: string } | null;
-      return body?.wallet ? body.wallet : null;
-    },
-    retry: false,
-    staleTime: 60_000,
-  });
+  const session = useSession();
   const wallet = session.data ?? null;
   const parts = useQueries({
     queries: KEYS.map((k) => ({
