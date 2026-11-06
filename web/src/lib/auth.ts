@@ -12,6 +12,7 @@ export const ME_PATHS = new Map([
 ]);
 type Challenge = { nonce: string; origin: string; issued: number; expires: number };
 type Session = { wallet: string; origin: string; expires: number };
+export type ReplayState = { used: Map<string, number>; cutoff: number };
 
 export class AuthError extends Error {
   status: number;
@@ -26,11 +27,12 @@ export function sessionSecret(env: Record<string, string | undefined>, developme
 
 export function createAuth(options: {
   secret: () => string;
-  used?: Map<string, number>;
+  replay?: ReplayState;
   now?: () => number;
   verify?: (args: { address: Hex; message: string; signature: Hex }) => Promise<boolean>;
 }) {
-  const used = options.used ?? new Map<string, number>();
+  const replay = options.replay ?? { used: new Map<string, number>(), cutoff: -Infinity };
+  const used = replay.used;
   const now = options.now ?? Date.now;
   const verify = options.verify ?? verifyMessage;
   function seal(kind: string, value: object) {
@@ -49,14 +51,14 @@ export function createAuth(options: {
   }
   return {
     challenge(origin: string) {
-      const issued = now();
+      const issued = Math.max(now(), replay.cutoff + 1);
       const value: Challenge = { nonce: randomBytes(24).toString("hex"), origin, issued, expires: issued + NONCE_SECONDS * 1000 };
       const cookie = seal("nonce", value);
       return { cookie, nonce: value.nonce, domain: new URL(origin).host, uri: origin, chainId: 99801, issuedAt: new Date(issued).toISOString(), expirationTime: new Date(value.expires).toISOString() };
     },
     async verify(origin: string, cookie: string | undefined, message: unknown, signature: unknown) {
       const challenge = open<Challenge>("nonce", cookie);
-      if (!challenge || challenge.origin !== origin || challenge.expires <= now() || used.has(challenge.nonce)) throw new AuthError(401, "INVALID_NONCE");
+      if (!challenge || challenge.origin !== origin || challenge.expires <= now() || challenge.issued <= replay.cutoff || used.has(challenge.nonce)) throw new AuthError(401, "INVALID_NONCE");
       if (typeof message !== "string" || message.length > 8192 || typeof signature !== "string" || !/^0x[0-9a-f]+$/i.test(signature) || signature.length > 8192) throw new AuthError(400, "INVALID_MESSAGE");
       let parsed;
       try { parsed = parseSiweMessage(message); } catch { throw new AuthError(401, "INVALID_MESSAGE"); }
@@ -65,9 +67,14 @@ export function createAuth(options: {
       try { valid = await verify({ address: parsed.address, message, signature: signature as Hex }); } catch { /* Invalid signatures fail closed. */ }
       if (!valid) throw new AuthError(401, "INVALID_SIGNATURE");
       const verifiedAt = now();
-      if (challenge.expires <= verifiedAt || used.has(challenge.nonce)) throw new AuthError(401, "INVALID_NONCE");
+      if (challenge.expires <= verifiedAt || challenge.issued <= replay.cutoff || used.has(challenge.nonce)) throw new AuthError(401, "INVALID_NONCE");
       for (const [nonce, expires] of used) if (expires <= verifiedAt) used.delete(nonce);
-      if (used.size >= 10_000) throw new AuthError(429, "TRY_AGAIN_LATER");
+      while (used.size >= 10_000) {
+        const [nonce, expires] = used.entries().next().value!;
+        replay.cutoff = Math.max(replay.cutoff, expires - NONCE_SECONDS * 1000);
+        used.delete(nonce);
+      }
+      if (challenge.issued <= replay.cutoff) throw new AuthError(401, "INVALID_NONCE");
       const wallet = getAddress(parsed.address).toLowerCase();
       const session = { wallet, cookie: seal("session", { wallet, origin, expires: verifiedAt + SESSION_SECONDS * 1000 }) };
       used.set(challenge.nonce, challenge.expires);

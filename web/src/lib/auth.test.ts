@@ -12,10 +12,11 @@ const origin = "https://pantheon.example";
 const secret = "test-only-session-key-with-at-least-32-characters";
 function setup(used = new Map<string, number>()) {
   let time = Date.parse("2026-11-06T00:00:00Z");
-  const auth = createAuth({ secret: () => secret, now: () => time, used });
+  const replay = { used, cutoff: -Infinity };
+  const auth = createAuth({ secret: () => secret, now: () => time, replay });
   const challenge = auth.challenge(origin);
   const fields = { address: account.address, domain: challenge.domain, uri: challenge.uri, nonce: challenge.nonce, chainId: 99801, version: "1" as const, issuedAt: new Date(challenge.issuedAt), expirationTime: new Date(challenge.expirationTime) };
-  return { auth, challenge, fields, advance: (ms: number) => { time += ms; } };
+  return { auth, challenge, fields, replay, advance: (ms: number) => { time += ms; } };
 }
 test("SIWE signs in the signing wallet; session expires after seven days", async () => {
   const { auth, challenge, fields, advance } = setup();
@@ -104,27 +105,61 @@ test("only a valid signature consumes a nonce; failed signatures can be retried"
 });
 test("the signed cookie proves issuance without a pending record", async () => {
   const used = new Map<string, number>();
+  const replay = { used, cutoff: -Infinity };
   const { challenge, fields } = setup();
-  const verifier = createAuth({ secret: () => secret, used, now: () => fields.issuedAt.getTime() });
+  const verifier = createAuth({ secret: () => secret, replay, now: () => fields.issuedAt.getTime() });
   const message = createSiweMessage(fields), signature = await account.signMessage({ message });
   assert.equal((await verifier.verify(origin, challenge.cookie, message, signature)).wallet, account.address.toLowerCase());
-  const second = createAuth({ secret: () => secret, used, now: () => fields.issuedAt.getTime() });
+  const second = createAuth({ secret: () => secret, replay, now: () => fields.issuedAt.getTime() });
   await assert.rejects(second.verify(origin, challenge.cookie, message, signature), /INVALID_NONCE/);
 });
-test("used nonces are bounded, never evicted while live, and pruned at expiry", async () => {
+test("expired replay records are pruned without raising the cutoff", async () => {
   const expires = Date.parse("2026-11-06T00:00:01Z");
   const used = new Map(Array.from({ length: 10_000 }, (_, i) => [String(i), expires]));
-  const { auth, challenge, fields, advance } = setup(used);
+  const { auth, challenge, fields, advance, replay } = setup(used);
   assert.ok(auth.challenge(origin).nonce);
   const message = createSiweMessage(fields), signature = await account.signMessage({ message });
-  await assert.rejects(auth.verify(origin, challenge.cookie, message, signature), /TRY_AGAIN_LATER/);
-  assert.equal(used.size, 10_000);
-  assert.equal(used.has("0"), true);
-  assert.equal(used.has(challenge.nonce), false);
   advance(1000);
   await auth.verify(origin, challenge.cookie, message, signature);
   assert.equal(used.size, 1);
   assert.equal(used.has(challenge.nonce), true);
+  assert.equal(replay.cutoff, -Infinity);
+});
+test("eviction rejects replay and old outstanding challenges, but fresh nonces remain usable", async () => {
+  const used = new Map<string, number>();
+  const { auth, challenge, fields, advance, replay } = setup(used);
+  const message = createSiweMessage(fields), signature = await account.signMessage({ message });
+  await auth.verify(origin, challenge.cookie, message, signature);
+  for (let i = 0; i < 9999; i++) used.set(`other-${i}`, Date.parse(challenge.expirationTime));
+  const old = auth.challenge(origin);
+  const oldMessage = createSiweMessage({ ...fields, nonce: old.nonce });
+  advance(1);
+  const next = auth.challenge(origin);
+  const nextMessage = createSiweMessage({ ...fields, nonce: next.nonce, issuedAt: new Date(next.issuedAt), expirationTime: new Date(next.expirationTime) });
+  await auth.verify(origin, next.cookie, nextMessage, await account.signMessage({ message: nextMessage }));
+  assert.equal(used.size, 10_000);
+  assert.equal(used.has(challenge.nonce), false);
+  assert.equal(replay.cutoff, fields.issuedAt.getTime());
+  await assert.rejects(auth.verify(origin, challenge.cookie, message, signature), /INVALID_NONCE/);
+  await assert.rejects(auth.verify(origin, old.cookie, oldMessage, await account.signMessage({ message: oldMessage })), /INVALID_NONCE/);
+  const second = createAuth({ secret: () => secret, replay, now: () => fields.issuedAt.getTime() + 1 });
+  await assert.rejects(second.verify(origin, challenge.cookie, message, signature), /INVALID_NONCE/);
+  advance(-1);
+  const fresh = auth.challenge(origin);
+  assert.ok(Date.parse(fresh.issuedAt) > replay.cutoff);
+  const freshMessage = createSiweMessage({ ...fields, nonce: fresh.nonce, issuedAt: new Date(fresh.issuedAt), expirationTime: new Date(fresh.expirationTime) });
+  await auth.verify(origin, fresh.cookie, freshMessage, await account.signMessage({ message: freshMessage }));
+  assert.equal(used.size, 10_000);
+});
+test("a cutoff raised while the signature verifier awaits is checked again", async () => {
+  const { challenge, fields, replay } = setup();
+  const auth = createAuth({ secret: () => secret, replay, now: () => fields.issuedAt.getTime(), verify: async () => {
+    replay.cutoff = fields.issuedAt.getTime();
+    return true;
+  } });
+  const message = createSiweMessage(fields);
+  await assert.rejects(auth.verify(origin, challenge.cookie, message, await account.signMessage({ message })), /INVALID_NONCE/);
+  assert.equal(replay.used.size, 0);
 });
 test("gateway exposes only the dashboard reads and scan, never arbitrary wallet paths", () => {
   assert.deepEqual([...ME_PATHS.keys()], ["bag", "rewards", "stake", "standing", "guard", "trials/record", "trials/ballot", "scan"]);
