@@ -9,6 +9,8 @@ Session cookies are HMAC-SHA256 signed, httpOnly, sameSite=lax, host-only and va
 
 Nonces are signed and tracked in a bounded, process-local pending store. Verification atomically consumes the nonce before checking the signature. A restart invalidates pending challenges (not sessions). Run one Next server process, or route each nonce/verify pair to the same process. A multi-instance deployment without affinity needs a shared atomic nonce store before enabling sign-in; an unknown nonce fails closed. Stateless sessions cannot be remotely revoked: logout deletes the browser cookie, while a copied bearer cookie remains valid until expiry or secret rotation.
 
+Each client can hold at most five outstanding nonces. The client is the first `X-Forwarded-For` hop, falling back to nginx's `X-Real-IP` (or a shared local bucket without proxy headers; Next route handlers do not expose the socket address). The trusted ingress must overwrite these headers, not accept client-supplied values. At the global 10,000-entry bound the oldest pending challenge is evicted instead of refusing everyone; its owner can request another nonce.
+
 `/api/me/*` accepts GET only, selects the wallet exclusively from the verified session, and allows bag, rewards, stake, standing, guard, trials/record, trials/ballot and scan. Query strings and upstream statuses pass through; browser cookies/authorization headers and upstream cookies do not. Scan responses stream without buffering. Upstream failures return 502 rather than example/zero data.
 
 The gateway translates the UI's `trials/record` and `trials/ballot` to Uploaded's existing `/wallets/{wallet}/record` and `/wallets/{wallet}/ballot` endpoints. All other allowed paths are forwarded unchanged.

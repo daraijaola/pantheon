@@ -4,6 +4,7 @@ import { parseSiweMessage, validateSiweMessage } from "viem/siwe";
 
 export const SESSION_SECONDS = 7 * 24 * 60 * 60;
 export const NONCE_SECONDS = 5 * 60;
+export const NONCES_PER_CLIENT = 5;
 export const SESSION_COOKIE = "pantheon_session";
 export const NONCE_COOKIE = "pantheon_nonce";
 export const ME_PATHS = new Map([
@@ -12,6 +13,11 @@ export const ME_PATHS = new Map([
 ]);
 type Challenge = { nonce: string; origin: string; issued: number; expires: number };
 type Session = { wallet: string; origin: string; expires: number };
+export type PendingNonce = { expires: number; client: string };
+
+export function nonceClient(headers: Headers, remoteAddress = "local") {
+  return headers.get("x-forwarded-for")?.split(",")[0].trim() || remoteAddress;
+}
 
 export class AuthError extends Error {
   status: number;
@@ -26,11 +32,11 @@ export function sessionSecret(env: Record<string, string | undefined>, developme
 
 export function createAuth(options: {
   secret: () => string;
-  pending?: Map<string, number>;
+  pending?: Map<string, PendingNonce>;
   now?: () => number;
   verify?: (args: { address: Hex; message: string; signature: Hex }) => Promise<boolean>;
 }) {
-  const pending = options.pending ?? new Map<string, number>();
+  const pending = options.pending ?? new Map<string, PendingNonce>();
   const now = options.now ?? Date.now;
   const verify = options.verify ?? verifyMessage;
   function seal(kind: string, value: object) {
@@ -48,18 +54,23 @@ export function createAuth(options: {
     try { return JSON.parse(Buffer.from(payload, "base64url").toString()) as T; } catch { return null; }
   }
   return {
-    challenge(origin: string) {
+    challenge(origin: string, client = "local") {
       const issued = now();
-      for (const [nonce, expires] of pending) if (expires <= issued) pending.delete(nonce);
-      if (pending.size >= 10_000) throw new AuthError(429, "TRY_AGAIN_LATER");
+      let outstanding = 0;
+      for (const [nonce, entry] of pending) {
+        if (entry.expires <= issued) pending.delete(nonce);
+        else if (entry.client === client) outstanding++;
+      }
+      if (outstanding >= NONCES_PER_CLIENT) throw new AuthError(429, "TRY_AGAIN_LATER");
       const value: Challenge = { nonce: randomBytes(24).toString("hex"), origin, issued, expires: issued + NONCE_SECONDS * 1000 };
       const cookie = seal("nonce", value);
-      pending.set(value.nonce, value.expires);
+      if (pending.size >= 10_000) pending.delete(pending.keys().next().value!);
+      pending.set(value.nonce, { expires: value.expires, client });
       return { cookie, nonce: value.nonce, domain: new URL(origin).host, uri: origin, chainId: 99801, issuedAt: new Date(issued).toISOString(), expirationTime: new Date(value.expires).toISOString() };
     },
     async verify(origin: string, cookie: string | undefined, message: unknown, signature: unknown) {
       const challenge = open<Challenge>("nonce", cookie);
-      if (!challenge || challenge.origin !== origin || challenge.expires <= now() || pending.get(challenge.nonce) !== challenge.expires) throw new AuthError(401, "INVALID_NONCE");
+      if (!challenge || challenge.origin !== origin || challenge.expires <= now() || pending.get(challenge.nonce)?.expires !== challenge.expires) throw new AuthError(401, "INVALID_NONCE");
       pending.delete(challenge.nonce);
       if (typeof message !== "string" || message.length > 8192 || typeof signature !== "string" || !/^0x[0-9a-f]+$/i.test(signature) || signature.length > 8192) throw new AuthError(400, "INVALID_MESSAGE");
       let parsed;

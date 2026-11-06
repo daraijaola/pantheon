@@ -4,7 +4,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { createSiweMessage } from "viem/siwe";
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 
-const { createAuth, sessionSecret, ME_PATHS, NONCE_SECONDS, SESSION_SECONDS } = await import(new URL("./auth.ts", import.meta.url).href) as typeof import("./auth");
+const { createAuth, sessionSecret, nonceClient, ME_PATHS, NONCE_SECONDS, NONCES_PER_CLIENT, SESSION_SECONDS } = await import(new URL("./auth.ts", import.meta.url).href) as typeof import("./auth");
 const { clearSession } = await import(new URL("./auth-client.ts", import.meta.url).href) as typeof import("./auth-client");
 const account = privateKeyToAccount(`0x${"11".repeat(32)}`);
 const other = privateKeyToAccount(`0x${"22".repeat(32)}`);
@@ -84,13 +84,34 @@ test("production requires a strong server secret; development can use an ephemer
   assert.throws(() => auth.challenge(origin), /AUTH_UNAVAILABLE/);
 });
 test("pending nonces are bounded and expired challenges are pruned", () => {
-  const pending = new Map(Array.from({ length: 10_000 }, (_, i) => [String(i), 10_000]));
+  const pending = new Map(Array.from({ length: 10_000 }, (_, i) => [String(i), { expires: 10_000, client: String(i) }]));
   let time = 0;
   const auth = createAuth({ secret: () => secret, pending, now: () => time });
-  assert.throws(() => auth.challenge(origin), /TRY_AGAIN_LATER/);
-  time = 10_000;
+  const challenge = auth.challenge(origin, "new-client");
+  assert.equal(pending.size, 10_000);
+  assert.equal(pending.has("0"), false);
+  assert.equal(pending.has(challenge.nonce), true);
+  time = NONCE_SECONDS * 1000;
   auth.challenge(origin);
   assert.equal(pending.size, 1);
+});
+test("one client cannot exhaust other clients' nonce capacity", async () => {
+  const { auth, challenge, fields, advance } = setup();
+  for (let i = 1; i < NONCES_PER_CLIENT; i++) auth.challenge(origin);
+  for (let i = 0; i < 100; i++) assert.throws(() => auth.challenge(origin), /TRY_AGAIN_LATER/);
+  assert.ok(auth.challenge(origin, "another-client").nonce);
+  const message = createSiweMessage(fields);
+  const signed = await auth.verify(origin, challenge.cookie, message, await account.signMessage({ message }));
+  assert.equal(auth.session(origin, signed.cookie), account.address.toLowerCase());
+  assert.ok(auth.challenge(origin).nonce);
+  assert.throws(() => auth.challenge(origin), /TRY_AGAIN_LATER/);
+  advance(NONCE_SECONDS * 1000);
+  assert.ok(auth.challenge(origin).nonce);
+});
+test("nonce client uses the first trusted forwarded hop or remote address", () => {
+  assert.equal(nonceClient(new Headers({ "x-forwarded-for": " 192.0.2.1, 198.51.100.2 " }), "127.0.0.1"), "192.0.2.1");
+  assert.equal(nonceClient(new Headers(), "127.0.0.1"), "127.0.0.1");
+  assert.equal(nonceClient(new Headers({ "x-forwarded-for": " " }), "127.0.0.1"), "127.0.0.1");
 });
 test("gateway exposes only the dashboard reads and scan, never arbitrary wallet paths", () => {
   assert.deepEqual([...ME_PATHS.keys()], ["bag", "rewards", "stake", "standing", "guard", "trials/record", "trials/ballot", "scan"]);

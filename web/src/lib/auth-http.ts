@@ -2,9 +2,9 @@ import { randomBytes } from "node:crypto";
 import { createPublicClient, http } from "viem";
 import { verifySiweMessage } from "viem/siwe";
 import { NextRequest, NextResponse } from "next/server";
-import { AuthError, createAuth, NONCE_COOKIE, NONCE_SECONDS, SESSION_COOKIE, SESSION_SECONDS, sessionSecret } from "./auth";
+import { AuthError, createAuth, nonceClient, NONCE_COOKIE, NONCE_SECONDS, SESSION_COOKIE, SESSION_SECONDS, sessionSecret, type PendingNonce } from "./auth";
 
-const state = globalThis as typeof globalThis & { pantheonAuth?: { secret: string; pending: Map<string, number> } };
+const state = globalThis as typeof globalThis & { pantheonAuth?: { secret: string; pending: Map<string, PendingNonce> } };
 const shared = state.pantheonAuth ??= { secret: randomBytes(32).toString("hex"), pending: new Map() };
 const client = createPublicClient({ transport: http(process.env.NEXT_PUBLIC_RPC_URL ?? "https://testnet-rpc.elysium.kinetiq.xyz", { timeout: 10_000, retryCount: 0 }) });
 export const auth = createAuth({
@@ -26,7 +26,7 @@ export function failure(error: unknown) {
 export function nonce(req: NextRequest) {
   try {
     sameOrigin(req);
-    const { cookie, ...challenge } = auth.challenge(origin(req));
+    const { cookie, ...challenge } = auth.challenge(origin(req), nonceClient(req.headers, req.headers.get("x-real-ip")?.trim() || "local"));
     const res = NextResponse.json(challenge, { headers: { "cache-control": "no-store" } });
     res.cookies.set(NONCE_COOKIE, cookie, cookieOptions(req, NONCE_SECONDS));
     return res;
