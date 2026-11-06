@@ -1,4 +1,4 @@
-// Heavy reads over the explorer's own node (BatchRpc, up to 100 calls a request): many log streams at
+// Heavy reads over BatchRpc: many log streams at
 // once, each with its own resume point, plus who sent each transaction, block times, what kind of thing
 // an address is, view calls at one block, and who deployed a contract. Answers are remembered in the
 // Store under the same names chain.ts uses ("txfrom", "blocktime", "kind"), so both readers share one
@@ -46,12 +46,10 @@ const TARGET_LOGS = 3_000;
 /** A quiet stream's whole life fits in one call. */
 const MAX_STEP = 1n << 26n;
 /**
- * At most this many calls, and about this many expected logs, in one request. The node answers the calls
- * of a batch side by side (measured live: 4 busy calls in one batch took 4.5 s, one alone up to 12 s), so a
- * busy stream sends several consecutive ranges at once. 16 calls over the whole chain took 8 s; a request
- * times out at 60 s.
+ * Bound both call count and expected response size. Busy streams send consecutive ranges; oversized
+ * ranges shrink independently on the provider's 10,000-result error.
  */
-const PER_REQUEST = { calls: 20, logs: 24_000 };
+const PER_REQUEST = { calls: 10, logs: 6_000 };
 
 const minB = (a: bigint, b: bigint) => (a < b ? a : b);
 const maxB = (a: bigint, b: bigint) => (a > b ? a : b);
@@ -135,9 +133,8 @@ export async function scanStreams(
 }
 
 /**
- * Calls in requests of 100, six requests at a time. The node answers requests side by side: measured
- * live, one request of 100 transaction lookups took 2.8 s, and twelve at once 2.5 s. Six stays polite
- * (BatchRpc still spaces requests 150 ms apart).
+ * Queue lookup chunks concurrently. BatchRpc splits and paces their requests against one endpoint's
+ * shared budget, including funding and simulation readers.
  */
 async function manyCalls<T>(rpc: BatchRpc, calls: Array<{ method: string; params: unknown[] }>): Promise<RpcAnswer<T>[]> {
   const parts: Array<typeof calls> = [];

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { BatchRpc, RpcError } from "../src/rpc.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { BatchRpc, PUBLIC_RPC, RpcError } from "../src/rpc.ts";
 
 type Req = { id: number; method: string; params: unknown[] };
 
@@ -22,8 +22,58 @@ function fakeNode(answer: (c: Req, attempt: number) => { result?: unknown; error
 }
 
 const quiet = { sleep: async () => {}, gapMs: 0 };
+afterEach(() => vi.unstubAllEnvs());
 
 describe("BatchRpc", () => {
+  it("does not send empty batches", async () => {
+    const node = fakeNode(() => ({ result: null }));
+    expect(await new BatchRpc("http://empty", { ...quiet, fetch: node.fetch }).many([])).toEqual([]);
+    expect(node.seen).toEqual([]);
+  });
+  it("uses the configured heavy endpoint for every default reader, falling back to the public RPC", () => {
+    vi.stubEnv("DELPHI_HEAVY_RPC", "");
+    vi.stubEnv("ELYSIUM_RPC", "");
+    expect(new BatchRpc().url).toBe(PUBLIC_RPC);
+    vi.stubEnv("ELYSIUM_RPC", "https://public.example/rpc");
+    expect(new BatchRpc().url).toBe("https://public.example/rpc");
+    vi.stubEnv("DELPHI_HEAVY_RPC", "https://archive.example/rpc");
+    expect(new BatchRpc().url).toBe("https://archive.example/rpc");
+    expect(new BatchRpc("https://explicit.example/rpc").url).toBe("https://explicit.example/rpc");
+  });
+
+  it("limits default batches to ten metered calls", async () => {
+    const node = fakeNode(() => ({ result: "ok" }));
+    await new BatchRpc("http://batch-size", { ...quiet, fetch: node.fetch }).many(Array.from({ length: 21 }, () => ({ method: "eth_blockNumber", params: [] })));
+    expect(node.seen.map((r) => r.length)).toEqual([10, 10, 1]);
+  });
+
+  it("shares pacing across heavy consumers using the same endpoint", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1000);
+    try {
+      const sleep = vi.fn(async () => {});
+      const fetch = fakeNode(() => ({ result: "ok" })).fetch;
+      await new BatchRpc("http://shared-pacing", { fetch, sleep }).call("eth_blockNumber", []);
+      await new BatchRpc("http://shared-pacing", { fetch, sleep }).call("eth_blockNumber", []);
+      expect(sleep).toHaveBeenCalledWith(1000);
+    } finally { vi.restoreAllMocks(); }
+  });
+
+  it("preserves provider errors on HTTP failures, including non-JSON errors", async () => {
+    const message = "Method not allowed: eth_getLogs";
+    const rpc = new BatchRpc("http://denied", { ...quiet, fetch: async () => new Response(JSON.stringify({ error: { code: -32601, message } }), { status: 403 }) });
+    await expect(rpc.call("eth_getLogs", [{}])).rejects.toMatchObject({ code: -32601, message: expect.stringContaining(message) });
+    const text = new BatchRpc("http://bad-gateway", { ...quiet, retries: 0, fetch: async () => new Response("upstream\nfailed", { status: 502 }) });
+    await expect(text.call("eth_blockNumber", [])).rejects.toThrow("HTTP 502: upstream failed");
+  });
+
+  it("honors Retry-After and retries transient HTTP errors", async () => {
+    let sent = 0;
+    const node = fakeNode(() => ({ result: "ok" }));
+    const sleep = vi.fn(async () => {});
+    const rpc = new BatchRpc("http://retry-after", { ...quiet, sleep, fetch: async (url, init) => sent++ === 0 ? new Response("rate limited", { status: 429, headers: { "retry-after": "7" } }) : node.fetch(url, init) });
+    expect(await rpc.call("eth_blockNumber", [])).toBe("ok");
+    expect(sleep).toHaveBeenCalledWith(7000);
+  });
   it("splits calls into batches and keeps answers in order", async () => {
     const node = fakeNode((c) => ({ result: c.params[0] }));
     const rpc = new BatchRpc("http://node", { ...quiet, batchSize: 3, fetch: node.fetch });

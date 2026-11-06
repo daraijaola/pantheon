@@ -1,10 +1,12 @@
-// Batched JSON-RPC for the explorer's own node (archive state, call traces, eth_simulateV1), which
-// answers up to 100 calls in one request. The public RPC refuses batches, so heavy reads go here.
+// Batched JSON-RPC for archive reads and dry runs. Public endpoints meter individual calls,
+// including calls inside batches; keep requests small and pace them across readers.
 // Read-only: only read methods are ever sent.
 import { z } from "zod";
 
-/** The explorer's node. Checked live 2026-10-31: archive, batches of 100, debug_trace*, eth_simulateV1. */
+/** Explorer gateway; now denies eth_getLogs and debug_traceBlockByNumber (2026-11-06). */
 export const EXPLORER_RPC = "https://test-explorer.elysium.kinetiq.xyz/rpc";
+export const PUBLIC_RPC = "https://testnet-rpc.elysium.kinetiq.xyz";
+export const heavyRpcUrl = () => process.env.DELPHI_HEAVY_RPC || process.env.ELYSIUM_RPC || PUBLIC_RPC;
 
 export type RpcCall = { method: string; params: unknown[] };
 export type RpcAnswer<T = unknown> = { result: T; error?: undefined } | { result?: undefined; error: { code: number; message: string } };
@@ -41,21 +43,21 @@ const READ_ONLY = /^(eth_(call|chainId|blockNumber|getBalance|getBlock\w*|getCod
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 export class BatchRpc {
+  private static readonly slots = new Map<string, number>();
   readonly url: string;
   private readonly batchSize: number;
   private readonly gapMs: number;
   private readonly retries: number;
   private readonly fetch: Fetch;
   private readonly sleep: (ms: number) => Promise<void>;
-  private nextSlot = 0;
   private id = 0;
   /** Requests sent, for logs and tests. */
   requests = 0;
 
-  constructor(url = EXPLORER_RPC, opts: { batchSize?: number; gapMs?: number; retries?: number; fetch?: Fetch; sleep?: (ms: number) => Promise<void> } = {}) {
+  constructor(url = heavyRpcUrl(), opts: { batchSize?: number; gapMs?: number; retries?: number; fetch?: Fetch; sleep?: (ms: number) => Promise<void> } = {}) {
     this.url = url;
-    this.batchSize = opts.batchSize ?? 100;
-    this.gapMs = opts.gapMs ?? 150;
+    this.batchSize = opts.batchSize ?? 10;
+    this.gapMs = opts.gapMs ?? 1_000;
     this.retries = opts.retries ?? 6;
     this.fetch = opts.fetch ?? globalThis.fetch;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
@@ -97,8 +99,9 @@ export class BatchRpc {
     const body = JSON.stringify(calls.map((c, i) => ({ jsonrpc: "2.0", id: ids[i], method: c.method, params: c.params })));
     for (let attempt = 0; ; attempt++) {
       const now = Date.now();
-      const wait = Math.max(0, this.nextSlot - now);
-      this.nextSlot = Math.max(now, this.nextSlot) + this.gapMs;
+      const slot = BatchRpc.slots.get(this.url) ?? 0;
+      const wait = Math.max(0, slot - now);
+      BatchRpc.slots.set(this.url, Math.max(now, slot) + this.gapMs);
       if (wait > 0) await this.sleep(wait);
       this.requests++;
       let res: Response;
@@ -115,10 +118,24 @@ export class BatchRpc {
         continue;
       }
       if ((res.status === 429 || res.status >= 500) && attempt < this.retries) {
-        await this.sleep(Math.min(60_000, 2_000 * 2 ** attempt));
+        await res.text();
+        const retryAfter = res.headers.get("retry-after");
+        const seconds = retryAfter === null ? NaN : Number(retryAfter);
+        const delay = Number.isFinite(seconds) ? seconds * 1000 : retryAfter === null ? NaN : Date.parse(retryAfter) - Date.now();
+        await this.sleep(Math.min(60_000, Math.max(2_000 * 2 ** attempt, Number.isFinite(delay) ? delay : 0)));
         continue;
       }
-      if (!res.ok) throw new RpcError(`node answered HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.text();
+        let detail = body.slice(0, 1000);
+        let code: number | undefined;
+        try {
+          const parsed = z.object({ error: z.object({ code: z.number(), message: z.string() }) }).parse(JSON.parse(body));
+          code = parsed.error.code;
+          detail = JSON.stringify(parsed.error);
+        } catch { /* Non-JSON provider errors still carry useful diagnostics. */ }
+        throw new RpcError(`node answered HTTP ${res.status}: ${detail.replace(/[\p{Cc}\p{Cf}]/gu, " ").slice(0, 1000)}`, code);
+      }
       let json: unknown;
       try {
         json = await res.json();
