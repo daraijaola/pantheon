@@ -265,7 +265,7 @@ function BagCard({
         </div>
       )}
 
-      <div ref={host} className={s.mosaic} style={{ height: tiles ? tiles.H : undefined, "--m": `${MARGIN}px` } as CSSProperties}>
+      <div ref={host} className={s.mosaic} data-quiet={!bag?.coins.length || undefined} style={{ height: tiles ? tiles.H : undefined, "--m": `${MARGIN}px` } as CSSProperties}>
         <div ref={layer} className={s.layer} aria-hidden="true" />
         {tiles && (
           <div role="group" aria-label="Your coins, worst first" className={s.tiles}>
@@ -295,17 +295,17 @@ function BagCard({
             })}
           </div>
         )}
-        {!bag && (
-          <p className={s.cardQuiet}>{part.state === "unread" ? "DELPHI couldn’t read your bag just now. She’ll try again in a minute." : "DELPHI is reading your bag…"}</p>
-        )}
-        {bag && !bag.coins.length && (
+        {/* nothing to lay out yet: three ghost tiles and one line (they shimmer while she reads) */}
+        {!bag?.coins.length && (
           <>
-            <div className={s.ghosts} aria-hidden="true">
+            <div className={s.ghosts} data-reading={part.state === "loading" || undefined} aria-hidden="true">
               <i />
               <i />
               <i />
             </div>
-            <p className={s.cardQuiet}>Nothing here yet.</p>
+            <p className={s.cardQuiet}>
+              {bag ? "Nothing here yet." : part.state === "unread" ? "DELPHI couldn’t read your bag just now. She’ll try again in a minute." : "DELPHI is reading your bag…"}
+            </p>
           </>
         )}
       </div>

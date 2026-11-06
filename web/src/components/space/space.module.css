@@ -247,6 +247,20 @@
   outline: 2px solid #fff;
   outline-offset: 3px;
 }
+/* nothing to lay out yet (reading, couldn't read, an empty bag): three ghost tiles and one line, in the
+   middle of the card however tall the row makes it */
+.mosaic[data-quiet] {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 0 8px;
+  text-align: center;
+}
+.mosaic[data-quiet] + .cardFill {
+  display: none;
+}
 .ghosts {
   display: flex;
   gap: 8px;
@@ -258,12 +272,29 @@
   border: 1px dashed rgb(255 255 255 / 0.14);
   border-radius: 13px;
 }
+/* while she reads, the ghosts shimmer the way the things to do do, one after another */
+.ghosts[data-reading] i {
+  border: 0;
+  background: linear-gradient(90deg, rgb(255 255 255 / 0.035), rgb(255 255 255 / 0.085), rgb(255 255 255 / 0.035)) 0 0 / 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.ghosts[data-reading] i:nth-child(1) {
+  animation-delay: -0.3s;
+}
+.ghosts[data-reading] i:nth-child(2) {
+  animation-delay: -0.15s;
+}
 .cardQuiet {
   margin: 0;
   padding: 12px 0;
   font-size: 14px;
   line-height: 21px;
   color: rgb(255 255 255 / 0.6);
+}
+.mosaic[data-quiet] .cardQuiet {
+  max-width: 36ch;
+  padding: 0;
+  text-wrap: balance;
 }
 /* your bag as one number, and the coins by verdict (the swatches double as the tiles' key) */
 .grade {
@@ -998,7 +1029,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .rise,
-  .todoSkel i {
+  .todoSkel i,
+  .ghosts i {
     animation: none;
   }
 }
@@ -1051,6 +1083,11 @@
   .mosaic {
     margin-top: 18px;
   }
+  .ghosts i {
+    width: 72px;
+    height: 42px;
+    border-radius: 11px;
+  }
   .cardFill {
     min-height: 18px;
   }
@@ -1082,6 +1119,13 @@
   .statV {
     font-size: 19px;
     line-height: 24px;
+  }
+  /* three across is narrow on a phone: the small lines wrap instead of being cut off */
+  .statS,
+  .statSince {
+    overflow: visible;
+    white-space: normal;
+    text-wrap: balance;
   }
   .fine {
     margin-top: 36px;
