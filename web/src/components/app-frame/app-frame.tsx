@@ -10,7 +10,7 @@ import { elysium } from "@/lib/chain/config";
 import s from "./app-frame.module.css";
 
 const ITEMS = [
-  { label: "Space", href: null },
+  { label: "Space", href: "/space" },
   { label: "DELPHI", href: "/delphi/chat" },
   { label: "Basket", href: null },
   { label: "Stake", href: "/stake" },

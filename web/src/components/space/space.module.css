@@ -1,0 +1,1049 @@
+/* Your space: ink on paper, inside the app frame. One sentence at the top; your bag as a dark card with
+   the passport's glass lens on it; beside it, what to do and where you stand, on white. Details open in
+   trays of liquid glass. Glass only on what floats or moves. */
+
+.page {
+  --ink: var(--color-ink, #171717);
+  --paper: var(--color-paper, #f9f9f9);
+  --rule: var(--color-rule, #ebebeb);
+  --sans: var(--font-geist-sans, "Geist"), ui-sans-serif, system-ui, sans-serif;
+  --mono: var(--font-geist-mono, "Geist Mono"), ui-monospace, monospace;
+  --i40: rgb(23 23 23 / 0.4);
+  --i50: rgb(23 23 23 / 0.5);
+  --i55: rgb(23 23 23 / 0.55);
+  --i60: rgb(23 23 23 / 0.6);
+  --i70: rgb(23 23 23 / 0.7);
+  --night: #141415; /* the bag card; bag.ts's CARD_BG is the same */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --lift:
+    0 0 0 1px rgb(23 23 23 / 0.055),
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 18px 40px -24px rgb(0 0 0 / 0.16);
+  position: relative;
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+.inner {
+  width: min(1120px, calc(100% - 64px));
+  margin: 0 auto;
+  padding: 64px 0 80px;
+}
+.page :focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+.mono {
+  font-family: var(--mono);
+  letter-spacing: 0.01em;
+}
+
+/* ------------------------------------------------------------------ buttons */
+.inkBtn,
+.ghostBtn,
+.whiteBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  font: 500 14px/1 var(--sans);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    box-shadow 0.18s var(--ease),
+    background-color 0.18s var(--ease),
+    transform 0.18s var(--ease);
+}
+.inkBtn {
+  background: var(--ink);
+  color: #fff;
+  box-shadow:
+    inset 0 -6px 12px rgb(255 255 255 / 0.08),
+    0 2px 4px rgb(0 0 0 / 0.12),
+    0 1px 1px rgb(0 0 0 / 0.12);
+}
+.ghostBtn {
+  background: rgb(23 23 23 / 0.06);
+  color: var(--ink);
+}
+.whiteBtn {
+  flex: none;
+  height: 36px;
+  padding: 0 16px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 6px 16px -6px rgb(0 0 0 / 0.5);
+}
+.inkBtn:active,
+.ghostBtn:active,
+.whiteBtn:active {
+  transform: scale(0.97);
+}
+@media (hover: hover) {
+  .inkBtn:hover {
+    box-shadow:
+      inset 0 -6px 12px rgb(255 255 255 / 0.08),
+      0 4px 10px rgb(0 0 0 / 0.18),
+      0 1px 1px rgb(0 0 0 / 0.12);
+  }
+  .ghostBtn:hover {
+    background: rgb(23 23 23 / 0.09);
+  }
+  .whiteBtn:hover {
+    background: #f2f2f2;
+  }
+}
+
+/* ------------------------------------------------------------------ the top: one sentence */
+.top {
+  max-width: 760px;
+  min-height: 112px;
+}
+.headline {
+  margin: 0;
+  font: 500 60px/1.02 var(--sans);
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+.sub {
+  margin: 14px 0 0;
+  font-size: 19px;
+  line-height: 28px;
+  color: var(--i60);
+  text-wrap: pretty;
+}
+.example {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 24px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--i60);
+}
+.example .inkBtn {
+  height: 36px;
+  padding: 0 16px;
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgb(23 23 23 / 0.07);
+  color: var(--ink);
+  font: 500 10px/1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.skelLine,
+.skelSub {
+  display: block;
+  height: 52px;
+  width: min(520px, 80%);
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgb(23 23 23 / 0.05), rgb(23 23 23 / 0.09), rgb(23 23 23 / 0.05)) 0 0 / 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.skelSub {
+  height: 20px;
+  width: min(320px, 60%);
+  margin-top: 18px;
+  border-radius: 8px;
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ------------------------------------------------------------------ the grid: the bag, then you */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
+  gap: 20px;
+  align-items: stretch;
+  margin-top: 40px;
+}
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ the bag: a dark card */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 300px;
+  padding: 22px 24px 22px;
+  overflow: hidden;
+  border-radius: 28px;
+  background: radial-gradient(120% 70% at 0% 0%, rgb(255 255 255 / 0.055), transparent 55%), var(--night);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.07),
+    0 0 0 1px rgb(0 0 0 / 0.6),
+    0 2px 4px rgb(0 0 0 / 0.1),
+    0 32px 64px -32px rgb(0 0 0 / 0.55);
+}
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 28px;
+}
+.cardTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font: 600 15px/20px var(--sans);
+  letter-spacing: -0.005em;
+}
+.cardCount {
+  font: 500 13px/20px var(--mono);
+  color: rgb(255 255 255 / 0.45);
+}
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 500 11px/16px var(--mono);
+  letter-spacing: 0.04em;
+  color: rgb(255 255 255 / 0.45);
+  white-space: nowrap;
+}
+.infoBtn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.08);
+  color: rgb(255 255 255 / 0.8);
+  cursor: pointer;
+  transition: background-color 0.18s var(--ease);
+}
+@media (hover: hover) {
+  .infoBtn:hover {
+    background: rgb(255 255 255 / 0.14);
+  }
+}
+.mosaic {
+  position: relative;
+  margin-top: 22px;
+  min-height: 50px;
+  touch-action: pan-y;
+}
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.tiles {
+  position: absolute;
+  inset: 0;
+}
+.tile {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.card .tile:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+.ghosts {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.ghosts i {
+  width: 92px;
+  height: 50px;
+  border: 1px dashed rgb(255 255 255 / 0.14);
+  border-radius: 13px;
+}
+.cardQuiet {
+  margin: 0;
+  padding: 12px 0;
+  font-size: 14px;
+  line-height: 21px;
+  color: rgb(255 255 255 / 0.6);
+}
+.cardFill {
+  flex: 1 1 auto;
+  min-height: 22px;
+}
+.caption {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "head act"
+    "why act";
+  align-items: center;
+  column-gap: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+}
+.caption .whiteBtn {
+  grid-area: act;
+}
+.capHead {
+  grid-area: head;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: rgb(255 255 255 / 0.5);
+}
+.capHead strong {
+  font: 600 14px/20px var(--mono);
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+.capWhy {
+  grid-area: why;
+  display: -webkit-box;
+  margin: 6px 0 0;
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 22px;
+  color: rgb(255 255 255 / 0.78);
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* DELPHI's verdict pills, on the dark card and on paper: ink and white only */
+.dpill,
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.dFLAG {
+  background: #fff;
+  color: var(--night);
+}
+.dWATCH {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.9);
+  color: #fff;
+}
+.dCLEAN {
+  background: rgb(255 255 255 / 0.12);
+  color: rgb(255 255 255 / 0.86);
+}
+.dNOT_ENOUGH_DATA,
+.dUNKNOWN {
+  border: 1px dashed rgb(255 255 255 / 0.4);
+  color: rgb(255 255 255 / 0.66);
+}
+.pill {
+  height: 24px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+.FLAG {
+  background: var(--ink);
+  color: #fff;
+}
+.WATCH {
+  box-shadow: inset 0 0 0 1px var(--ink);
+  color: var(--ink);
+}
+.CLEAN {
+  background: rgb(23 23 23 / 0.07);
+  color: var(--ink);
+}
+.NOT_ENOUGH_DATA,
+.UNKNOWN {
+  border: 1px dashed rgb(23 23 23 / 0.3);
+  color: var(--i60);
+}
+
+/* ------------------------------------------------------------------ white boxes: for you, where you stand */
+.box {
+  min-width: 0;
+  padding: 18px 12px 8px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: var(--lift);
+}
+.boxFlush {
+  padding: 0;
+  overflow: hidden;
+}
+.boxTitle {
+  margin: 0 0 6px;
+  padding: 0 10px;
+  font: 600 15px/20px var(--sans);
+  letter-spacing: -0.005em;
+}
+.todos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.todos li + li .todo::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 60px;
+  right: 10px;
+  height: 1px;
+  background: var(--rule);
+}
+.todo {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 10px;
+  border: 0;
+  border-radius: 16px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.18s var(--ease);
+}
+.todo:disabled,
+.todo[aria-disabled] {
+  cursor: default;
+}
+@media (hover: hover) {
+  .todo:not(:disabled):not([aria-disabled]):hover {
+    background: rgb(23 23 23 / 0.035);
+  }
+}
+.glyph {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: rgb(23 23 23 / 0.055);
+  color: var(--ink);
+}
+.todoText {
+  min-width: 0;
+}
+.todoText strong {
+  display: block;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.todoText span {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--i55);
+}
+.act,
+.actInk {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.act {
+  background: rgb(23 23 23 / 0.06);
+}
+.actInk {
+  background: var(--ink);
+  color: #fff;
+}
+.todo[aria-disabled] .actInk {
+  opacity: 0.45;
+}
+.calm {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  padding: 10px 10px 14px;
+  font-size: 14px;
+  color: var(--i60);
+}
+
+.partial {
+  margin: 4px 10px 12px;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--i50);
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 18px 18px 18px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.18s var(--ease);
+}
+.stat + .stat {
+  box-shadow: inset 1px 0 0 var(--rule);
+}
+@media (hover: hover) {
+  .stat:hover {
+    background: rgb(23 23 23 / 0.025);
+  }
+}
+.statK {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--i50);
+}
+.statV {
+  margin-top: 10px;
+  overflow: hidden;
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.statS {
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--i50);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.fine {
+  margin: 48px 0 0;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--i50);
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* ------------------------------------------------------------------ trays: liquid glass over the page */
+.tray {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+.tray::backdrop {
+  background: transparent;
+}
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(12 12 12 / 0.22);
+}
+.sheet {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  width: min(440px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  border-radius: 30px;
+  background: rgb(250 250 250 / 0.74);
+  -webkit-backdrop-filter: blur(32px) saturate(1.9);
+  backdrop-filter: blur(32px) saturate(1.9);
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 0.95),
+    inset 0 -1px 0.5px rgb(255 255 255 / 0.45),
+    inset 0 0 0 1px rgb(255 255 255 / 0.5),
+    0 0 0 1px rgb(23 23 23 / 0.06),
+    0 2px 6px rgb(0 0 0 / 0.06),
+    0 40px 90px -30px rgb(0 0 0 / 0.38);
+  will-change: transform, clip-path;
+}
+/* the rim catches the light: brightest top left, a little at the bottom right */
+.sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(140deg, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.08) 32%, rgb(255 255 255 / 0.04) 68%, rgb(255 255 255 / 0.55));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.sheetIn {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.trayHead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 14px 12px 24px;
+}
+/* once the words scroll under it, they blur away there instead of hitting a line */
+.trayHead::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 -10px;
+  z-index: -1;
+  background: linear-gradient(rgb(250 250 250 / 0.86), rgb(250 250 250 / 0.6) 72%, rgb(250 250 250 / 0));
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  -webkit-mask: linear-gradient(#000 70%, transparent);
+  mask: linear-gradient(#000 70%, transparent);
+  opacity: 0;
+  transition: opacity 0.2s var(--ease);
+  pointer-events: none;
+}
+.sheet[data-scrolled] .trayHead::before {
+  opacity: 1;
+}
+.trayHead:has(> button:first-child) {
+  padding-left: 14px;
+}
+.trayTitles {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.trayTitle {
+  margin: 0;
+  font: 600 22px/28px var(--sans);
+  letter-spacing: -0.02em;
+}
+.traySub {
+  margin: 2px 0 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--i55);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.roundBtn {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(23 23 23 / 0.06);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 0.18s var(--ease);
+}
+@media (hover: hover) {
+  .roundBtn:hover {
+    background: rgb(23 23 23 / 0.1);
+  }
+}
+.trayBody {
+  padding: 4px 24px 24px;
+}
+.trayVerdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--i55);
+}
+.trayReason {
+  margin: 14px 0 0;
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  text-wrap: pretty;
+}
+.label {
+  margin: 26px 0 12px;
+  font: 500 11px/16px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--i50);
+}
+.findings {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.findings li {
+  position: relative;
+  padding-left: 22px;
+}
+.findings li::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+.findings li[data-s="watch"]::before {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+.findings li[data-s="note"]::before {
+  top: 7px;
+  left: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgb(23 23 23 / 0.3);
+}
+.findings p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 21px;
+}
+.findings .proof {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 6px;
+  font: 12px/16px var(--mono);
+  color: var(--i55);
+}
+.proof a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: rgb(23 23 23 / 0.3);
+  text-underline-offset: 3px;
+}
+.trayFacts {
+  margin: 24px 0 0;
+  border-top: 1px solid rgb(23 23 23 / 0.08);
+}
+.trayFacts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgb(23 23 23 / 0.08);
+  font-size: 14px;
+  line-height: 20px;
+}
+.trayFacts dt {
+  color: var(--i55);
+}
+.trayFacts dd {
+  margin: 0;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.trayNote {
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--i60);
+}
+.trayActs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+.trayFine {
+  margin: 18px 0 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--i50);
+}
+.allList {
+  margin: 0 -10px;
+  padding: 0;
+  list-style: none;
+}
+.allRow {
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr) auto 12px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.allRow .pill {
+  justify-self: start;
+}
+@media (hover: hover) {
+  .allRow:hover {
+    background: rgb(23 23 23 / 0.045);
+  }
+}
+.allAmt {
+  font: 500 13px/18px var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--i60);
+}
+.chev {
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--i40);
+  border-bottom: 1.5px solid var(--i40);
+  transform: rotate(-45deg);
+}
+.legend {
+  display: grid;
+  gap: 12px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  line-height: 20px;
+}
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.swatch {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 52px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--night);
+}
+.swatch i {
+  display: block;
+  width: 34px;
+  height: 18px;
+  border-radius: 6px;
+}
+.kFLAG {
+  background: #fff;
+}
+.kWATCH {
+  box-shadow: inset 0 0 0 1.5px #fff;
+  background: repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.22) 0 1px, transparent 1px 5px);
+}
+.kCLEAN {
+  background: rgb(255 255 255 / 0.16);
+}
+.kNOT_ENOUGH_DATA {
+  border: 1px dashed rgb(255 255 255 / 0.45);
+}
+.aboutNotes {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid rgb(23 23 23 / 0.08);
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--i60);
+}
+.aboutNotes p {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ arriving: the words come into focus */
+.rise {
+  animation: rise 0.9s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 70ms + 40ms);
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .skelLine,
+  .skelSub {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ smaller screens */
+@media (max-width: 1023px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .card {
+    min-height: 0;
+  }
+  /* for you and where you stand side by side, or one across when there's only one */
+  .side {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    align-items: start;
+  }
+}
+@media (max-width: 640px) {
+  .inner {
+    width: calc(100% - 32px);
+    padding: 28px 0 56px;
+  }
+  .top {
+    min-height: 0;
+  }
+  .headline {
+    font-size: 40px;
+    line-height: 1.04;
+    letter-spacing: -0.04em;
+  }
+  .sub {
+    margin-top: 12px;
+    font-size: 16px;
+    line-height: 24px;
+  }
+  .example {
+    margin-top: 18px;
+  }
+  .grid {
+    gap: 14px;
+    margin-top: 28px;
+  }
+  .side {
+    gap: 14px;
+  }
+  .card {
+    padding: 18px 18px 18px;
+    border-radius: 24px;
+  }
+  .mosaic {
+    margin-top: 18px;
+  }
+  .cardFill {
+    min-height: 18px;
+  }
+  .caption {
+    grid-template-areas:
+      "head act"
+      "why why";
+    column-gap: 12px;
+    padding-top: 14px;
+  }
+  .capWhy {
+    -webkit-line-clamp: 3;
+  }
+  .capWhy {
+    font-size: 14px;
+    line-height: 20px;
+  }
+  .whiteBtn {
+    height: 34px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+  .box {
+    border-radius: 22px;
+  }
+  .stat {
+    padding: 16px 14px;
+  }
+  .statV {
+    font-size: 19px;
+    line-height: 24px;
+  }
+  .fine {
+    margin-top: 36px;
+  }
+  /* a sheet from the bottom, as on a phone */
+  .sheet {
+    top: auto;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+    max-height: calc(100dvh - 64px);
+    border-radius: 30px;
+  }
+  .trayBody {
+    padding: 4px 20px 22px;
+  }
+  .trayHead {
+    padding-left: 20px;
+  }
+  .allRow {
+    grid-template-columns: 132px minmax(0, 1fr) auto 12px;
+    gap: 10px;
+  }
+}
