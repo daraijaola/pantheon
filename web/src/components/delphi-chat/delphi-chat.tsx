@@ -55,7 +55,7 @@ const ERRORS: Record<string, string> = {
   STOPPED: "Stopped here.",
 };
 
-export function DelphiChat({ explorer, suggestions }: { explorer: string; suggestions: string[] }) {
+export function DelphiChat({ explorer, suggestions, framed = false }: { explorer: string; suggestions: string[]; framed?: boolean }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [stuck, setStuck] = useState(true);
@@ -481,8 +481,14 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
   const cur = turns.at(-1);
   const announce = !cur ? "" : cur.status === "thinking" ? "DELPHI is answering." : cur.status === "error" ? (cur.error ?? "") : plain(cur.text);
 
+  // The field takes focus on arrival only with a mouse and a keyboard. On a phone, focusing it as the
+  // page arrives opens the keyboard mid-entrance and shoves everything up while the orb settles.
+  useEffect(() => {
+    if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) field.current?.focus({ preventScroll: true });
+  }, []);
+
   return (
-    <div ref={page} className={s.page} data-started={started || undefined}>
+    <div ref={page} className={`${s.page} ${framed ? s.framed : ""}`} data-started={started || undefined}>
       <canvas ref={canvas} className={s.orb} aria-hidden="true" />
       {noGL && <div ref={bead} className={s.bead} aria-hidden="true" />}
 
@@ -608,7 +614,6 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={onKey}
             enterKeyHint="send"
-            autoFocus
           />
           {busy ? (
             <button type="button" className={s.send} onClick={stop} aria-label="Stop">

@@ -22,7 +22,8 @@ function busiest(data: Delphi | null, verdict: Verdict) {
     .sort((a, b) => b.trades - a.trades)[0]?.symbol;
 }
 
-// Its own full-height page, like /upload: no site menu or footer, just DELPHI and the conversation.
+// Inside the app frame: the frame's bar on top (and its tab bar on a phone), and under it DELPHI and the
+// conversation filling the rest of the screen.
 export default async function Page() {
   const data = await readDelphi();
   const flagged = busiest(data, "FLAG");
@@ -33,5 +34,5 @@ export default async function Page() {
     clean ? `Is ${clean} clean?` : watch && `Why is ${watch} on watch?`,
     "Which coins are flagged?",
   ].filter((q): q is string => !!q);
-  return <DelphiChat explorer={data?.explorer ?? elysium.blockExplorers.default.url} suggestions={suggestions} />;
+  return <DelphiChat framed explorer={data?.explorer ?? elysium.blockExplorers.default.url} suggestions={suggestions} />;
 }
