@@ -99,30 +99,27 @@
   }
 }
 
-/* ------------------------------------------------------------------ the top: one sentence */
+/* ------------------------------------------------------------------ the top: the page's name */
 .top {
   max-width: 760px;
-  min-height: 112px;
 }
-.headline {
+.title {
   margin: 0;
-  font: 500 60px/1.02 var(--sans);
-  letter-spacing: -0.045em;
-  text-wrap: balance;
+  font: 500 44px/1.05 var(--sans);
+  letter-spacing: -0.04em;
 }
 .sub {
-  margin: 14px 0 0;
-  font-size: 19px;
-  line-height: 28px;
-  color: var(--i60);
-  text-wrap: pretty;
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--i55);
 }
 .example {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 14px;
-  margin: 24px 0 0;
+  margin: 18px 0 0;
   font-size: 14px;
   line-height: 20px;
   color: var(--i60);
@@ -143,26 +140,6 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
-.skelLine,
-.skelSub {
-  display: block;
-  height: 52px;
-  width: min(520px, 80%);
-  border-radius: 14px;
-  background: linear-gradient(90deg, rgb(23 23 23 / 0.05), rgb(23 23 23 / 0.09), rgb(23 23 23 / 0.05)) 0 0 / 200% 100%;
-  animation: shimmer 1.4s linear infinite;
-}
-.skelSub {
-  height: 20px;
-  width: min(320px, 60%);
-  margin-top: 18px;
-  border-radius: 8px;
-}
-@keyframes shimmer {
-  to {
-    background-position: -200% 0;
-  }
-}
 
 /* ------------------------------------------------------------------ the grid: the bag, then you */
 .grid {
@@ -170,7 +147,7 @@
   grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
   gap: 20px;
   align-items: stretch;
-  margin-top: 40px;
+  margin-top: 32px;
 }
 .side {
   display: flex;
@@ -245,7 +222,7 @@
 }
 .mosaic {
   position: relative;
-  margin-top: 22px;
+  margin-top: 20px;
   min-height: 50px;
   touch-action: pan-y;
 }
@@ -287,6 +264,52 @@
   font-size: 14px;
   line-height: 21px;
   color: rgb(255 255 255 / 0.6);
+}
+/* your bag as one number, and the coins by verdict (the swatches double as the tiles' key) */
+.grade {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px 24px;
+  margin-top: 16px;
+}
+.gradeNum {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+}
+.gradeNum strong {
+  font: 500 40px/1 var(--sans);
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.gradeNum span {
+  font-size: 13px;
+  color: rgb(255 255 255 / 0.55);
+}
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0 0 4px;
+  list-style: none;
+  font-size: 13px;
+  line-height: 18px;
+  color: rgb(255 255 255 / 0.7);
+}
+.counts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.counts i {
+  display: block;
+  width: 16px;
+  height: 10px;
+  border-radius: 4px;
 }
 .cardFill {
   flex: 1 1 auto;
@@ -555,6 +578,15 @@
   font-size: 12px;
   line-height: 16px;
   color: var(--i50);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.statSince {
+  margin-top: 8px;
+  overflow: hidden;
+  font: 500 11px/14px var(--mono);
+  letter-spacing: 0.02em;
+  color: var(--i40);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -902,6 +934,9 @@
 .kNOT_ENOUGH_DATA {
   border: 1px dashed rgb(255 255 255 / 0.45);
 }
+.kUNKNOWN {
+  border: 1px dotted rgb(255 255 255 / 0.4);
+}
 .aboutNotes {
   display: grid;
   gap: 10px;
@@ -934,9 +969,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .rise,
-  .skelLine,
-  .skelSub {
+  .rise {
     animation: none;
   }
 }
@@ -961,18 +994,16 @@
     width: calc(100% - 32px);
     padding: 28px 0 56px;
   }
-  .top {
-    min-height: 0;
-  }
-  .headline {
-    font-size: 40px;
-    line-height: 1.04;
-    letter-spacing: -0.04em;
+  .title {
+    font-size: 34px;
   }
   .sub {
-    margin-top: 12px;
-    font-size: 16px;
-    line-height: 24px;
+    margin-top: 6px;
+    font-size: 14px;
+    line-height: 20px;
+  }
+  .gradeNum strong {
+    font-size: 34px;
   }
   .example {
     margin-top: 18px;

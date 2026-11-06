@@ -1,12 +1,11 @@
 "use client";
 
-// Your space: the main page inside the app, where Get uploaded leads. It says one thing first, how your
-// bag looks to DELPHI, and keeps everything else a tap away. Your bag is a dark card, a tile per coin,
-// with the passport's liquid-glass lens on the one that matters and one line under it saying what she
-// found. Beside it: at most three things to do now, and three numbers that say where you stand. The
-// details open in a tray of glass, grown from what you tapped. Ink on paper; glass only on what floats
-// or moves, as Apple uses it. Until sign-in is live it shows a labelled example (data.ts says where the
-// real answers will come from).
+// Your space: the main page inside the app, where Get uploaded leads. A plain dashboard with only the
+// basics. Your bag as one picture: its Integrity (how much of it DELPHI calls clean), a tile per coin on a
+// dark card, and the passport's liquid-glass lens on the one that matters, with one line saying what she
+// found. Beside it: Now (at most three things to do) and three numbers for where you stand. The details
+// open in a tray of glass, grown from what you tapped. Until sign-in is live it shows a labelled example
+// (data.ts says where the real answers will come from).
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
@@ -17,13 +16,15 @@ import { short, TxNote, useNow, useTx, type Hex } from "@/components/app/shared"
 import { createBag, layoutTiles, MARGIN, type TileItem } from "./bag";
 import { useSpace, type Alert, type Bag, type BagCoin, type Part, type Space, type Verdict } from "./data";
 import { fromEl, Tray, useCloseTray, type From } from "./tray";
-import { LABEL, ago, amount, lead, standing, ticker, todos, type Glyph as GlyphName, type Stat, type Todo } from "./words";
+import { LABEL, ago, amount, integrity, since, standing, ticker, todos, type Glyph as GlyphName, type Stat, type Todo } from "./words";
 import s from "./space.module.css";
 
 const at = (i: number) => ({ "--i": i }) as CSSProperties;
 const VENUE: Record<string, string> = { ascend: "Ascend", kalos: "Kalos", perpme: "PerpMe" };
 
 const LOADING: Part<Bag> = { state: "loading" };
+const ORDER: Verdict[] = ["FLAG", "WATCH", "NOT_ENOUGH_DATA", "UNKNOWN", "CLEAN"];
+const COUNT: Record<Verdict, string> = { FLAG: "flagged", WATCH: "watch", NOT_ENOUGH_DATA: "too new", UNKNOWN: "not read", CLEAN: "clean" };
 
 type TrayView = { view: "coin"; i: number; back?: "all" } | { view: "all" } | { view: "about" };
 
@@ -53,7 +54,18 @@ export function YourSpace() {
         <div className={s.grid}>
           <BagCard part={ready ? sp.bag : LOADING} ready={ready} now={now} lensAt={lensAt} onLens={setLensAt} onOpen={openCoin} onAll={(from) => setTray({ v: { view: "all" }, from })} onAbout={(from) => setTray({ v: { view: "about" }, from })} />
           <aside className={s.side}>
-            {ready && <ForYou items={todos(sp, now)} example={example} wallet={sp.wallet} partial={[sp.rewards, sp.ballot, sp.stake].some((p) => p.state === "unread")} />}
+            {ready && (
+              <Now
+                items={todos(sp, now)}
+                example={example}
+                wallet={sp.wallet}
+                partial={[sp.rewards, sp.ballot, sp.stake].some((p) => p.state === "unread")}
+                onCoin={(token, from) => {
+                  const i = bag?.coins.findIndex((c) => c.token === token) ?? -1;
+                  if (i >= 0) openCoin(i, from);
+                }}
+              />
+            )}
             {stand && <Standing stats={stand} />}
           </aside>
         </div>
@@ -75,25 +87,20 @@ export function YourSpace() {
   );
 }
 
-// ------------------------------------------------------------------ the top: one sentence
+// ------------------------------------------------------------------ the top: the page's name, and how long you've been here
 
-function Top({ sp, now }: { sp: Space; now: number }) {
-  const { headline, sub } = lead(sp, now);
-  if (sp.mode === "loading" || !headline)
-    return (
-      <header className={s.top} aria-hidden="true">
-        <span className={s.skelLine} />
-        <span className={s.skelSub} />
-      </header>
-    );
+function Top({ sp }: { sp: Space; now: number }) {
+  const line = sp.mode === "mine" ? since(sp) : null;
   return (
     <header className={s.top}>
-      <h1 className={`${s.headline} ${s.rise}`} style={at(0)}>
-        {headline}
+      <h1 className={`${s.title} ${s.rise}`} style={at(0)}>
+        Your space
       </h1>
-      <p className={`${s.sub} ${s.rise}`} style={at(1)}>
-        {sub}
-      </p>
+      {line && (
+        <p className={`${s.sub} ${s.rise}`} style={at(1)}>
+          {line}
+        </p>
+      )}
       {sp.mode === "example" && (
         <p className={`${s.example} ${s.rise}`} style={at(2)}>
           <span className={s.tag}>Example</span>
@@ -221,7 +228,8 @@ function BagCard({
     buttons.current[to]?.focus();
   };
 
-  const meta = !bag ? null : bag.checking ? "Reading again…" : now ? `Read ${ago(bag.readAt, now)}${bag.unread.length || !bag.complete ? " · not final" : ""}` : "";
+  const meta = !bag ? null : bag.checking ? "Reading again…" : now ? `Read ${ago(bag.readAt, now)}` : "";
+  const grade = bag ? integrity(bag) : null;
 
   return (
     <section className={`${s.card} ${ready ? s.rise : ""}`} style={at(2)} aria-labelledby="bag-title">
@@ -238,6 +246,23 @@ function BagCard({
           )}
         </div>
       </header>
+
+      {grade && bag && (
+        <div className={s.grade}>
+          <p className={s.gradeNum}>
+            <strong>{grade.pct}%</strong>
+            <span>Integrity{grade.final ? "" : " · not final"}</span>
+          </p>
+          <ul className={s.counts} aria-label="Your coins by verdict">
+            {ORDER.filter((v) => (bag.counts[v] ?? 0) > 0).map((v) => (
+              <li key={v}>
+                <i className={s[`k${v}`]} aria-hidden="true" />
+                {bag.counts[v]} {COUNT[v]}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div ref={host} className={s.mosaic} style={{ height: tiles ? tiles.H : undefined, "--m": `${MARGIN}px` } as CSSProperties}>
         <div ref={layer} className={s.layer} aria-hidden="true" />
@@ -319,13 +344,13 @@ export function Pill({ v }: { v: Verdict }) {
 
 // ------------------------------------------------------------------ for you: at most three things to do
 
-function ForYou({ items, example, wallet, partial }: { items: Todo[]; example: boolean; wallet: string; partial: boolean }) {
+function Now({ items, example, wallet, partial, onCoin }: { items: Todo[]; example: boolean; wallet: string; partial: boolean; onCoin: (token: string, from: From) => void }) {
   const tx = useTx();
   const refresh = () => deployment && tx.run("Refreshing", [{ address: deployment.staking, abi: pantheonStakingAbi, functionName: "poke", args: [[wallet as Hex]] } as const]);
   return (
     <section className={`${s.box} ${s.rise}`} style={at(3)} aria-labelledby="todo-title">
       <h2 id="todo-title" className={s.boxTitle}>
-        For you
+        Now
       </h2>
       {items.length ? (
         <ul className={s.todos}>
@@ -344,7 +369,11 @@ function ForYou({ items, example, wallet, partial }: { items: Todo[]; example: b
             );
             return (
               <li key={t.key}>
-                {t.href ? (
+                {t.coin ? (
+                  <button type="button" className={s.todo} onClick={(e) => onCoin(t.coin!, fromEl(e.currentTarget, 16))}>
+                    {inner}
+                  </button>
+                ) : t.href ? (
                   <Link href={t.href} className={s.todo}>
                     {inner}
                   </Link>
@@ -389,6 +418,7 @@ function Standing({ stats }: { stats: Stat[] }) {
             <span className={s.statK}>{st.label}</span>
             <span className={s.statV}>{st.value}</span>
             <span className={s.statS}>{st.sub}</span>
+            {st.since && <span className={s.statSince}>{st.since}</span>}
           </Link>
         ))}
       </div>
@@ -562,6 +592,7 @@ function AboutTray({ bag, now }: { bag: Bag; now: number }) {
 // ------------------------------------------------------------------ PANTHEON's 7 × 7 pixel glyphs
 
 const GLYPHS: Record<GlyphName | "close" | "back" | "info", string[]> = {
+  alert: ["...#...", "..#.#..", "..#.#..", ".#.#.#.", ".#...#.", "#..#..#", "#######"],
   claim: ["...#...", "...#...", ".#.#.#.", "..###..", "...#...", "#.....#", "#######"],
   vote: [".......", "......#", ".....#+", "#...#+.", "+#.#+..", ".+#+...", "..+...."],
   refresh: [".####..", "#....#.", "#.....#", "#...###", "#....#.", ".#.....", "..####."],

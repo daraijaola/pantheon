@@ -11,8 +11,6 @@ export const LABEL: Record<Verdict, string> = { FLAG: "Flagged", WATCH: "Watch",
 
 const ok = <T,>(p: Part<T>) => (p.state === "ok" ? p.data : null);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-/** "ZELOS", "ZELOS and NYX", "ZELOS, NYX and PAN" */
-const list = (xs: string[]) => (xs.length < 2 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 
 /** A coin's name as people say it: its ticker, or the start of its address. */
 export const ticker = (c: { symbol: string | null; token: string }) => c.symbol ?? `${c.token.slice(0, 6)}…`;
@@ -55,48 +53,32 @@ export function left(iso: string, now: number): string {
   return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-// ------------------------------------------------------------------ the top
+// ------------------------------------------------------------------ your bag as one number
 
-export type Lead = { headline: string; sub: string };
-
-/** The sentence at the top, and the one line under it. */
-export function lead(sp: Space, now: number): Lead {
-  const bag = ok(sp.bag);
-  const alerts = ok(sp.guard)?.alerts ?? [];
-  if (!bag) return sp.bag.state === "loading" ? { headline: "", sub: "" } : { headline: "Your space", sub: "DELPHI couldn’t read your bag just now. She’ll try again in a minute." };
+/** Integrity: the share of your coins DELPHI calls clean so far, by count. Unread and too-new coins
+ * never count as clean, and it isn't final while any coin couldn't be read. */
+export function integrity(bag: { coins: unknown[]; counts: Partial<Record<Verdict, number>>; complete: boolean; unread: string[] }) {
   const n = bag.coins.length;
-  const flagged = bag.coins.filter((c) => c.verdict === "FLAG");
-  const watch = bag.coins.filter((c) => c.verdict === "WATCH");
-  if (flagged.length) {
-    if (flagged.length > 1) return { headline: `${flagged.length} coins need a look.`, sub: `DELPHI flagged ${list(flagged.slice(0, 3).map(ticker))}${flagged.length > 3 ? " and more" : ""}.` };
-    const c = flagged[0];
-    const drop = alerts.find((a) => a.token === c.token && a.kind === "verdict-drop");
-    return { headline: `${ticker(c)} needs a look.`, sub: drop && now ? `DELPHI flagged it ${ago(drop.at, now)}.` : "DELPHI flagged it." };
-  }
-  // news from Guard about a coin that isn't flagged: its creator sold, or it slipped to watch
-  const news = alerts[0];
-  if (news) {
-    const name = news.symbol ?? "A coin";
-    if (news.kind === "creator-sold") return { headline: `${name}’s creator sold.`, sub: `${(news.soldPct ?? 0).toFixed(1)}% of the supply${now ? `, ${ago(news.at, now)}` : ""}.` };
-    const was = LABEL[(news.from as Verdict) ?? "CLEAN"] ?? news.from;
-    return { headline: `${name} is on watch now.`, sub: `It was ${was.toLowerCase()} until ${now ? ago(news.at, now) : "this week"}.` };
-  }
-  if (watch.length) return { headline: "Nothing flagged.", sub: watch.length <= 2 ? `DELPHI is keeping an eye on ${list(watch.map(ticker))}.` : `DELPHI is keeping an eye on ${watch.length} of your coins.` };
-  if (!n) return { headline: "Your bag is empty.", sub: "Coins you buy on Ascend show up here, read by DELPHI." };
-  const clean = bag.counts.CLEAN ?? 0;
-  if (clean === n) return { headline: "Clean so far.", sub: n === 1 ? "DELPHI read your coin and found nothing." : `DELPHI read all ${n} of your coins and found nothing.` };
-  if (!clean) return { headline: "Too early to tell.", sub: (bag.counts.UNKNOWN ?? 0) === n ? "DELPHI hasn’t read your coins yet." : "Your coins are too new for DELPHI to judge yet." };
-  return { headline: "Nothing flagged.", sub: `${clean} of your ${n} coins are clean so far.` };
+  if (!n) return null;
+  return { pct: Math.round((100 * (bag.counts.CLEAN ?? 0)) / n), final: bag.complete && !bag.unread.length };
 }
 
 // ------------------------------------------------------------------ for you: at most three things to do
 
-export type Glyph = "claim" | "vote" | "refresh" | "stake" | "passport" | "calm";
-export type Todo = { key: string; glyph: Glyph; title: string; sub: string; action: string; href?: string; refresh?: boolean };
+export type Glyph = "alert" | "claim" | "vote" | "refresh" | "stake" | "passport" | "calm";
+/** One thing to do now. `coin` opens that coin's report; `href` goes to its page; `refresh` sends a poke. */
+export type Todo = { key: string; glyph: Glyph; title: string; sub: string; action: string; href?: string; coin?: string; refresh?: boolean };
 
+/** Now: at most three things, the most pressing first. A coin that turned this week, then what's yours to take. */
 export function todos(sp: Space, now: number): Todo[] {
   const out: Todo[] = [];
   const rewards = ok(sp.rewards), stake = ok(sp.stake), ballot = ok(sp.ballot), standing = ok(sp.standing);
+  for (const a of (ok(sp.guard)?.alerts ?? []).slice(0, 2)) {
+    const name = a.symbol ?? "A coin";
+    const when = now ? ago(a.at, now) : "this week";
+    if (a.kind === "creator-sold") out.push({ key: a.id, glyph: "alert", title: `${name}’s creator sold`, sub: `${(a.soldPct ?? 0).toFixed(1)}% of the supply · ${when}`, action: "See why", coin: a.token });
+    else out.push({ key: a.id, glyph: "alert", title: a.to === "FLAG" ? `${name} was flagged` : `${name} is on watch now`, sub: `Was ${(LABEL[(a.from as Verdict) ?? "CLEAN"] ?? a.from).toLowerCase()} · ${when}`, action: "See why", coin: a.token });
+  }
   const claim = rewards?.coins.filter((c) => Number(c.claimable.amount) > 0) ?? [];
   if (claim.length) {
     const top = claim[0];
@@ -107,7 +89,8 @@ export function todos(sp: Space, now: number): Todo[] {
     const bits = [ballot.votes != null ? plural(ballot.votes, "vote") : null, ballot.closesAt && now ? `closes in ${left(ballot.closesAt, now)}` : null].filter(Boolean);
     out.push({ key: "vote", glyph: "vote", title: voted ? `You voted in round ${ballot.round}` : `Round ${ballot.round} is open`, sub: voted ? `You can change it${ballot.closesAt && now ? ` for ${left(ballot.closesAt, now)}` : ""}` : bits.join(" · "), action: voted ? "Change" : "Vote", href: "/trials/vote" });
   }
-  if (stake?.needsRefresh) out.push({ key: "refresh", glyph: "refresh", title: `Earn ${times(stake.multiplier.ifRefreshed)} instead of ${times(stake.multiplier.earning)}`, sub: "Your time bonus grew", action: "Refresh", refresh: true });
+  // refreshing a stake is the Stake page's business unless there's room
+  if (stake?.needsRefresh && out.length < 3) out.push({ key: "refresh", glyph: "refresh", title: `Earn ${times(stake.multiplier.ifRefreshed)} instead of ${times(stake.multiplier.earning)}`, sub: "Your time bonus grew", action: "Refresh", refresh: true });
   if (stake?.canWithdraw && Number(stake.cooling.amount) > 0) out.push({ key: "withdraw", glyph: "claim", title: `${amount(stake.cooling.amount)} PNTH is ready`, sub: "Your unstake has finished cooling", action: "Withdraw", href: "/stake" });
   // nothing pressing: the two ways in, a stake and a passport (each also brings votes in the Trials)
   if (!out.length) {
@@ -120,7 +103,19 @@ export function todos(sp: Space, now: number): Todo[] {
 
 // ------------------------------------------------------------------ you: three numbers
 
-export type Stat = { key: string; label: string; value: string; sub: string; href: string };
+export type Stat = { key: string; label: string; value: string; sub: string; since?: string; href: string };
+
+/** "14 Sep" this year, "14 Sep 2025" before it. */
+const shortDay = (iso: string) => {
+  const d = new Date(iso);
+  return d.getUTCFullYear() === new Date().getUTCFullYear() ? `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}` : day(iso);
+};
+
+/** The line under the title: how long you've been here. */
+export const since = (sp: Space) => {
+  const first = ok(sp.standing)?.firstSeen;
+  return first ? `On Elysium since ${day(first.time)}` : null;
+};
 
 /**
  * Where you stand, once there's something to show: a stake, a passport or a pick. A newcomer's three
@@ -145,6 +140,7 @@ function stats(sp: Space): Stat[] {
       label: "Stake",
       value: staking == null ? "—" : staking && stake ? times(stake.multiplier.earning) : staking ? "Staking" : "None",
       sub: staking == null ? "Couldn’t read it" : stake && staking ? `on ${amount(stake.staked.amount)} PNTH` : staking ? `${amount(standing?.staking.now.amount)} PNTH` : "Stake to earn",
+      since: standing?.staking.firstStaked ? `since ${shortDay(standing.staking.firstStaked)}` : undefined,
       href: "/stake",
     },
     {
@@ -158,7 +154,8 @@ function stats(sp: Space): Stat[] {
       key: "trials",
       label: "Trials",
       value: !t ? "—" : t.picks ? `${t.seatsWon} of ${t.picks}` : "No picks",
-      sub: !t ? "Couldn’t read it" : t.picks ? "won a seat" : "Vote in a round",
+      sub: !t ? "Couldn’t read it" : t.picks ? "picks won a seat" : "Vote in a round",
+      since: t?.rounds ? `${plural(t.rounds, "round")} voted` : undefined,
       href: "/trials/vote",
     },
   ];
