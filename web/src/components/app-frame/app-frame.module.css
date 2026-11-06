@@ -34,10 +34,19 @@
   position: sticky;
   top: 0;
   z-index: 40;
+}
+/* The bar's glass is drawn underneath it, not on it: an element with a backdrop filter cuts what's inside it
+   off from the page, so the menus that open from the bar couldn't blur the page under them. */
+.bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background: rgb(249 249 249 / 0.74);
   -webkit-backdrop-filter: blur(24px) saturate(1.6);
   backdrop-filter: blur(24px) saturate(1.6);
   box-shadow: 0 1px 0 rgb(23 23 23 / 0.06);
+  pointer-events: none;
 }
 .barIn {
   display: grid;
