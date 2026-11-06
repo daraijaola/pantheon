@@ -4,7 +4,6 @@ import { parseSiweMessage, validateSiweMessage } from "viem/siwe";
 
 export const SESSION_SECONDS = 7 * 24 * 60 * 60;
 export const NONCE_SECONDS = 5 * 60;
-export const NONCES_PER_CLIENT = 5;
 export const SESSION_COOKIE = "pantheon_session";
 export const NONCE_COOKIE = "pantheon_nonce";
 export const ME_PATHS = new Map([
@@ -13,11 +12,6 @@ export const ME_PATHS = new Map([
 ]);
 type Challenge = { nonce: string; origin: string; issued: number; expires: number };
 type Session = { wallet: string; origin: string; expires: number };
-export type PendingNonce = { expires: number; client: string };
-
-export function nonceClient(headers: Headers, remoteAddress = "local") {
-  return headers.get("x-forwarded-for")?.split(",")[0].trim() || remoteAddress;
-}
 
 export class AuthError extends Error {
   status: number;
@@ -32,11 +26,11 @@ export function sessionSecret(env: Record<string, string | undefined>, developme
 
 export function createAuth(options: {
   secret: () => string;
-  pending?: Map<string, PendingNonce>;
+  used?: Map<string, number>;
   now?: () => number;
   verify?: (args: { address: Hex; message: string; signature: Hex }) => Promise<boolean>;
 }) {
-  const pending = options.pending ?? new Map<string, PendingNonce>();
+  const used = options.used ?? new Map<string, number>();
   const now = options.now ?? Date.now;
   const verify = options.verify ?? verifyMessage;
   function seal(kind: string, value: object) {
@@ -54,24 +48,15 @@ export function createAuth(options: {
     try { return JSON.parse(Buffer.from(payload, "base64url").toString()) as T; } catch { return null; }
   }
   return {
-    challenge(origin: string, client = "local") {
+    challenge(origin: string) {
       const issued = now();
-      let outstanding = 0;
-      for (const [nonce, entry] of pending) {
-        if (entry.expires <= issued) pending.delete(nonce);
-        else if (entry.client === client) outstanding++;
-      }
-      if (outstanding >= NONCES_PER_CLIENT) throw new AuthError(429, "TRY_AGAIN_LATER");
       const value: Challenge = { nonce: randomBytes(24).toString("hex"), origin, issued, expires: issued + NONCE_SECONDS * 1000 };
       const cookie = seal("nonce", value);
-      if (pending.size >= 10_000) pending.delete(pending.keys().next().value!);
-      pending.set(value.nonce, { expires: value.expires, client });
       return { cookie, nonce: value.nonce, domain: new URL(origin).host, uri: origin, chainId: 99801, issuedAt: new Date(issued).toISOString(), expirationTime: new Date(value.expires).toISOString() };
     },
     async verify(origin: string, cookie: string | undefined, message: unknown, signature: unknown) {
       const challenge = open<Challenge>("nonce", cookie);
-      if (!challenge || challenge.origin !== origin || challenge.expires <= now() || pending.get(challenge.nonce)?.expires !== challenge.expires) throw new AuthError(401, "INVALID_NONCE");
-      pending.delete(challenge.nonce);
+      if (!challenge || challenge.origin !== origin || challenge.expires <= now() || used.has(challenge.nonce)) throw new AuthError(401, "INVALID_NONCE");
       if (typeof message !== "string" || message.length > 8192 || typeof signature !== "string" || !/^0x[0-9a-f]+$/i.test(signature) || signature.length > 8192) throw new AuthError(400, "INVALID_MESSAGE");
       let parsed;
       try { parsed = parseSiweMessage(message); } catch { throw new AuthError(401, "INVALID_MESSAGE"); }
@@ -79,9 +64,14 @@ export function createAuth(options: {
       let valid = false;
       try { valid = await verify({ address: parsed.address, message, signature: signature as Hex }); } catch { /* Invalid signatures fail closed. */ }
       if (!valid) throw new AuthError(401, "INVALID_SIGNATURE");
-      if (challenge.expires <= now()) throw new AuthError(401, "INVALID_NONCE");
+      const verifiedAt = now();
+      if (challenge.expires <= verifiedAt || used.has(challenge.nonce)) throw new AuthError(401, "INVALID_NONCE");
+      for (const [nonce, expires] of used) if (expires <= verifiedAt) used.delete(nonce);
+      if (used.size >= 10_000) throw new AuthError(429, "TRY_AGAIN_LATER");
       const wallet = getAddress(parsed.address).toLowerCase();
-      return { wallet, cookie: seal("session", { wallet, origin, expires: now() + SESSION_SECONDS * 1000 }) };
+      const session = { wallet, cookie: seal("session", { wallet, origin, expires: verifiedAt + SESSION_SECONDS * 1000 }) };
+      used.set(challenge.nonce, challenge.expires);
+      return session;
     },
     session(origin: string, cookie?: string) {
       const session = open<Session>("session", cookie);

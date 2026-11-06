@@ -4,15 +4,15 @@ import { privateKeyToAccount } from "viem/accounts";
 import { createSiweMessage } from "viem/siwe";
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 
-const { createAuth, sessionSecret, nonceClient, ME_PATHS, NONCE_SECONDS, NONCES_PER_CLIENT, SESSION_SECONDS } = await import(new URL("./auth.ts", import.meta.url).href) as typeof import("./auth");
+const { createAuth, sessionSecret, ME_PATHS, NONCE_SECONDS, SESSION_SECONDS } = await import(new URL("./auth.ts", import.meta.url).href) as typeof import("./auth");
 const { clearSession } = await import(new URL("./auth-client.ts", import.meta.url).href) as typeof import("./auth-client");
 const account = privateKeyToAccount(`0x${"11".repeat(32)}`);
 const other = privateKeyToAccount(`0x${"22".repeat(32)}`);
 const origin = "https://pantheon.example";
 const secret = "test-only-session-key-with-at-least-32-characters";
-function setup() {
+function setup(used = new Map<string, number>()) {
   let time = Date.parse("2026-11-06T00:00:00Z");
-  const auth = createAuth({ secret: () => secret, now: () => time });
+  const auth = createAuth({ secret: () => secret, now: () => time, used });
   const challenge = auth.challenge(origin);
   const fields = { address: account.address, domain: challenge.domain, uri: challenge.uri, nonce: challenge.nonce, chainId: 99801, version: "1" as const, issuedAt: new Date(challenge.issuedAt), expirationTime: new Date(challenge.expirationTime) };
   return { auth, challenge, fields, advance: (ms: number) => { time += ms; } };
@@ -47,13 +47,12 @@ test("a nonce is single use, including concurrent verification", async () => {
   await assert.rejects(auth.verify(origin, challenge.cookie, message, signature), /INVALID_NONCE/);
 });
 test("nonces require the bound cookie, origin, live challenge and signing key", async () => {
-  for (const kind of ["missing", "tampered", "expired", "origin", "restart", "signature"] as const) {
+  for (const kind of ["missing", "tampered", "expired", "origin", "signature"] as const) {
     const { auth, challenge, fields, advance } = setup();
     const message = createSiweMessage(fields);
     const signature = await (kind === "signature" ? other : account).signMessage({ message });
     if (kind === "expired") advance(NONCE_SECONDS * 1000);
-    const verifier = kind === "restart" ? createAuth({ secret: () => secret }) : auth;
-    await assert.rejects(verifier.verify(kind === "origin" ? "https://other.example" : origin, kind === "missing" ? undefined : kind === "tampered" ? `x${challenge.cookie}` : challenge.cookie, message, signature), /INVALID_/);
+    await assert.rejects(auth.verify(kind === "origin" ? "https://other.example" : origin, kind === "missing" ? undefined : kind === "tampered" ? `x${challenge.cookie}` : challenge.cookie, message, signature), /INVALID_/);
   }
 });
 test("domain, URI, chain, nonce, issue time and expiry cannot be supplied by the signer", async () => {
@@ -83,35 +82,49 @@ test("production requires a strong server secret; development can use an ephemer
   assert.throws(() => auth.session(origin), /AUTH_UNAVAILABLE/);
   assert.throws(() => auth.challenge(origin), /AUTH_UNAVAILABLE/);
 });
-test("pending nonces are bounded and expired challenges are pruned", () => {
-  const pending = new Map(Array.from({ length: 10_000 }, (_, i) => [String(i), { expires: 10_000, client: String(i) }]));
-  let time = 0;
-  const auth = createAuth({ secret: () => secret, pending, now: () => time });
-  const challenge = auth.challenge(origin, "new-client");
-  assert.equal(pending.size, 10_000);
-  assert.equal(pending.has("0"), false);
-  assert.equal(pending.has(challenge.nonce), true);
-  time = NONCE_SECONDS * 1000;
-  auth.challenge(origin);
-  assert.equal(pending.size, 1);
-});
-test("one client cannot exhaust other clients' nonce capacity", async () => {
-  const { auth, challenge, fields, advance } = setup();
-  for (let i = 1; i < NONCES_PER_CLIENT; i++) auth.challenge(origin);
-  for (let i = 0; i < 100; i++) assert.throws(() => auth.challenge(origin), /TRY_AGAIN_LATER/);
-  assert.ok(auth.challenge(origin, "another-client").nonce);
+test("unsigned challenges allocate no server state and cancelled prompts never block retries", async () => {
+  const used = new Map<string, number>();
+  const { auth, challenge, fields } = setup(used);
+  for (let i = 0; i < 10_001; i++) assert.ok(auth.challenge(origin).nonce);
+  assert.equal(used.size, 0);
   const message = createSiweMessage(fields);
   const signed = await auth.verify(origin, challenge.cookie, message, await account.signMessage({ message }));
   assert.equal(auth.session(origin, signed.cookie), account.address.toLowerCase());
-  assert.ok(auth.challenge(origin).nonce);
-  assert.throws(() => auth.challenge(origin), /TRY_AGAIN_LATER/);
-  advance(NONCE_SECONDS * 1000);
-  assert.ok(auth.challenge(origin).nonce);
+  assert.equal(used.size, 1);
 });
-test("nonce client uses the first trusted forwarded hop or remote address", () => {
-  assert.equal(nonceClient(new Headers({ "x-forwarded-for": " 192.0.2.1, 198.51.100.2 " }), "127.0.0.1"), "192.0.2.1");
-  assert.equal(nonceClient(new Headers(), "127.0.0.1"), "127.0.0.1");
-  assert.equal(nonceClient(new Headers({ "x-forwarded-for": " " }), "127.0.0.1"), "127.0.0.1");
+test("only a valid signature consumes a nonce; failed signatures can be retried", async () => {
+  const used = new Map<string, number>();
+  const { auth, challenge, fields } = setup(used);
+  const message = createSiweMessage(fields);
+  await assert.rejects(auth.verify(origin, challenge.cookie, "malformed", "0x1234"), /INVALID_MESSAGE/);
+  await assert.rejects(auth.verify(origin, challenge.cookie, message, await other.signMessage({ message })), /INVALID_SIGNATURE/);
+  assert.equal(used.size, 0);
+  await auth.verify(origin, challenge.cookie, message, await account.signMessage({ message }));
+  assert.equal(used.get(challenge.nonce), Date.parse(challenge.expirationTime));
+});
+test("the signed cookie proves issuance without a pending record", async () => {
+  const used = new Map<string, number>();
+  const { challenge, fields } = setup();
+  const verifier = createAuth({ secret: () => secret, used, now: () => fields.issuedAt.getTime() });
+  const message = createSiweMessage(fields), signature = await account.signMessage({ message });
+  assert.equal((await verifier.verify(origin, challenge.cookie, message, signature)).wallet, account.address.toLowerCase());
+  const second = createAuth({ secret: () => secret, used, now: () => fields.issuedAt.getTime() });
+  await assert.rejects(second.verify(origin, challenge.cookie, message, signature), /INVALID_NONCE/);
+});
+test("used nonces are bounded, never evicted while live, and pruned at expiry", async () => {
+  const expires = Date.parse("2026-11-06T00:00:01Z");
+  const used = new Map(Array.from({ length: 10_000 }, (_, i) => [String(i), expires]));
+  const { auth, challenge, fields, advance } = setup(used);
+  assert.ok(auth.challenge(origin).nonce);
+  const message = createSiweMessage(fields), signature = await account.signMessage({ message });
+  await assert.rejects(auth.verify(origin, challenge.cookie, message, signature), /TRY_AGAIN_LATER/);
+  assert.equal(used.size, 10_000);
+  assert.equal(used.has("0"), true);
+  assert.equal(used.has(challenge.nonce), false);
+  advance(1000);
+  await auth.verify(origin, challenge.cookie, message, signature);
+  assert.equal(used.size, 1);
+  assert.equal(used.has(challenge.nonce), true);
 });
 test("gateway exposes only the dashboard reads and scan, never arbitrary wallet paths", () => {
   assert.deepEqual([...ME_PATHS.keys()], ["bag", "rewards", "stake", "standing", "guard", "trials/record", "trials/ballot", "scan"]);
