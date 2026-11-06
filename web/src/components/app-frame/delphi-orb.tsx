@@ -1,10 +1,10 @@
 "use client";
 
 // DELPHI in the corner of every inside page: her orb (the same one as /delphi/chat and the Get uploaded
-// button), drifting in a small round window of dark glass. One click and you're on her page. On a
-// computer her name slides out beside her when you point at her; on a phone she sits at the end of the
-// tab bar. It draws only while it's on screen, about 30 times a second; without WebGL a still bead
-// sits in her place, and with reduced motion she holds still.
+// button), drifting in a small round window of clear glass, the bar's own. One click and you're on her
+// page. On a computer her name slides out beside her when you point at her; on a phone she sits at the
+// end of the tab bar. It draws only while it's on screen, about 30 times a second; without WebGL a still
+// bead sits in her place, and with reduced motion she holds still.
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
@@ -47,7 +47,7 @@ export function DelphiOrb() {
       const W = cv.clientWidth, H = cv.clientHeight;
       const t = reduced ? 6 : (now - t0) / 1000;
       heat += ((hot.current ? 1 : 0) - heat) * Math.min(1, dt * 7);
-      const r = Math.min(W, H) * 0.3 * (1 + 0.08 * heat);
+      const r = Math.min(W, H) * 0.33 * (1 + 0.08 * heat);
       // a small drift round the middle of the window, a little stretched the way she moves
       const x = W / 2 + 2.5 * Math.sin(t * 0.6) * (1 - 0.5 * heat);
       const y = H / 2 + 1.5 * Math.sin(t * 1.1 + 0.6);

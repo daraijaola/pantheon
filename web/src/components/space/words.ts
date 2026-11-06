@@ -66,8 +66,12 @@ export function integrity(bag: { coins: unknown[]; counts: Partial<Record<Verdic
 // ------------------------------------------------------------------ for you: at most three things to do
 
 export type Glyph = "alert" | "claim" | "vote" | "refresh" | "stake" | "passport" | "calm";
-/** One thing to do now. `coin` opens that coin's report in a tray (its `href` when the bag can't show it); `href` goes to its page; `refresh` sends a poke. */
-export type Todo = { key: string; glyph: Glyph; title: string; sub: string; action: string; href?: string; coin?: string; refresh?: boolean };
+/**
+ * One thing to do now. `coin` opens that coin's report in a tray (its `href` when the bag can't show it);
+ * `href` goes to its page; `refresh` sends a poke. `emph` is the part of the title that matters most (the
+ * coin, the amount, the new rate), which the page sets a little stronger.
+ */
+export type Todo = { key: string; glyph: Glyph; title: string; emph?: string; sub: string; action: string; href?: string; coin?: string; refresh?: boolean };
 
 /** Now: at most three things, the most pressing first. A coin that turned this week, then what's yours to take. */
 export function todos(sp: Space, now: number): Todo[] {
@@ -76,13 +80,15 @@ export function todos(sp: Space, now: number): Todo[] {
   for (const a of (ok(sp.guard)?.alerts ?? []).slice(0, 2)) {
     const name = a.symbol ?? "A coin";
     const when = now ? ago(a.at, now) : "this week";
-    if (a.kind === "creator-sold") out.push({ key: a.id, glyph: "alert", title: `${name}’s creator sold`, sub: `${(a.soldPct ?? 0).toFixed(1)}% of the supply · ${when}`, action: "See why", coin: a.token, href: a.reportUrl });
-    else out.push({ key: a.id, glyph: "alert", title: a.to === "FLAG" ? `${name} was flagged` : `${name} is on watch now`, sub: `Was ${(LABEL[(a.from as Verdict) ?? "CLEAN"] ?? a.from).toLowerCase()} · ${when}`, action: "See why", coin: a.token, href: a.reportUrl });
+    const emph = a.symbol ?? undefined;
+    if (a.kind === "creator-sold") out.push({ key: a.id, glyph: "alert", title: `${name}’s creator sold`, emph, sub: `${(a.soldPct ?? 0).toFixed(1)}% of the supply · ${when}`, action: "See why", coin: a.token, href: a.reportUrl });
+    else out.push({ key: a.id, glyph: "alert", title: a.to === "FLAG" ? `${name} was flagged` : `${name} is on watch now`, emph, sub: `Was ${(LABEL[(a.from as Verdict) ?? "CLEAN"] ?? a.from).toLowerCase()} · ${when}`, action: "See why", coin: a.token, href: a.reportUrl });
   }
   const claim = rewards?.coins.filter((c) => Number(c.claimable.amount) > 0) ?? [];
   if (claim.length) {
     const top = claim[0];
-    out.push({ key: "claim", glyph: "claim", title: `${money(top.claimable.amount, top.symbol)} ${top.symbol} to claim`, sub: claim.length > 1 ? `and ${plural(claim.length - 1, "more coin")}` : "From the basket", action: "Claim", href: "/stake" });
+    const sum = `${money(top.claimable.amount, top.symbol)} ${top.symbol}`;
+    out.push({ key: "claim", glyph: "claim", title: `${sum} to claim`, emph: sum, sub: claim.length > 1 ? `and ${plural(claim.length - 1, "more coin")}` : "From the basket", action: "Claim", href: "/stake" });
   }
   if (ballot?.canVote && ballot.round !== null) {
     const voted = ballot.picks.length > 0;
@@ -90,8 +96,8 @@ export function todos(sp: Space, now: number): Todo[] {
     out.push({ key: "vote", glyph: "vote", title: voted ? `You voted in round ${ballot.round}` : `Round ${ballot.round} is open`, sub: voted ? `You can change it${ballot.closesAt && now ? ` for ${left(ballot.closesAt, now)}` : ""}` : bits.join(" · "), action: voted ? "Change" : "Vote", href: "/trials/vote" });
   }
   // refreshing a stake is the Stake page's business unless there's room
-  if (stake?.needsRefresh && out.length < 3) out.push({ key: "refresh", glyph: "refresh", title: `Earn ${times(stake.multiplier.ifRefreshed)} instead of ${times(stake.multiplier.earning)}`, sub: "Your time bonus grew", action: "Refresh", refresh: true });
-  if (stake?.canWithdraw && Number(stake.cooling.amount) > 0) out.push({ key: "withdraw", glyph: "claim", title: `${amount(stake.cooling.amount)} PNTH is ready`, sub: "Your unstake has finished cooling", action: "Withdraw", href: "/stake" });
+  if (stake?.needsRefresh && out.length < 3) out.push({ key: "refresh", glyph: "refresh", title: `Earn ${times(stake.multiplier.ifRefreshed)} instead of ${times(stake.multiplier.earning)}`, emph: times(stake.multiplier.ifRefreshed), sub: "Your time bonus grew", action: "Refresh", refresh: true });
+  if (stake?.canWithdraw && Number(stake.cooling.amount) > 0) out.push({ key: "withdraw", glyph: "claim", title: `${amount(stake.cooling.amount)} PNTH is ready`, emph: `${amount(stake.cooling.amount)} PNTH`, sub: "Your unstake has finished cooling", action: "Withdraw", href: "/stake" });
   // nothing pressing: the two ways in, a stake and a passport (each also brings votes in the Trials)
   if (!out.length) {
     if (stake && Number(stake.staked.amount) <= 0 && Number(stake.cooling.amount) <= 0) out.push({ key: "stake", glyph: "stake", title: "Earn from the basket", sub: "Stake PNTH to share every buy", action: "Stake", href: "/stake" });

@@ -1,6 +1,8 @@
-/* Your space: ink on paper, inside the app frame. One sentence at the top; your bag as a dark card with
-   the passport's glass lens on it; beside it, what to do and where you stand, on white. Details open in
-   trays of liquid glass. Glass only on what floats or moves. */
+/* Your space: ink on paper, inside the app frame, lit like a room: one light from above, so every edge
+   that faces it catches it and every shadow falls under its card. One sentence at the top; your bag as a
+   slab of dark glass with the passport's lens on it; beside it, what to do and where you stand, on white.
+   Details open in trays of liquid glass. Glass only on what floats or moves. The page's edges line up
+   with the bar's. */
 
 .page {
   --ink: var(--color-ink, #171717);
@@ -13,32 +15,55 @@
   --i55: rgb(23 23 23 / 0.55);
   --i60: rgb(23 23 23 / 0.6);
   --i70: rgb(23 23 23 / 0.7);
-  --night: #141415; /* the bag card; bag.ts's CARD_BG is the same */
+  --night: #151515; /* the bag card where the tiles lie; bag.ts's CARD_BG is the same */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --spring: cubic-bezier(0.32, 1.25, 0.5, 1);
+  /* a white card on paper: a hairline where it meets the page, a close shadow and a soft one far under */
   --lift:
     0 0 0 1px rgb(23 23 23 / 0.055),
     0 1px 2px rgb(0 0 0 / 0.04),
-    0 18px 40px -24px rgb(0 0 0 / 0.16);
+    0 6px 14px -8px rgb(0 0 0 / 0.08),
+    0 28px 56px -30px rgb(0 0 0 / 0.18);
   position: relative;
   color: var(--ink);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
 }
+/* the room's light, falling from above onto the top of the page */
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 520px;
+  background: radial-gradient(60% 100% at 50% 0%, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0));
+  pointer-events: none;
+}
 .inner {
-  width: min(1120px, calc(100% - 64px));
+  position: relative;
+  width: min(1200px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 64px 0 80px;
+  padding: 64px 0 72px;
 }
 .page :focus-visible {
-  outline: 2px solid var(--ink);
+  outline-width: 2px;
+  outline-style: solid;
+  outline-color: var(--ink);
   outline-offset: 3px;
 }
 .mono {
   font-family: var(--mono);
   letter-spacing: 0.01em;
 }
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
-/* ------------------------------------------------------------------ buttons */
+/* ------------------------------------------------------------------ buttons: ink, white, and quiet */
 .inkBtn,
 .ghostBtn,
 .whiteBtn {
@@ -50,71 +75,123 @@
   padding: 0 18px;
   border: 0;
   border-radius: 999px;
-  font: 500 14px/1 var(--sans);
+  font: 600 14px/1 var(--sans);
+  letter-spacing: -0.005em;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
   transition:
-    box-shadow 0.18s var(--ease),
-    background-color 0.18s var(--ease),
-    transform 0.18s var(--ease);
+    box-shadow 0.2s var(--ease),
+    background-color 0.2s var(--ease),
+    transform 0.25s var(--spring);
 }
+/* ink: a pill of black lacquer, lit along its top */
 .inkBtn {
-  background: var(--ink);
+  background: linear-gradient(180deg, #2c2c2c, #131313);
   color: #fff;
   box-shadow:
-    inset 0 -6px 12px rgb(255 255 255 / 0.08),
-    0 2px 4px rgb(0 0 0 / 0.12),
-    0 1px 1px rgb(0 0 0 / 0.12);
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    inset 0 0 0 1px rgb(255 255 255 / 0.04),
+    0 0 0 1px rgb(0 0 0 / 0.7),
+    0 1px 2px rgb(0 0 0 / 0.16),
+    0 6px 14px -6px rgb(0 0 0 / 0.4);
 }
 .ghostBtn {
-  background: rgb(23 23 23 / 0.06);
-  color: var(--ink);
-}
-.whiteBtn {
-  flex: none;
-  height: 36px;
-  padding: 0 16px;
   background: #fff;
   color: var(--ink);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 6px 16px -6px rgb(0 0 0 / 0.5);
+  box-shadow:
+    0 0 0 1px rgb(23 23 23 / 0.1),
+    0 1px 2px rgb(0 0 0 / 0.05);
+}
+/* white on the dark card: porcelain */
+.whiteBtn {
+  flex: none;
+  height: 38px;
+  padding: 0 18px;
+  background: linear-gradient(180deg, #fff, #ebebeb);
+  color: #111;
+  font-size: 13.5px;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 0 0 1px rgb(0 0 0 / 0.5),
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 10px 20px -10px rgb(0 0 0 / 0.7);
 }
 .inkBtn:active,
 .ghostBtn:active,
 .whiteBtn:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 @media (hover: hover) {
+  .inkBtn:hover,
+  .ghostBtn:hover,
+  .whiteBtn:hover {
+    transform: translateY(-1px);
+  }
   .inkBtn:hover {
+    background: linear-gradient(180deg, #363636, #181818);
     box-shadow:
-      inset 0 -6px 12px rgb(255 255 255 / 0.08),
-      0 4px 10px rgb(0 0 0 / 0.18),
-      0 1px 1px rgb(0 0 0 / 0.12);
+      inset 0 1px 0 rgb(255 255 255 / 0.18),
+      inset 0 0 0 1px rgb(255 255 255 / 0.05),
+      0 0 0 1px rgb(0 0 0 / 0.7),
+      0 2px 4px rgb(0 0 0 / 0.16),
+      0 10px 20px -8px rgb(0 0 0 / 0.42);
   }
   .ghostBtn:hover {
-    background: rgb(23 23 23 / 0.09);
+    box-shadow:
+      0 0 0 1px rgb(23 23 23 / 0.16),
+      0 2px 6px -1px rgb(0 0 0 / 0.08);
   }
   .whiteBtn:hover {
-    background: #f2f2f2;
+    background: linear-gradient(180deg, #fff, #f4f4f4);
+  }
+  .inkBtn:active,
+  .ghostBtn:active,
+  .whiteBtn:active {
+    transform: scale(0.96);
   }
 }
 
-/* ------------------------------------------------------------------ the top: the page's name */
+/* ------------------------------------------------------------------ the top: your seal and the page's name */
 .top {
-  max-width: 760px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 20px;
+}
+.topText {
+  min-width: 0;
+}
+/* your wallet's mark, set in a white medallion like a seal */
+.seal {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #fff, #f7f7f7);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    var(--lift);
+}
+.seal svg {
+  width: 50px;
+  height: 50px;
 }
 .title {
   margin: 0;
-  font: 500 44px/1.05 var(--sans);
-  letter-spacing: -0.04em;
+  font: 600 48px/1.02 var(--sans);
+  letter-spacing: -0.045em;
 }
 .sub {
-  margin: 10px 0 0;
+  margin: 12px 0 0;
   font-size: 15px;
   line-height: 22px;
   color: var(--i55);
 }
 .example {
+  flex: 1 0 100%;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -127,52 +204,67 @@
 .example .inkBtn {
   height: 36px;
   padding: 0 16px;
+  font-size: 13.5px;
 }
 .tag {
   display: inline-flex;
   align-items: center;
-  height: 22px;
-  padding: 0 9px;
+  height: 24px;
+  padding: 0 10px;
   border-radius: 999px;
-  background: rgb(23 23 23 / 0.07);
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgb(23 23 23 / 0.1),
+    0 1px 2px rgb(0 0 0 / 0.04);
   color: var(--ink);
   font: 500 10px/1 var(--mono);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 /* ------------------------------------------------------------------ the grid: the bag, then you */
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.62fr) minmax(320px, 1fr);
+  gap: 24px;
   align-items: stretch;
-  margin-top: 32px;
+  margin-top: 40px;
 }
+/* beside the bag, Now takes whatever height the bag gives it, so both columns end on one line */
 .side {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
   min-width: 0;
 }
+.side > :first-child {
+  flex: 1 1 auto;
+}
 
-/* ------------------------------------------------------------------ the bag: a dark card */
+/* ------------------------------------------------------------------ the bag: a slab of dark glass */
 .card {
   position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 300px;
-  padding: 22px 24px 22px;
+  min-height: 320px;
+  padding: 26px 28px 24px;
   overflow: hidden;
-  border-radius: 28px;
-  background: radial-gradient(120% 70% at 0% 0%, rgb(255 255 255 / 0.055), transparent 55%), var(--night);
+  border-radius: 30px;
   color: #fff;
+  /* its grain (the material, and no banding in its light), the light from above on the left, and its body,
+     a shade lighter at the top */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(130% 80% at 16% -12%, rgb(255 255 255 / 0.075), rgb(255 255 255 / 0) 55%),
+    linear-gradient(180deg, #1c1c1c 0, var(--night) 150px, #121212 100%);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.07),
-    0 0 0 1px rgb(0 0 0 / 0.6),
-    0 2px 4px rgb(0 0 0 / 0.1),
-    0 32px 64px -32px rgb(0 0 0 / 0.55);
+    inset 0 1px 0 rgb(255 255 255 / 0.11),
+    inset 0 0 0 1px rgb(255 255 255 / 0.035),
+    0 0 0 1px rgb(0 0 0 / 0.75),
+    0 1px 1px rgb(0 0 0 / 0.1),
+    0 8px 16px -8px rgb(0 0 0 / 0.24),
+    0 40px 80px -36px rgb(0 0 0 / 0.45);
 }
 .cardHead {
   display: flex;
@@ -187,19 +279,19 @@
   gap: 8px;
   margin: 0;
   font: 600 15px/20px var(--sans);
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
 }
 .cardCount {
-  font: 500 13px/20px var(--mono);
-  color: rgb(255 255 255 / 0.45);
+  font: 500 12px/20px var(--mono);
+  color: rgb(255 255 255 / 0.42);
 }
 .cardMeta {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   font: 500 11px/16px var(--mono);
   letter-spacing: 0.04em;
-  color: rgb(255 255 255 / 0.45);
+  color: rgb(255 255 255 / 0.42);
   white-space: nowrap;
 }
 .infoBtn {
@@ -210,19 +302,27 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.07);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    inset 0 0 0 1px rgb(255 255 255 / 0.04);
   color: rgb(255 255 255 / 0.8);
   cursor: pointer;
-  transition: background-color 0.18s var(--ease);
+  transition:
+    background-color 0.2s var(--ease),
+    transform 0.25s var(--spring);
+}
+.infoBtn:active {
+  transform: scale(0.92);
 }
 @media (hover: hover) {
   .infoBtn:hover {
-    background: rgb(255 255 255 / 0.14);
+    background: rgb(255 255 255 / 0.13);
   }
 }
 .mosaic {
   position: relative;
-  margin-top: 20px;
+  margin-top: 24px;
   min-height: 50px;
   touch-action: pan-y;
 }
@@ -245,9 +345,9 @@
 }
 .card .tile:focus-visible {
   outline: 2px solid #fff;
-  outline-offset: 3px;
+  outline-offset: 4px;
 }
-/* nothing to lay out yet (reading, couldn't read, an empty bag): three ghost tiles and one line, in the
+/* nothing to lay out yet (reading, couldn't read, an empty bag): three ghost chips and one line, in the
    middle of the card however tall the row makes it */
 .mosaic[data-quiet] {
   flex: 1 1 auto;
@@ -255,7 +355,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 18px 0 8px;
+  padding: 18px 0 10px;
   text-align: center;
 }
 .mosaic[data-quiet] + .cardFill {
@@ -263,19 +363,20 @@
 }
 .ghosts {
   display: flex;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 .ghosts i {
-  width: 92px;
-  height: 50px;
-  border: 1px dashed rgb(255 255 255 / 0.14);
-  border-radius: 13px;
+  width: 96px;
+  height: 54px;
+  border: 1px dashed rgb(255 255 255 / 0.15);
+  border-radius: 14px;
 }
 /* while she reads, the ghosts shimmer the way the things to do do, one after another */
 .ghosts[data-reading] i {
   border: 0;
-  background: linear-gradient(90deg, rgb(255 255 255 / 0.035), rgb(255 255 255 / 0.085), rgb(255 255 255 / 0.035)) 0 0 / 200% 100%;
+  background: linear-gradient(90deg, rgb(255 255 255 / 0.04), rgb(255 255 255 / 0.095), rgb(255 255 255 / 0.04)) 0 0 / 200% 100%;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
   animation: shimmer 1.4s linear infinite;
 }
 .ghosts[data-reading] i:nth-child(1) {
@@ -292,7 +393,7 @@
   color: rgb(255 255 255 / 0.6);
 }
 .mosaic[data-quiet] .cardQuiet {
-  max-width: 36ch;
+  max-width: 34ch;
   padding: 0;
   text-wrap: balance;
 }
@@ -302,49 +403,68 @@
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 10px 24px;
-  margin-top: 16px;
+  gap: 14px 28px;
+  margin-top: 22px;
 }
 .gradeNum {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   margin: 0;
 }
+.gradeK {
+  font: 500 11px/14px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.5);
+}
 .gradeNum strong {
-  font: 500 40px/1 var(--sans);
-  letter-spacing: -0.04em;
+  display: flex;
+  align-items: baseline;
+  font-family: var(--sans);
+  font-size: 54px;
+  font-weight: 500;
+  line-height: 0.92;
+  letter-spacing: -0.055em;
   font-variant-numeric: tabular-nums;
 }
-.gradeNum span {
-  font-size: 13px;
+.gradeNum small {
+  margin-left: 2px;
+  font-size: 0.5em;
+  font-weight: 500;
+  letter-spacing: -0.02em;
   color: rgb(255 255 255 / 0.55);
 }
 .counts {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
+  gap: 8px 18px;
   margin: 0;
   padding: 0 0 4px;
   list-style: none;
   font-size: 13px;
   line-height: 18px;
-  color: rgb(255 255 255 / 0.7);
+  color: rgb(255 255 255 / 0.6);
 }
 .counts li {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+}
+.counts b {
+  font-weight: 600;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
 }
 .counts i {
   display: block;
-  width: 16px;
-  height: 10px;
+  width: 18px;
+  height: 11px;
   border-radius: 4px;
 }
 .cardFill {
   flex: 1 1 auto;
-  min-height: 22px;
+  min-height: 24px;
 }
 .caption {
   display: grid;
@@ -353,9 +473,9 @@
     "head act"
     "why act";
   align-items: center;
-  column-gap: 20px;
-  padding-top: 18px;
-  border-top: 1px solid rgb(255 255 255 / 0.08);
+  column-gap: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgb(255 255 255 / 0.07);
 }
 .caption .whiteBtn {
   grid-area: act;
@@ -374,17 +494,17 @@
 }
 .capHead strong {
   font: 600 14px/20px var(--mono);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   color: #fff;
 }
 .capWhy {
   grid-area: why;
   display: -webkit-box;
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   overflow: hidden;
   font-size: 15px;
-  line-height: 22px;
-  color: rgb(255 255 255 / 0.78);
+  line-height: 23px;
+  color: rgb(255 255 255 / 0.8);
   text-wrap: pretty;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -400,15 +520,16 @@
   padding: 0 9px;
   border-radius: 999px;
   font: 500 11px/1 var(--mono);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   white-space: nowrap;
 }
 .dFLAG {
-  background: #fff;
-  color: var(--night);
+  background: linear-gradient(180deg, #fff, #e6e6e6);
+  color: #111;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 .dWATCH {
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.9);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.88);
   color: #fff;
 }
 .dCLEAN {
@@ -426,8 +547,9 @@
   font-size: 12px;
 }
 .FLAG {
-  background: var(--ink);
+  background: linear-gradient(180deg, #2a2a2a, #121212);
   color: #fff;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
 }
 .WATCH {
   box-shadow: inset 0 0 0 1px var(--ink);
@@ -443,11 +565,13 @@
   color: var(--i60);
 }
 
-/* ------------------------------------------------------------------ white boxes: for you, where you stand */
+/* ------------------------------------------------------------------ white cards: for you, where you stand */
 .box {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  padding: 18px 12px 8px;
-  border-radius: 24px;
+  padding: 22px 14px 14px;
+  border-radius: 28px;
   background: #fff;
   box-shadow: var(--lift);
 }
@@ -456,42 +580,35 @@
   overflow: hidden;
 }
 .boxTitle {
-  margin: 0 0 6px;
-  padding: 0 10px;
+  margin: 0 0 10px;
+  padding: 0 12px;
   font: 600 15px/20px var(--sans);
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
 }
 .todos {
+  display: grid;
+  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.todos li + li .todo::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 60px;
-  right: 10px;
-  height: 1px;
-  background: var(--rule);
-}
 .todo {
   position: relative;
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
   width: 100%;
-  padding: 12px 10px;
+  padding: 12px;
   border: 0;
-  border-radius: 16px;
+  border-radius: 18px;
   background: none;
   color: inherit;
   font: inherit;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.18s var(--ease);
+  transition: background-color 0.2s var(--ease);
 }
 .todo:disabled,
 .todo[aria-disabled] {
@@ -499,17 +616,84 @@
 }
 @media (hover: hover) {
   .todo:not(:disabled):not([aria-disabled]):hover {
-    background: rgb(23 23 23 / 0.035);
+    background: rgb(23 23 23 / 0.03);
   }
 }
 .glyph {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
-  background: rgb(23 23 23 / 0.055);
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: rgb(23 23 23 / 0.05);
+  box-shadow: inset 0 0 0 1px rgb(23 23 23 / 0.03);
   color: var(--ink);
+}
+/* urgent: a mark of black lacquer, which rings out a few times when it arrives, then rests */
+[data-tone="urgent"] .glyph {
+  background: linear-gradient(180deg, #2b2b2b, #111);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    0 0 0 1px rgb(0 0 0 / 0.6),
+    0 1px 2px rgb(0 0 0 / 0.18),
+    0 8px 16px -8px rgb(0 0 0 / 0.5);
+}
+[data-tone="urgent"] .glyph::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  animation: ring 2.2s cubic-bezier(0.2, 0.7, 0.3, 1) 1.1s 3 both;
+  pointer-events: none;
+}
+@keyframes ring {
+  from {
+    box-shadow: 0 0 0 0 rgb(23 23 23 / 0.32);
+  }
+  70%,
+  to {
+    box-shadow: 0 0 0 10px rgb(23 23 23 / 0);
+  }
+}
+/* a reward: a silver coin, rimmed, which light passes over once as it arrives */
+[data-tone="reward"] .glyph {
+  overflow: hidden;
+  border-radius: 50%;
+  background: radial-gradient(120% 120% at 30% 18%, #fff 0%, #f2f2f2 32%, #d2d2d2 72%, #bdbdbd 100%);
+  box-shadow:
+    inset 0 -2px 3px rgb(0 0 0 / 0.07),
+    0 0 0 1px rgb(23 23 23 / 0.1),
+    0 1px 2px rgb(0 0 0 / 0.08),
+    0 8px 16px -8px rgb(0 0 0 / 0.3);
+}
+[data-tone="reward"] .glyph::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 1px rgb(23 23 23 / 0.09),
+    0 0 0 1px rgb(255 255 255 / 0.75);
+  pointer-events: none;
+}
+[data-tone="reward"] .glyph::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, rgb(255 255 255 / 0) 30%, rgb(255 255 255 / 0.95) 50%, rgb(255 255 255 / 0) 70%);
+  transform: translateX(-130%);
+  animation: glint 1.1s cubic-bezier(0.3, 0.6, 0.2, 1) 1.2s both;
+  pointer-events: none;
+}
+@keyframes glint {
+  to {
+    transform: translateX(130%);
+  }
+}
+.glyph svg {
+  position: relative;
 }
 .todoText {
   min-width: 0;
@@ -517,83 +701,152 @@
 .todoText strong {
   display: block;
   font-size: 15px;
-  line-height: 20px;
+  line-height: 21px;
   font-weight: 500;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
 }
-.todoText span {
+.todoText strong b {
+  font-weight: 600;
+}
+[data-tone="urgent"] .todoText strong {
+  font-weight: 600;
+}
+[data-tone="urgent"] .todoText strong b {
+  font: 600 14px/21px var(--mono);
+  letter-spacing: 0.03em;
+}
+/* the amount is the reward: larger, in figures that line up */
+[data-tone="reward"] .todoText strong {
+  line-height: 24px;
+  color: var(--i60);
+}
+[data-tone="reward"] .todoText strong b {
+  font-size: 19px;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.todoText > span {
   display: block;
   margin-top: 2px;
   font-size: 13px;
   line-height: 18px;
   color: var(--i55);
 }
+/* the actions: the first is ink, the rest white; each lifts under the pointer and presses in */
 .act,
 .actInk {
   display: inline-flex;
   align-items: center;
-  height: 30px;
-  padding: 0 13px;
+  height: 32px;
+  padding: 0 14px;
   border-radius: 999px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: -0.005em;
   white-space: nowrap;
+  transition:
+    box-shadow 0.2s var(--ease),
+    background-color 0.2s var(--ease),
+    transform 0.25s var(--spring);
 }
 .act {
-  background: rgb(23 23 23 / 0.06);
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgb(23 23 23 / 0.1),
+    0 1px 2px rgb(0 0 0 / 0.05);
 }
 .actInk {
-  background: var(--ink);
+  background: linear-gradient(180deg, #2c2c2c, #131313);
   color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    0 0 0 1px rgb(0 0 0 / 0.7),
+    0 1px 2px rgb(0 0 0 / 0.16),
+    0 6px 12px -6px rgb(0 0 0 / 0.42);
 }
-.todo[aria-disabled] .actInk {
+@media (hover: hover) {
+  .todo:not(:disabled):not([aria-disabled]):hover .act,
+  .todo:not(:disabled):not([aria-disabled]):hover .actInk {
+    transform: translateY(-1px);
+  }
+  .todo:not(:disabled):not([aria-disabled]):hover .act {
+    box-shadow:
+      0 0 0 1px rgb(23 23 23 / 0.16),
+      0 2px 6px -1px rgb(0 0 0 / 0.08);
+  }
+  .todo:not(:disabled):not([aria-disabled]):hover .actInk {
+    background: linear-gradient(180deg, #363636, #181818);
+  }
+}
+.todo:not(:disabled):not([aria-disabled]):active .act,
+.todo:not(:disabled):not([aria-disabled]):active .actInk {
+  transform: scale(0.95);
+}
+.todo[aria-disabled] .actInk,
+.todo:disabled .actInk,
+.todo:disabled .act {
   opacity: 0.45;
 }
-/* reading: two quiet rows where the things to do will be */
+/* reading: quiet rows where the things to do will be */
 .todoSkel {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
+  grid-template-columns: 40px minmax(0, 1fr);
   align-items: center;
   gap: 14px;
-  padding: 12px 10px;
+  padding: 12px;
 }
 .todoSkel > span:last-child {
   display: grid;
-  gap: 7px;
+  gap: 8px;
 }
 .todoSkel i {
   display: block;
   height: 10px;
-  width: 70%;
+  width: 72%;
   border-radius: 6px;
   background: linear-gradient(90deg, rgb(23 23 23 / 0.05), rgb(23 23 23 / 0.09), rgb(23 23 23 / 0.05)) 0 0 / 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
 .todoSkel i + i {
-  width: 45%;
+  width: 44%;
+}
+.todoSkel:nth-child(2) i {
+  animation-delay: -0.15s;
+}
+.todoSkel:nth-child(3) i {
+  animation-delay: -0.3s;
 }
 @keyframes shimmer {
   to {
     background-position: -200% 0;
   }
 }
+/* nothing to do: one calm line in the middle of the card */
 .calm {
+  flex: 1 1 auto;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  gap: 12px;
   margin: 0;
-  padding: 10px 10px 14px;
+  padding: 24px 16px 30px;
   font-size: 14px;
+  line-height: 20px;
   color: var(--i60);
+  text-align: center;
 }
-
 .partial {
-  margin: 4px 10px 12px;
+  margin: 6px 12px 8px;
   font-size: 12px;
   line-height: 17px;
   color: var(--i50);
 }
+
+/* where you stand: three numbers side by side, each a way into its page */
 .stats {
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -601,13 +854,13 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 18px 18px 18px;
+  padding: 20px 20px 18px;
   color: inherit;
   text-decoration: none;
-  transition: background-color 0.18s var(--ease);
+  transition: background-color 0.2s var(--ease);
 }
 .stat + .stat {
-  box-shadow: inset 1px 0 0 var(--rule);
+  box-shadow: inset 1px 0 0 rgb(23 23 23 / 0.06);
 }
 @media (hover: hover) {
   .stat:hover {
@@ -615,46 +868,42 @@
   }
 }
 .statK {
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 500;
+  font: 500 10.5px/14px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--i50);
 }
 .statV {
-  margin-top: 10px;
+  margin-top: 12px;
   overflow: hidden;
-  font-size: 22px;
-  line-height: 28px;
+  font-family: var(--sans);
+  font-size: 24px;
   font-weight: 600;
-  letter-spacing: -0.025em;
+  line-height: 28px;
+  letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .statS {
-  margin-top: 2px;
-  overflow: hidden;
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--i50);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 17px;
+  color: var(--i55);
+  text-wrap: balance;
 }
 .statSince {
-  margin-top: 8px;
-  overflow: hidden;
+  margin-top: auto;
+  padding-top: 10px;
   font: 500 11px/14px var(--mono);
   letter-spacing: 0.02em;
   color: var(--i40);
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 .fine {
-  margin: 48px 0 0;
+  margin: 32px 0 0;
   font-size: 13px;
   line-height: 19px;
   color: var(--i50);
-  text-align: center;
   text-wrap: balance;
 }
 
@@ -690,7 +939,7 @@
   width: min(440px, calc(100% - 24px));
   max-height: calc(100dvh - 24px);
   border-radius: 30px;
-  background: rgb(250 250 250 / 0.74);
+  background: rgb(250 250 250 / 0.8);
   -webkit-backdrop-filter: blur(32px) saturate(1.9);
   backdrop-filter: blur(32px) saturate(1.9);
   box-shadow:
@@ -729,7 +978,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 14px 12px 24px;
+  padding: 18px 14px 12px 24px;
 }
 /* once the words scroll under it, they blur away there instead of hitting a line */
 .trayHead::before {
@@ -761,6 +1010,9 @@
   font: 600 22px/28px var(--sans);
   letter-spacing: -0.02em;
 }
+.trayTitle .mono {
+  letter-spacing: 0.03em;
+}
 .traySub {
   margin: 2px 0 0;
   overflow: hidden;
@@ -779,18 +1031,26 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgb(23 23 23 / 0.06);
+  background: rgb(255 255 255 / 0.7);
+  box-shadow:
+    0 0 0 1px rgb(23 23 23 / 0.07),
+    0 1px 2px rgb(0 0 0 / 0.05);
   color: var(--ink);
   cursor: pointer;
-  transition: background-color 0.18s var(--ease);
+  transition:
+    background-color 0.2s var(--ease),
+    transform 0.25s var(--spring);
+}
+.roundBtn:active {
+  transform: scale(0.92);
 }
 @media (hover: hover) {
   .roundBtn:hover {
-    background: rgb(23 23 23 / 0.1);
+    background: #fff;
   }
 }
 .trayBody {
-  padding: 4px 24px 24px;
+  padding: 4px 24px 26px;
 }
 .trayVerdict {
   display: flex;
@@ -803,15 +1063,15 @@
   color: var(--i55);
 }
 .trayReason {
-  margin: 14px 0 0;
-  font-size: 18px;
-  line-height: 26px;
+  margin: 16px 0 0;
+  font-size: 19px;
+  line-height: 27px;
   font-weight: 500;
-  letter-spacing: -0.012em;
+  letter-spacing: -0.015em;
   text-wrap: pretty;
 }
 .label {
-  margin: 26px 0 12px;
+  margin: 28px 0 12px;
   font: 500 11px/16px var(--mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -819,7 +1079,7 @@
 }
 .findings {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -835,11 +1095,11 @@
   left: 0;
   width: 9px;
   height: 9px;
-  border-radius: 2px;
+  border-radius: 2.5px;
   background: var(--ink);
 }
 .findings li[data-s="watch"]::before {
-  background: none;
+  background: repeating-linear-gradient(-45deg, rgb(23 23 23 / 0.5) 0 1px, transparent 1px 3px);
   box-shadow: inset 0 0 0 1.5px var(--ink);
 }
 .findings li[data-s="note"]::before {
@@ -868,17 +1128,23 @@
   text-decoration: underline;
   text-decoration-color: rgb(23 23 23 / 0.3);
   text-underline-offset: 3px;
+  transition: text-decoration-color 0.2s var(--ease);
+}
+@media (hover: hover) {
+  .proof a:hover {
+    text-decoration-color: var(--ink);
+  }
 }
 .trayFacts {
-  margin: 24px 0 0;
-  border-top: 1px solid rgb(23 23 23 / 0.08);
+  margin: 26px 0 0;
+  border-top: 1px solid rgb(23 23 23 / 0.07);
 }
 .trayFacts > div {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid rgb(23 23 23 / 0.08);
+  padding: 13px 0;
+  border-bottom: 1px solid rgb(23 23 23 / 0.07);
   font-size: 14px;
   line-height: 20px;
 }
@@ -901,7 +1167,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 24px;
+  margin-top: 26px;
 }
 .trayFine {
   margin: 18px 0 0;
@@ -930,6 +1196,7 @@
   font-size: 14px;
   text-align: left;
   cursor: pointer;
+  transition: background-color 0.2s var(--ease);
 }
 .allRow .pill {
   justify-self: start;
@@ -940,7 +1207,10 @@
   }
 }
 .allAmt {
-  font: 500 13px/18px var(--mono);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
   font-variant-numeric: tabular-nums;
   color: var(--i60);
 }
@@ -972,7 +1242,10 @@
   width: 52px;
   height: 32px;
   border-radius: 10px;
-  background: var(--night);
+  background: linear-gradient(180deg, #1c1c1c, var(--night));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 0 0 1px rgb(0 0 0 / 0.6);
 }
 .swatch i {
   display: block;
@@ -980,28 +1253,31 @@
   height: 18px;
   border-radius: 6px;
 }
+/* the tiles' materials, small: the legend on the card and in About your bag */
 .kFLAG {
-  background: #fff;
+  background: linear-gradient(180deg, #fff, #e2e2e2);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
 }
 .kWATCH {
-  box-shadow: inset 0 0 0 1.5px #fff;
-  background: repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.22) 0 1px, transparent 1px 5px);
+  box-shadow: inset 0 0 0 1.25px rgb(255 255 255 / 0.9);
+  background: repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.22) 0 1px, transparent 1px 4px), rgb(255 255 255 / 0.05);
 }
 .kCLEAN {
-  background: rgb(255 255 255 / 0.16);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.1));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16);
 }
 .kNOT_ENOUGH_DATA {
   border: 1px dashed rgb(255 255 255 / 0.45);
 }
 .kUNKNOWN {
-  border: 1px dotted rgb(255 255 255 / 0.4);
+  border: 1.4px dotted rgb(255 255 255 / 0.42);
 }
 .aboutNotes {
   display: grid;
   gap: 10px;
   margin-top: 24px;
   padding-top: 18px;
-  border-top: 1px solid rgb(23 23 23 / 0.08);
+  border-top: 1px solid rgb(23 23 23 / 0.07);
   font-size: 13px;
   line-height: 19px;
   color: var(--i60);
@@ -1012,7 +1288,10 @@
 
 /* ------------------------------------------------------------------ arriving: the words come into focus */
 .rise {
-  animation: rise 0.9s var(--ease) both;
+  animation-name: rise;
+  animation-duration: 0.85s;
+  animation-timing-function: var(--ease);
+  animation-fill-mode: both;
   animation-delay: calc(var(--i, 0) * 70ms + 40ms);
 }
 @keyframes rise {
@@ -1030,12 +1309,36 @@
 @media (prefers-reduced-motion: reduce) {
   .rise,
   .todoSkel i,
-  .ghosts i {
+  .ghosts i,
+  [data-tone="urgent"] .glyph::after,
+  [data-tone="reward"] .glyph::after {
     animation: none;
+  }
+  .inkBtn,
+  .ghostBtn,
+  .whiteBtn,
+  .act,
+  .actInk,
+  .infoBtn,
+  .roundBtn {
+    transition: none;
   }
 }
 
 /* ------------------------------------------------------------------ smaller screens */
+@media (max-width: 1180px) {
+  .grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr);
+    gap: 20px;
+  }
+  .side {
+    gap: 20px;
+  }
+  .card {
+    padding: 24px 24px 22px;
+  }
+}
+/* a tablet: the bag across the top; under it, Now and where you stand side by side, the same height */
 @media (max-width: 1023px) {
   .grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1043,92 +1346,155 @@
   .card {
     min-height: 0;
   }
-  /* for you and where you stand side by side, or one across when there's only one */
   .side {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    align-items: start;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .side > :only-child {
+    grid-column: 1 / -1;
+  }
+}
+/* where you stand as a list: each number on a line of its own, when it has a column of its own */
+@media (max-width: 1023px) {
+  .stats {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: 1fr;
+  }
+  .stat {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "k v"
+      "s v"
+      "n v";
+    align-content: center;
+    column-gap: 16px;
+    padding: 16px 20px;
+  }
+  .stat + .stat {
+    box-shadow: inset 0 1px 0 rgb(23 23 23 / 0.06);
+  }
+  .statK {
+    grid-area: k;
+  }
+  .statV {
+    grid-area: v;
+    align-self: center;
+    margin: 0;
+    font-size: 21px;
+    line-height: 26px;
+  }
+  .statS {
+    grid-area: s;
+    margin-top: 3px;
+  }
+  .statSince {
+    grid-area: n;
+    margin-top: 3px;
+    padding-top: 0;
   }
 }
 @media (max-width: 640px) {
   .inner {
     width: calc(100% - 32px);
-    padding: 28px 0 56px;
+    padding: 28px 0 44px;
   }
   .title {
-    font-size: 34px;
+    font-size: 36px;
+    letter-spacing: -0.04em;
+  }
+  .top {
+    gap: 0 14px;
+  }
+  .seal {
+    width: 54px;
+    height: 54px;
+  }
+  .seal svg {
+    width: 40px;
+    height: 40px;
   }
   .sub {
-    margin-top: 6px;
+    margin-top: 8px;
     font-size: 14px;
     line-height: 20px;
   }
-  .gradeNum strong {
-    font-size: 34px;
-  }
   .example {
-    margin-top: 18px;
+    margin-top: 16px;
   }
   .grid {
-    gap: 14px;
+    gap: 16px;
     margin-top: 28px;
   }
   .side {
-    gap: 14px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
   }
   .card {
-    padding: 18px 18px 18px;
-    border-radius: 24px;
+    padding: 20px 18px 18px;
+    border-radius: 26px;
+  }
+  .grade {
+    margin-top: 18px;
+    gap: 14px 20px;
+  }
+  .gradeNum strong {
+    font-size: 44px;
+  }
+  .counts {
+    gap: 8px 14px;
   }
   .mosaic {
-    margin-top: 18px;
+    margin-top: 20px;
+  }
+  .ghosts {
+    gap: 8px;
   }
   .ghosts i {
     width: 72px;
-    height: 42px;
-    border-radius: 11px;
+    height: 46px;
+    border-radius: 12px;
   }
   .cardFill {
-    min-height: 18px;
+    min-height: 20px;
   }
   .caption {
     grid-template-areas:
       "head act"
       "why why";
     column-gap: 12px;
-    padding-top: 14px;
+    padding-top: 16px;
   }
   .capWhy {
     -webkit-line-clamp: 3;
-  }
-  .capWhy {
     font-size: 14px;
-    line-height: 20px;
+    line-height: 21px;
   }
   .whiteBtn {
     height: 34px;
-    padding: 0 14px;
+    padding: 0 15px;
     font-size: 13px;
   }
   .box {
-    border-radius: 22px;
+    padding: 18px 8px 8px;
+    border-radius: 26px;
+  }
+  .boxFlush {
+    padding: 0;
+  }
+  .boxTitle {
+    padding: 0 12px;
+  }
+  .todo {
+    gap: 12px;
+    padding: 11px 10px;
   }
   .stat {
-    padding: 16px 14px;
-  }
-  .statV {
-    font-size: 19px;
-    line-height: 24px;
-  }
-  /* three across is narrow on a phone: the small lines wrap instead of being cut off */
-  .statS,
-  .statSince {
-    overflow: visible;
-    white-space: normal;
-    text-wrap: balance;
+    padding: 15px 18px;
   }
   .fine {
-    margin-top: 36px;
+    margin-top: 24px;
   }
   /* a sheet from the bottom, as on a phone */
   .sheet {
@@ -1149,5 +1515,20 @@
   .allRow {
     grid-template-columns: 132px minmax(0, 1fr) auto 12px;
     gap: 10px;
+  }
+}
+@media (max-width: 359px) {
+  .todo {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  .glyph {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+  }
+  .act,
+  .actInk {
+    padding: 0 12px;
   }
 }

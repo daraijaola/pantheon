@@ -1,19 +1,21 @@
 "use client";
 
 // Your space: the main page inside the app, where Get uploaded leads. A plain dashboard with only the
-// basics. Your bag as one picture: its Integrity (how much of it DELPHI calls clean), a tile per coin on a
-// dark card, and the passport's liquid-glass lens on the one that matters, with one line saying what she
-// found. Beside it: Now (at most three things to do) and three numbers for where you stand. The details
-// open in a tray of glass, grown from what you tapped. Until sign-in is live it shows a labelled example
-// (data.ts says where the real answers will come from).
+// basics, lit like a room: one light from above, so every card's edge and shadow agrees. Your bag as one
+// picture: its Integrity (how much of it DELPHI calls clean), a chip per coin on a slab of dark glass, and
+// the passport's liquid-glass lens on the one that matters, with one line saying what she found. Beside
+// it: Now (at most three things to do, the urgent one marked in ink, a reward as a coin) and three numbers
+// for where you stand. The details open in a tray of glass, grown from what you tapped. Until sign-in is
+// live it shows a labelled example (data.ts says where the real answers will come from).
 
 import Link from "next/link";
 import { useConnection } from "wagmi";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { readFonts } from "@/components/passport-book/draw";
 import { pantheonStakingAbi } from "@/lib/chain/abi";
 import { deployment } from "@/lib/chain/config";
 import { short, TxNote, useNow, useTx, type Hex } from "@/components/app/shared";
+import { Mark } from "@/components/app-frame/app-frame";
 import { createBag, layoutTiles, MARGIN, type TileItem } from "./bag";
 import { useSpace, type Alert, type Bag, type BagCoin, type Part, type Space, type Verdict } from "./data";
 import { fromEl, Tray, useCloseTray, type From } from "./tray";
@@ -26,6 +28,8 @@ const VENUE: Record<string, string> = { ascend: "Ascend", kalos: "Kalos", perpme
 const LOADING: Part<Bag> = { state: "loading" };
 const ORDER: Verdict[] = ["FLAG", "WATCH", "NOT_ENOUGH_DATA", "UNKNOWN", "CLEAN"];
 const COUNT: Record<Verdict, string> = { FLAG: "flagged", WATCH: "watch", NOT_ENOUGH_DATA: "too new", UNKNOWN: "not read", CLEAN: "clean" };
+/** How each of Now's rows carries itself: a coin that turned is urgent, something to collect is a reward. */
+const TONE: Record<GlyphName, "urgent" | "reward" | "plain"> = { alert: "urgent", claim: "reward", vote: "plain", refresh: "plain", stake: "plain", passport: "plain", calm: "plain" };
 
 type TrayView = { view: "coin"; i: number; back?: "all" } | { view: "all" } | { view: "about" };
 
@@ -96,14 +100,22 @@ function Top({ sp }: { sp: Space; now: number }) {
   const line = sp.mode === "mine" ? since(sp) : null;
   return (
     <header className={s.top}>
-      <h1 className={`${s.title} ${s.rise}`} style={at(0)}>
-        Your space
-      </h1>
-      {line && (
-        <p className={`${s.sub} ${s.rise}`} style={at(1)}>
-          {line}
-        </p>
+      {/* yours: your wallet's own mark, the one in the bar, as the seal on the page */}
+      {sp.mode === "mine" && (
+        <span className={`${s.seal} ${s.rise}`} style={at(0)} aria-hidden="true">
+          <Mark address={sp.wallet} size={50} />
+        </span>
       )}
+      <div className={s.topText}>
+        <h1 className={`${s.title} ${s.rise}`} style={at(0)}>
+          Your space
+        </h1>
+        {line && (
+          <p className={`${s.sub} ${s.rise}`} style={at(1)}>
+            {line}
+          </p>
+        )}
+      </div>
       {sp.mode === "example" && (
         <p className={`${s.example} ${s.rise}`} style={at(2)}>
           <span className={s.tag}>Example</span>
@@ -253,14 +265,18 @@ function BagCard({
       {grade && bag && (
         <div className={s.grade}>
           <p className={s.gradeNum}>
-            <strong>{grade.pct}%</strong>
-            <span>Integrity{grade.final ? "" : " · not final"}</span>
+            <span className={s.gradeK}>Integrity{grade.final ? "" : " · not final"}</span>
+            <strong>
+              <Count to={grade.pct} />
+              <small aria-hidden="true">%</small>
+              <span className={s.sr}>{grade.pct}%</span>
+            </strong>
           </p>
           <ul className={s.counts} aria-label="Your coins by verdict">
             {ORDER.filter((v) => (bag.counts[v] ?? 0) > 0).map((v) => (
               <li key={v}>
                 <i className={s[`k${v}`]} aria-hidden="true" />
-                {bag.counts[v]} {COUNT[v]}
+                <b>{bag.counts[v]}</b> {COUNT[v]}
               </li>
             ))}
           </ul>
@@ -365,14 +381,16 @@ function Now({ items, example, wallet, partial, reading, inBag, onCoin }: { item
                   <Glyph name={t.glyph} />
                 </span>
                 <span className={s.todoText}>
-                  <strong>{t.title}</strong>
+                  <strong>
+                    <Title t={t} />
+                  </strong>
                   <span>{t.sub}</span>
                 </span>
                 <span className={i === 0 ? s.actInk : s.act}>{t.refresh && tx.busy ? tx.busy : t.action}</span>
               </>
             );
             return (
-              <li key={t.key}>
+              <li key={t.key} data-tone={TONE[t.glyph]}>
                 {/* a coin opens in a tray when the bag has it; otherwise (the bag couldn't be read) its report page */}
                 {t.coin && inBag(t.coin) ? (
                   <button type="button" className={s.todo} onClick={(e) => onCoin(t.coin!, fromEl(e.currentTarget, 16))}>
@@ -400,7 +418,7 @@ function Now({ items, example, wallet, partial, reading, inBag, onCoin }: { item
         </ul>
       ) : reading ? (
         <ul className={s.todos} aria-label="Reading">
-          {[0, 1].map((i) => (
+          {[0, 1, 2].map((i) => (
             <li key={i} className={s.todoSkel}>
               <span className={s.glyph} />
               <span>
@@ -422,6 +440,53 @@ function Now({ items, example, wallet, partial, reading, inBag, onCoin }: { item
       <TxNote error={tx.error} lastTx={tx.lastTx} />
     </section>
   );
+}
+
+/** The title, with the part that matters most (the coin, the amount, the new rate) set stronger. */
+function Title({ t }: { t: Todo }) {
+  const cut = t.emph ? t.title.indexOf(t.emph) : -1;
+  if (!t.emph || cut < 0) return <>{t.title}</>;
+  return (
+    <>
+      {t.title.slice(0, cut)}
+      <b>{t.emph}</b>
+      {t.title.slice(cut + t.emph.length)}
+    </>
+  );
+}
+
+/**
+ * A number that counts up to its value when it first shows, and moves to a new value in place when it
+ * changes (Family's numbers that animate where they stand). With reduced motion it simply shows. The page
+ * reads the value aloud from text beside it, so this is only for the eye.
+ */
+function Count({ to }: { to: number }) {
+  const el = useRef<HTMLSpanElement>(null);
+  // what it shows right now, so a new value (or an effect run twice in development) carries on from there
+  const shown = useRef(0);
+  useLayoutEffect(() => {
+    const node = el.current;
+    if (!node) return;
+    const start = shown.current;
+    const show = (v: number) => {
+      shown.current = v;
+      node.textContent = String(v);
+    };
+    if (start === to || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      show(to);
+      return;
+    }
+    show(start);
+    const t0 = performance.now();
+    let raf = requestAnimationFrame(function step(now) {
+      // a frame's time can be a moment before the effect's own
+      const x = Math.min(1, Math.max(0, (now - t0) / 900));
+      show(Math.round(start + (to - start) * (1 - Math.pow(1 - x, 3))));
+      if (x < 1) raf = requestAnimationFrame(step);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [to]);
+  return <span ref={el} aria-hidden="true" />;
 }
 
 // ------------------------------------------------------------------ where you stand: three numbers

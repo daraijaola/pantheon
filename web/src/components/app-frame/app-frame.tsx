@@ -125,8 +125,8 @@ function Menu({ trigger, label, className, children }: { trigger: ReactNode; lab
 
 // ------------------------------------------------------------------ your wallet
 
-/** A wallet's own small mark: a 5 × 5 pattern of dots, mirrored, from its address. */
-function Mark({ address, size = 22 }: { address: string; size?: number }) {
+/** A wallet's own small mark: a 5 × 5 pattern of dots, mirrored, from its address. Your space wears it too. */
+export function Mark({ address, size = 22 }: { address: string; size?: number }) {
   let h = 2166136261;
   for (const ch of address.toLowerCase()) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   const cells: [number, number][] = [];
