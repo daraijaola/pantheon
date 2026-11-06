@@ -6,7 +6,7 @@ import { AuthError, createAuth, NONCE_COOKIE, NONCE_SECONDS, SESSION_COOKIE, SES
 
 const state = globalThis as typeof globalThis & { pantheonAuth?: { secret: string; used?: Map<string, number>; replay?: ReplayState } };
 const shared = state.pantheonAuth ??= { secret: randomBytes(32).toString("hex") };
-const replay = shared.replay ??= { used: shared.used ?? new Map(), cutoff: -Infinity };
+const replay = shared.replay ??= { used: shared.used ?? new Map(), cutoff: Date.now() };
 const client = createPublicClient({ transport: http(process.env.NEXT_PUBLIC_RPC_URL ?? "https://testnet-rpc.elysium.kinetiq.xyz", { timeout: 10_000, retryCount: 0 }) });
 export const auth = createAuth({
   secret: () => sessionSecret(process.env, shared.secret), replay,

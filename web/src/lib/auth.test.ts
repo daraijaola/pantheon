@@ -113,6 +113,19 @@ test("the signed cookie proves issuance without a pending record", async () => {
   const second = createAuth({ secret: () => secret, replay, now: () => fields.issuedAt.getTime() });
   await assert.rejects(second.verify(origin, challenge.cookie, message, signature), /INVALID_NONCE/);
 });
+test("a fresh auth instance rejects pre-start challenges but accepts newly issued ones", async () => {
+  const { auth: previous, challenge, fields } = setup();
+  const message = createSiweMessage(fields), signature = await account.signMessage({ message });
+  await previous.verify(origin, challenge.cookie, message, signature);
+  let time = fields.issuedAt.getTime() + 1000;
+  const fresh = createAuth({ secret: () => secret, now: () => time });
+  await assert.rejects(fresh.verify(origin, challenge.cookie, message, signature), /INVALID_NONCE/);
+  const next = fresh.challenge(origin);
+  assert.ok(Date.parse(next.issuedAt) > time);
+  const nextMessage = createSiweMessage({ ...fields, nonce: next.nonce, issuedAt: new Date(next.issuedAt), expirationTime: new Date(next.expirationTime) });
+  time += 2;
+  assert.equal((await fresh.verify(origin, next.cookie, nextMessage, await account.signMessage({ message: nextMessage }))).wallet, account.address.toLowerCase());
+});
 test("expired replay records are pruned without raising the cutoff", async () => {
   const expires = Date.parse("2026-11-06T00:00:01Z");
   const used = new Map(Array.from({ length: 10_000 }, (_, i) => [String(i), expires]));

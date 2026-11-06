@@ -31,9 +31,9 @@ export function createAuth(options: {
   now?: () => number;
   verify?: (args: { address: Hex; message: string; signature: Hex }) => Promise<boolean>;
 }) {
-  const replay = options.replay ?? { used: new Map<string, number>(), cutoff: -Infinity };
-  const used = replay.used;
   const now = options.now ?? Date.now;
+  const replay = options.replay ?? { used: new Map<string, number>(), cutoff: now() };
+  const used = replay.used;
   const verify = options.verify ?? verifyMessage;
   function seal(kind: string, value: object) {
     const payload = Buffer.from(JSON.stringify(value)).toString("base64url");
