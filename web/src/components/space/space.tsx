@@ -61,6 +61,7 @@ export function YourSpace() {
                 wallet={sp.wallet}
                 partial={[sp.rewards, sp.ballot, sp.stake].some((p) => p.state === "unread")}
                 reading={[sp.rewards, sp.ballot, sp.stake, sp.guard].some((p) => p.state === "loading")}
+                inBag={(token) => !!bag?.coins.some((c) => c.token === token)}
                 onCoin={(token, from) => {
                   const i = bag?.coins.findIndex((c) => c.token === token) ?? -1;
                   if (i >= 0) openCoin(i, from);
@@ -345,7 +346,7 @@ export function Pill({ v }: { v: Verdict }) {
 
 // ------------------------------------------------------------------ for you: at most three things to do
 
-function Now({ items, example, wallet, partial, reading, onCoin }: { items: Todo[]; example: boolean; wallet: string; partial: boolean; reading: boolean; onCoin: (token: string, from: From) => void }) {
+function Now({ items, example, wallet, partial, reading, inBag, onCoin }: { items: Todo[]; example: boolean; wallet: string; partial: boolean; reading: boolean; inBag: (token: string) => boolean; onCoin: (token: string, from: From) => void }) {
   const tx = useTx();
   const refresh = () => deployment && tx.run("Refreshing", [{ address: deployment.staking, abi: pantheonStakingAbi, functionName: "poke", args: [[wallet as Hex]] } as const]);
   return (
@@ -370,7 +371,8 @@ function Now({ items, example, wallet, partial, reading, onCoin }: { items: Todo
             );
             return (
               <li key={t.key}>
-                {t.coin ? (
+                {/* a coin opens in a tray when the bag has it; otherwise (the bag couldn't be read) its report page */}
+                {t.coin && inBag(t.coin) ? (
                   <button type="button" className={s.todo} onClick={(e) => onCoin(t.coin!, fromEl(e.currentTarget, 16))}>
                     {inner}
                   </button>

@@ -66,7 +66,7 @@ export function integrity(bag: { coins: unknown[]; counts: Partial<Record<Verdic
 // ------------------------------------------------------------------ for you: at most three things to do
 
 export type Glyph = "alert" | "claim" | "vote" | "refresh" | "stake" | "passport" | "calm";
-/** One thing to do now. `coin` opens that coin's report; `href` goes to its page; `refresh` sends a poke. */
+/** One thing to do now. `coin` opens that coin's report in a tray (its `href` when the bag can't show it); `href` goes to its page; `refresh` sends a poke. */
 export type Todo = { key: string; glyph: Glyph; title: string; sub: string; action: string; href?: string; coin?: string; refresh?: boolean };
 
 /** Now: at most three things, the most pressing first. A coin that turned this week, then what's yours to take. */
@@ -76,8 +76,8 @@ export function todos(sp: Space, now: number): Todo[] {
   for (const a of (ok(sp.guard)?.alerts ?? []).slice(0, 2)) {
     const name = a.symbol ?? "A coin";
     const when = now ? ago(a.at, now) : "this week";
-    if (a.kind === "creator-sold") out.push({ key: a.id, glyph: "alert", title: `${name}’s creator sold`, sub: `${(a.soldPct ?? 0).toFixed(1)}% of the supply · ${when}`, action: "See why", coin: a.token });
-    else out.push({ key: a.id, glyph: "alert", title: a.to === "FLAG" ? `${name} was flagged` : `${name} is on watch now`, sub: `Was ${(LABEL[(a.from as Verdict) ?? "CLEAN"] ?? a.from).toLowerCase()} · ${when}`, action: "See why", coin: a.token });
+    if (a.kind === "creator-sold") out.push({ key: a.id, glyph: "alert", title: `${name}’s creator sold`, sub: `${(a.soldPct ?? 0).toFixed(1)}% of the supply · ${when}`, action: "See why", coin: a.token, href: a.reportUrl });
+    else out.push({ key: a.id, glyph: "alert", title: a.to === "FLAG" ? `${name} was flagged` : `${name} is on watch now`, sub: `Was ${(LABEL[(a.from as Verdict) ?? "CLEAN"] ?? a.from).toLowerCase()} · ${when}`, action: "See why", coin: a.token, href: a.reportUrl });
   }
   const claim = rewards?.coins.filter((c) => Number(c.claimable.amount) > 0) ?? [];
   if (claim.length) {
