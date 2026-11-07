@@ -480,3 +480,4 @@ export async function collectKalos(deps: {
   log(`done: ${rpc.requests - started} requests to the explorer's node`);
   return { skeletons, ascendExtras, system, contracts, liquidity, notes, head };
 }
+

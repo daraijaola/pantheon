@@ -105,3 +105,50 @@ Block numbers, transaction hashes and sender addresses are validated. Missing,
 malformed, duplicate or wrong-block entries, and denied full-block requests, fall
 back to individual transaction lookups. Results are cached only after the whole
 lookup chunk succeeds. Router addresses in Swap events are never used as senders.
+
+## Small parity benchmark (2026-11-07)
+
+Offline-selected real inputs from the immutable copied cache were read at block
+22,760,398: TestUSDC balances for all 59 nonzero addresses touched by its recorded
+transfers, and the latest 128/2048 distinct KPIX swap transaction senders. Both
+paths started with empty in-memory sender caches. These are small stage probes,
+not an end-to-end scan or a sustained provider-capacity test.
+
+| Endpoint / workload | Old → new metered reads | Old → new HTTP requests | Old → new seconds |
+| --- | ---: | ---: | ---: |
+| Public / 59 balances | 59 → 5 | 12 → 3 | 22.129 → 6.124 |
+| Public / 128 senders | 128 → 123 | 26 → 25 | 51.993 → 49.872 |
+| Keyed / 59 balances | 59 → 5 | 2 → 3 | 0.698 → 0.748 |
+| Keyed / 128 senders | 128 → 123 | 5 → 6 | 1.375 → 1.574 |
+| Keyed / 2048 senders | 2048 → 1994 | 82 → 80 | 20.759 → 20.580 |
+
+All balance bytes and sender maps matched exactly; no throttling/error responses.
+Public probes deliberately used batch 5 / gap 2000ms / concurrency 1 to leave the
+existing scan capacity. Keyed probes used batch 32 / gap 250ms / concurrency 4,
+measuring about 99 metered transaction reads/s, not the provider's advertised
+maximum. Keep that setting below the account's 12,500 CU/s budget: `eth_call`
+costs more than transaction/block reads. These probes used well below 1M CU.
+The free account's 100M CU/month is not enough for twice-daily production scans:
+senders plus mostly-direct dirty balances alone project to roughly 300M CU/month.
+
+The sparse KPIX sample saved only 2.6% of sender reads at 2048 transactions; do
+not extrapolate it as a large block-density speed-up. Setup/parity overhead made
+both tiny keyed samples slightly slower despite lower metered-call counts.
+With roughly 212k new swap senders per 12h, measured ~99 reads/s suggests ~36min
+for direct senders, or ~27min **if** the wider Kalos workload retains the separately
+measured 25.7% occupied-block reduction. Another ~34.7k dirty balances needs ~7min
+at the small direct-call sample's ~85/s. Allowing logs/views/funding/safety/local
+work, budget roughly 50–80min; ≤1h is a target, not measured full-run evidence.
+Unverified Kalos getters are not assumed Multicall-eligible in that projection.
+
+Tracing was tested separately from output parity, with no cache writes. For 32
+deterministically sampled uncached KALOS-holder wallets, recomputed first funding
+was direct in every case: 32/32 with or without traces, zero added coverage. A
+positive-control sample of 16 wallets with historical internal payments was also
+searched from genesis: actual first-funding coverage was 6/16 without traces and
+16/16 with traces (+10). All ten internal first-funding transactions matched the
+copied historical cache. Merely finding a later internal payment is not evidence
+that first funding needs a trace. The no-trace baseline emulated the public node's
+observed -32401 denial while all other reads used the same keyed endpoint. These
+selected samples do not estimate scan-wide missing coverage; cached fundings are
+already reused, and new trace evidence may legitimately change detector inputs.
