@@ -117,17 +117,13 @@ EOF
 
 stamp="$(date --utc +%Y%m%dT%H%M%SZ)"
 archive="$BACKUP_DIR/pantheon-$stamp.tar.zst"
-temporary="$archive.partial"
+temporary="$work/$(basename "$archive").partial"
 tar --sort=name --mtime="@$((started_ms / 1000))" --owner=0 --group=0 --numeric-owner -C "$snapshot" -cf - . |
   "$ZSTD" -T0 -q -6 -o "$temporary"
 chmod 0600 "$temporary"
-mv -f "$temporary" "$archive"
-sha256="$(sha256sum "$archive" | cut -d' ' -f1)"
-printf '%s  %s\n' "$sha256" "$(basename "$archive")" >"$archive.sha256"
-chmod 0600 "$archive.sha256"
 
 verify="$(mktemp -d "$work/verify.XXXXXX")"
-"$ZSTD" -q -dc "$archive" | tar -xf - -C "$verify"
+"$ZSTD" -q -dc "$temporary" | tar -xf - -C "$verify"
 json_files=("$verify/state/indexer.json")
 [[ ! -f "$verify/state/trials.json" ]] || json_files+=("$verify/state/trials.json")
 [[ ! -f "$verify/state/keeper.json" ]] || json_files+=("$verify/state/keeper.json")
@@ -136,6 +132,12 @@ json_files=("$verify/state/indexer.json")
 "$NODE" "$SQLITE_HELPER" check "$REPO_ROOT/services/delphi" "$verify/delphi/delphi.db"
 [[ ! -f "$verify/delphi/feed.db" ]] || "$NODE" "$SQLITE_HELPER" check "$REPO_ROOT/services/delphi" "$verify/delphi/feed.db"
 [[ ! -f "$verify/delphi/x.db" ]] || "$NODE" "$SQLITE_HELPER" check "$REPO_ROOT/services/delphi" "$verify/delphi/x.db"
+
+sha256="$(sha256sum "$temporary" | cut -d' ' -f1)"
+printf '%s  %s\n' "$sha256" "$(basename "$archive")" >"$work/archive.sha256"
+chmod 0600 "$work/archive.sha256"
+mv -f "$temporary" "$archive"
+mv -f "$work/archive.sha256" "$archive.sha256"
 
 completed_ms="$("$NODE" -e 'process.stdout.write(String(Date.now()))')"
 size_bytes="$(stat -c %s "$archive")"

@@ -1,6 +1,6 @@
 # Production backups
 
-`pantheon-backup.sh` creates an online snapshot without stopping the site. It validates every JSON file, uses SQLite's backup API for live databases, restores the archive into a temporary directory, runs `quick_check` on each restored database, and only then marks the backup healthy.
+`pantheon-backup.sh` creates an online snapshot without stopping the site. It validates every JSON file, uses SQLite's backup API for live databases, restores the archive into a temporary directory, runs `quick_check` on each restored database, and only then publishes the archive and marks the backup healthy.
 
 It backs up:
 
@@ -32,5 +32,5 @@ Check the result:
 ```sh
 sudo systemctl status pantheon-backup.service
 sudo cat /var/lib/pantheon-ops/backup-status.json
-sudo sha256sum -c /var/backups/pantheon/pantheon-*.tar.zst.sha256
+sudo sh -c 'cd /var/backups/pantheon && sha256sum -c pantheon-*.tar.zst.sha256'
 ```
