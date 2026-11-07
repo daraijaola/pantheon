@@ -153,6 +153,7 @@ export async function collectPerpme(deps: {
   // Who sent each launch and trade, and when.
   const txFrom = await sendersOf(rpc, store, [...read.map((l) => l.tx), ...swaps.map((s) => s.tx)], (done, total) =>
     log(`  senders: ${done.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} new transactions`),
+    new Map([...read, ...swaps].map((x) => [lc(x.tx), x.block])),
   );
   const blockTime = await blockTimesOf(rpc, store, [...read, ...swaps, ...liq].map((x) => x.block.toString()));
 

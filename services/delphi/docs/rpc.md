@@ -94,3 +94,14 @@ same-block full-read parity. A code hash is not a proof that arbitrary code is s
 `DELPHI_MULTICALL_BATCH_SIZE` defaults to 128 (8–512). `DELPHI_MULTICALL=0` disables
 batching for parity checks/rollback. Most unverified Kalos implementations remain
 direct reads until reviewed: the optimistic all-token projection is not enabled.
+
+## Hybrid sender reads
+
+Kalos/PerpMe pass the transaction/block positions already recorded in launch/swap
+logs to `sendersOf`. Cached `txfrom` values still require no network work. For
+uncached transactions, a full block is used only when at least two needed hashes
+share a block; singletons/unknown positions retain `eth_getTransactionByHash`.
+Block numbers, transaction hashes and sender addresses are validated. Missing,
+malformed, duplicate or wrong-block entries, and denied full-block requests, fall
+back to individual transaction lookups. Results are cached only after the whole
+lookup chunk succeeds. Router addresses in Swap events are never used as senders.

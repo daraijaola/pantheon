@@ -324,7 +324,7 @@ export async function collectKalos(deps: {
   const poolCoins = new Map(pools.map((p) => [lc(p.pool), [p.token0, p.token1].filter((t) => coinWindows.has(lc(t)))] as const));
   const used = swaps.filter((s) => (poolCoins.get(lc(s.pool)) ?? []).some((t) => ascend.has(lc(t)) || inWindows(s.block, coinWindows.get(lc(t)))));
   const launchList = coins.map((t) => launches.get(lc(t))!);
-  const txFrom = await sendersOf(rpc, store, [...used, ...launchList].map((x) => x.tx), (done, total) => log(`  senders: ${done.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} new transactions`));
+  const txFrom = await sendersOf(rpc, store, [...used, ...launchList].map((x) => x.tx), (done, total) => log(`  senders: ${done.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} new transactions`), new Map([...used, ...launchList].map((x) => [lc(x.tx), x.block])));
   const windowed = coins.filter((t) => modes.get(lc(t)) === "window");
   const edges = windowed.length ? [windowFrom, ...windowed.map(launchEnd)] : [];
   const blockTime = await blockTimesOf(rpc, store, [...[...used, ...launchList, ...liq].map((x) => x.block), ...edges].map(String));
@@ -480,4 +480,3 @@ export async function collectKalos(deps: {
   log(`done: ${rpc.requests - started} requests to the explorer's node`);
   return { skeletons, ascendExtras, system, contracts, liquidity, notes, head };
 }
-

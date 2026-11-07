@@ -146,24 +146,62 @@ async function manyCalls<T>(rpc: BatchRpc, calls: Array<{ method: string; params
 const fail = (what: string, a: RpcAnswer) => new RpcError(`${what}: ${a.error?.message ?? "empty answer"}`, a.error?.code);
 
 /** tx hash → the wallet that sent it (the real trader; a swap's own `sender` is a router). */
-export async function sendersOf(rpc: BatchRpc, store: Store, txs: Iterable<string>, onProgress?: (done: number, total: number) => void): Promise<Map<string, Address>> {
+export async function sendersOf(rpc: BatchRpc, store: Store, txs: Iterable<string>, onProgress?: (done: number, total: number) => void, blocks?: ReadonlyMap<string, bigint>): Promise<Map<string, Address>> {
   const want = [...new Set([...txs].map(lc))];
   const out = store.recallMany<Address>("txfrom", want);
   const todo = want.filter((t) => !out.has(t));
+  const positions = new Map([...(blocks ?? [])].map(([tx, block]) => [lc(tx), block]));
   for (let i = 0; i < todo.length; i += 5_000) {
     const part = todo.slice(i, i + 5_000);
-    const answers = await manyCalls<{ from?: string } | null>(rpc, part.map((h) => ({ method: "eth_getTransactionByHash", params: [h] })));
-    const got = part.map((h, j): [string, Address] => {
+    const groups = new Map<bigint, string[]>();
+    for (const hash of part) {
+      const block = positions.get(hash);
+      if (block === undefined || block < 0n) continue;
+      if (!groups.has(block)) groups.set(block, []);
+      groups.get(block)!.push(hash);
+    }
+    const dense = [...groups].filter(([, hashes]) => hashes.length >= 2);
+    const found = new Map<string, Address>();
+    try {
+      const answers = await manyCalls<unknown>(rpc, dense.map(([block]) => ({ method: "eth_getBlockByNumber", params: [numberToHex(block), true] })));
+      for (const [j, [block, hashes]] of dense.entries()) {
+        const parsed = SenderBlock.safeParse(answers[j]!.result);
+        if (!parsed.success || BigInt(parsed.data.number) !== block) continue;
+        const needed = new Set(hashes);
+        const duplicates = new Set<string>();
+        const candidates = new Map<string, Address>();
+        for (const raw of parsed.data.transactions) {
+          const tx = SenderTransaction.safeParse(raw);
+          if (!tx.success || !needed.has(lc(tx.data.hash))) continue;
+          const hash = lc(tx.data.hash);
+          if (candidates.has(hash)) duplicates.add(hash);
+          if (tx.data.blockNumber !== undefined && BigInt(tx.data.blockNumber) !== block) continue;
+          candidates.set(hash, getAddress(tx.data.from));
+        }
+        for (const [hash, from] of candidates) if (!duplicates.has(hash)) found.set(hash, from);
+      }
+    } catch { /* Unsupported or unavailable full blocks fall back to individual transactions. */ }
+    const individual = part.filter((h) => !found.has(h));
+    const answers = await manyCalls<{ from?: string } | null>(rpc, individual.map((h) => ({ method: "eth_getTransactionByHash", params: [h] })));
+    individual.forEach((h, j) => {
       const from = answers[j]!.result?.from;
       if (!from || !isAddress(from, { strict: false })) throw fail(`eth_getTransactionByHash ${h}`, answers[j]!);
-      return [h, getAddress(from)];
+      found.set(h, getAddress(from));
     });
+    const got = part.map((h): [string, Address] => [h, found.get(h)!]);
     store.rememberMany("txfrom", got);
     for (const [h, f] of got) out.set(h, f);
     onProgress?.(i + part.length, todo.length);
   }
   return out;
 }
+
+const SenderBlock = z.object({ number: z.string().regex(/^0x[\da-f]+$/i), transactions: z.array(z.unknown()) });
+const SenderTransaction = z.object({
+  hash: z.string().regex(/^0x[\da-f]{64}$/i),
+  from: z.string().refine((a) => isAddress(a, { strict: false })),
+  blockNumber: z.string().regex(/^0x[\da-f]+$/i).optional(),
+});
 
 /** block number (decimal string) → unix time, for blocks whose time no log carried. */
 export async function blockTimesOf(rpc: BatchRpc, store: Store, blocks: Iterable<string>): Promise<Map<string, number>> {

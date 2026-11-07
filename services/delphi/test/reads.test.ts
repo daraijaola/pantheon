@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { getAddress, numberToHex } from "viem";
+import { getAddress, numberToHex, type Hex } from "viem";
 import { describe, expect, it } from "vitest";
 import { findCreation, kindsOf, scanStreams, sendersOf } from "../src/reads.ts";
 import { BatchRpc } from "../src/rpc.ts";
@@ -88,6 +88,68 @@ describe("sendersOf and kindsOf", () => {
     await sendersOf(rpc, store, [tx]);
     await kindsOf(rpc, store, [W, C, P, D]);
     expect(seen.length).toBe(before);
+  });
+});
+
+describe("hybrid sender reads", () => {
+  const hashes = [1, 2, 3, 4].map((n) => numberToHex(n, { size: 32 }));
+  const wallets = hashes.map((_, i) => numberToHex(100 + i, { size: 20 }));
+  const blocks = new Map([[hashes[0]!, 10n], [hashes[1]!, 10n], [hashes[2]!, 11n]]);
+  type Mode = "ok" | "missing" | "null" | "malformed" | "denied" | "network" | "wrong-block" | "wrong-tx-block" | "duplicate" | "direct-error";
+  function senderNode(mode: Mode = "ok") {
+    const seen: Req[] = [];
+    const fetch = async (_url: string, init?: RequestInit) => {
+      const calls = JSON.parse(String(init!.body)) as Req[];
+      seen.push(...calls);
+      if (mode === "network" && calls.some((c) => c.method === "eth_getBlockByNumber")) throw new Error("temporary block endpoint failure");
+      return new Response(JSON.stringify(calls.map((c) => {
+        if (c.method === "eth_getTransactionByHash") {
+          const index = hashes.indexOf(c.params[0] as Hex);
+          return { id: c.id, result: mode === "direct-error" ? null : { from: wallets[index] } };
+        }
+        if (mode === "denied") return { id: c.id, error: { code: -32601, message: "method not allowed" } };
+        if (mode === "null" || mode === "direct-error") return { id: c.id, result: null };
+        let transactions: unknown[] = hashes.slice(0, mode === "missing" ? 1 : 2).map((hash, i) => ({ hash, from: wallets[i], blockNumber: mode === "wrong-tx-block" ? "0xc" : "0xa" }));
+        if (mode === "malformed") transactions = [hashes[0], { hash: hashes[1], from: "not-an-address" }];
+        if (mode === "duplicate") transactions.push({ hash: hashes[0], from: wallets[3] });
+        return { id: c.id, result: { number: mode === "wrong-block" ? "0xc" : "0xa", transactions } };
+      })));
+    };
+    return { seen, rpc: new BatchRpc(`http://hybrid-${mode}`, { ...quiet, retries: 0, fetch }) };
+  }
+  it("uses full blocks only for multiple needed hashes and preserves deduplication/order", async () => {
+    const n = senderNode(), progress: Array<[number, number]> = [];
+    const store = new Store(":memory:");
+    const out = await sendersOf(n.rpc, store, [...hashes, hashes[0]!.toUpperCase().replace("0X", "0x")], (d, t) => progress.push([d, t]), blocks);
+    expect([...out]).toEqual(hashes.map((h, i) => [h, getAddress(wallets[i]!)]));
+    expect(n.seen.map((r) => r.method)).toEqual(["eth_getBlockByNumber", "eth_getTransactionByHash", "eth_getTransactionByHash"]);
+    expect(n.seen[0]!.params).toEqual(["0xa", true]);
+    expect(progress).toEqual([[4, 4]]);
+    const before = n.seen.length;
+    await sendersOf(n.rpc, store, hashes, undefined, blocks);
+    expect(n.seen).toHaveLength(before);
+    store.close();
+  });
+  it("counts only cache misses when deciding whether a full block saves requests", async () => {
+    const store = new Store(":memory:"), n = senderNode();
+    store.remember("txfrom", hashes[0]!, getAddress(wallets[0]!));
+    await sendersOf(n.rpc, store, hashes.slice(0, 2), undefined, blocks);
+    expect(n.seen.map((r) => r.method)).toEqual(["eth_getTransactionByHash"]);
+    store.close();
+  });
+  it.each(["missing", "null", "malformed", "denied", "network", "wrong-block", "wrong-tx-block", "duplicate"] as const)("falls back to per-tx reads on %s", async (mode) => {
+    const n = senderNode(mode), store = new Store(":memory:");
+    expect([...await sendersOf(n.rpc, store, hashes, undefined, blocks)]).toEqual(hashes.map((h, i) => [h, getAddress(wallets[i]!)]));
+    expect(n.seen.some((r) => r.method === "eth_getTransactionByHash" && r.params[0] === hashes[1])).toBe(mode !== "duplicate");
+    store.close();
+  });
+  it("does not cache a partial chunk if direct fallback fails; empty input is offline", async () => {
+    const n = senderNode("direct-error"), store = new Store(":memory:");
+    expect(await sendersOf(n.rpc, store, [], undefined, blocks)).toEqual(new Map());
+    expect(n.seen).toEqual([]);
+    await expect(sendersOf(n.rpc, store, hashes, undefined, blocks)).rejects.toThrow("eth_getTransactionByHash");
+    expect(store.recallMany("txfrom", hashes).size).toBe(0);
+    store.close();
   });
 });
 
