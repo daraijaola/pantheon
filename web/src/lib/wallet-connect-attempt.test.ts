@@ -74,14 +74,14 @@ for (const mode of ["cancel", "rejected", "relay", "provider", "reset", "init"] 
   });
 }
 
-test("cancel during initialization never pairs and cleans a late provider", async () => {
+test("cancel during initialization never pairs or touches a late provider", async () => {
   const s = setup();
   // No pairing was started, so closing the mock modal must not reject an unobserved promise.
   s.provider.modal = { close() {} };
   const cancelled = s.attempt.cancel(); s.init.resolve(s.provider);
   await cancelled; await s.attempt.done; await tick();
   assert.equal(s.phases.includes("pairing"), false);
-  assert.equal(s.cleaned, 1); s.empty();
+  assert.equal(s.cleaned, 0); s.empty();
 });
 
 test("cancel disconnects a session that arrives while the pairing is settling", async () => {
@@ -106,5 +106,5 @@ test("cancel during a stalled initialization settles immediately", async () => {
   s.init.resolve(s.provider);
   await s.attempt.done; await tick();
   assert.equal(s.phases.includes("pairing"), false);
-  assert.equal(s.cleaned, 1); s.empty();
+  assert.equal(s.cleaned, 0); assert.deepEqual(s.expired, []); s.empty();
 });

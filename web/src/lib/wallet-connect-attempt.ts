@@ -46,9 +46,9 @@ export function walletAttempt(options: {
     active = false;
     detach();
     if (!provider) {
-      // Never wait on a stalled init: report now, clean up a provider that arrives later.
+      // Never wait on a stalled init. Pairing starts only after init, so nothing of ours exists to clean;
+      // the provider is shared, so a late cleanup would tear down a retry's pairing.
       options.update(phase);
-      void initialized.then(clean).catch(() => {});
       stopping = Promise.resolve();
       return stopping;
     }
