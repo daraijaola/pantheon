@@ -256,28 +256,33 @@ export function DelphiChat({ explorer, suggestions }: { explorer: string; sugges
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 22 * 6 + 4)}px`;
-  }, [draft]);
+  }, [draft, started]);
 
   // Before the first question the composer sits under DELPHI, not at the bottom.
   useLayoutEffect(() => {
     const place = () => {
-      if (started || !empty.current || !box.current) return setLift(0);
-      const e = empty.current.getBoundingClientRect();
-      const b = box.current.getBoundingClientRect();
-      const docked = b.top + (liftRef.current || 0); // where it sits with no lift
-      const tips = suggestionRow.current?.getBoundingClientRect();
-      const tipsBottom = tips ? tips.bottom + (liftRef.current || 0) : b.bottom + (liftRef.current || 0);
-      const bottom = (page.current?.getBoundingClientRect().bottom ?? window.innerHeight) - 12;
-      setLift(Math.max(0, docked - (e.bottom + 28), tipsBottom - bottom));
+      if (started || !empty.current || !box.current || !dock.current) return setLift(0);
+      const e = empty.current;
+      const b = box.current;
+      const d = dock.current;
+      // Layout offsets exclude the dock and hero's in-flight CSS transitions.
+      const docked = d.offsetTop + b.offsetTop;
+      const tips = suggestionRow.current;
+      const tipsBottom = d.offsetTop + (tips ? tips.offsetTop + tips.offsetHeight : b.offsetTop + b.offsetHeight);
+      const bottom = (page.current?.clientHeight ?? window.innerHeight) - 12;
+      setLift(Math.max(0, docked - (e.offsetTop + e.offsetHeight + 28), tipsBottom - bottom));
     };
     place();
+    const ro = new ResizeObserver(place);
+    for (const el of [empty.current, box.current, suggestionRow.current, page.current]) {
+      if (el) ro.observe(el);
+    }
     window.addEventListener("resize", place);
-    return () => window.removeEventListener("resize", place);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", place);
+    };
   }, [started]);
-  const liftRef = useRef(0);
-  useEffect(() => {
-    liftRef.current = lift;
-  }, [lift]);
 
   // When an answer ends, bring it into view (unless you've scrolled away): its actions if it's short,
   // its first lines if it's long, so a long answer is read from the verdict down.
