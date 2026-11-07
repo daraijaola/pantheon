@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { useConnection, useDisconnect, useSwitchChain } from "wagmi";
+import { useDisconnect, useSwitchChain } from "wagmi";
+import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { CodeWordmark } from "@/components/code-type/code-wordmark";
 import { reason, short } from "@/components/app/shared";
 import { elysium } from "@/lib/chain/config";
@@ -70,7 +71,7 @@ function Disclosure({ label, children }: { label: string; children: (close: () =
 }
 
 function WalletIdentity() {
-  const { address, isConnected, chainId } = useConnection();
+  const { address, isConnected, chainId } = useHydratedConnection();
   const disconnect = useDisconnect();
   const switchChain = useSwitchChain();
 
