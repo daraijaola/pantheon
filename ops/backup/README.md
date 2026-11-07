@@ -1,0 +1,38 @@
+# Production backups
+
+`pantheon-backup.sh` creates an online snapshot without stopping the site. It validates every JSON file, uses SQLite's backup API for live databases, restores the archive into a temporary directory, runs `quick_check` on each restored database, and only then publishes the archive and marks the backup healthy.
+
+It backs up:
+
+- indexer JSON state, plus Trials and keeper state once those services have written it;
+- Passport and DELPHI scanner databases, plus feed and X databases once created;
+- current DELPHI site/scan snapshots and disputes;
+- public deployment metadata and the active web build slot.
+
+Secrets and private keys are intentionally excluded. They belong in the environment/secret store, not a product-data archive.
+
+The timer keeps 14 verified daily archives under `/var/backups/pantheon`. Archives remain root-only; `/var/lib/pantheon-ops` is traversable so the web process can read the non-secret, world-readable health heartbeat. `BACKUP_DIR`, `STATUS_FILE`, `REPO_ROOT`, source paths and `KEEP_BACKUPS` can be overridden for a restore drill or a different server layout.
+
+Optional state may be absent before a component's first write. Once a verified backup has seen Trials, keeper, DELPHI feed or DELPHI X state, a later disappearance fails the backup instead of silently publishing an incomplete archive.
+
+Install after the repository files are deployed:
+
+```sh
+sudo install -m 0755 ops/backup/pantheon-backup.sh /usr/local/sbin/pantheon-backup
+sudo install -d -m 0700 /var/backups/pantheon
+sudo install -d -m 0755 /usr/local/lib/pantheon /var/lib/pantheon-ops
+sudo install -m 0644 ops/backup/backup-sqlite.mjs /usr/local/lib/pantheon/backup-sqlite.mjs
+sudo install -m 0644 ops/systemd/pantheon-backup.service /etc/systemd/system/pantheon-backup.service
+sudo install -m 0644 ops/systemd/pantheon-backup.timer /etc/systemd/system/pantheon-backup.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now pantheon-backup.timer
+sudo systemctl start pantheon-backup.service
+```
+
+Check the result:
+
+```sh
+sudo systemctl status pantheon-backup.service
+sudo cat /var/lib/pantheon-ops/backup-status.json
+sudo sh -c 'cd /var/backups/pantheon && sha256sum -c pantheon-*.tar.zst.sha256'
+```
