@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BatchRpc, PUBLIC_RPC, RpcError } from "../src/rpc.ts";
+import { BatchRpc, PUBLIC_RPC, redactRpcError, RpcError } from "../src/rpc.ts";
+import { BaseError } from "viem";
 
 type Req = { id: number; method: string; params: unknown[] };
 
@@ -25,6 +26,62 @@ const quiet = { sleep: async () => {}, gapMs: 0 };
 afterEach(() => vi.unstubAllEnvs());
 
 describe("BatchRpc", () => {
+  it("configures batching, gap, concurrency and retries without changing public defaults", async () => {
+    vi.stubEnv("DELPHI_RPC_BATCH_SIZE", "2");
+    vi.stubEnv("DELPHI_RPC_GAP_MS", "0");
+    vi.stubEnv("DELPHI_RPC_CONCURRENCY", "1");
+    vi.stubEnv("DELPHI_RPC_RETRIES", "0");
+    const node = fakeNode(() => ({ result: "ok" }));
+    const rpc = new BatchRpc("http://configured", { fetch: node.fetch });
+    expect(rpc.concurrency).toBe(1);
+    await rpc.many(Array.from({ length: 5 }, () => ({ method: "eth_blockNumber", params: [] })));
+    expect(node.seen.map((b) => b.length)).toEqual([2, 2, 1]);
+    vi.stubEnv("DELPHI_RPC_BATCH_SIZE", "0");
+    expect(() => new BatchRpc()).toThrow("invalid DELPHI_RPC_BATCH_SIZE");
+    vi.stubEnv("DELPHI_RPC_BATCH_SIZE", "2.5");
+    expect(() => new BatchRpc()).toThrow("invalid DELPHI_RPC_BATCH_SIZE");
+    vi.stubEnv("DELPHI_RPC_BATCH_SIZE", "2");
+    vi.stubEnv("DELPHI_RPC_CONCURRENCY", "NaN");
+    expect(() => new BatchRpc()).toThrow("invalid DELPHI_RPC_CONCURRENCY");
+  });
+
+  it("bounds simultaneous HTTP reads across consumers of the same endpoint", async () => {
+    let active = 0, peak = 0;
+    const node = fakeNode(() => ({ result: "ok" }));
+    const fetch = async (url: string, init?: RequestInit) => {
+      peak = Math.max(peak, ++active);
+      await new Promise((r) => setTimeout(r, 1));
+      active--;
+      return node.fetch(url, init);
+    };
+    const a = new BatchRpc("http://bounded", { ...quiet, concurrency: 2, fetch });
+    const b = new BatchRpc("http://bounded", { ...quiet, concurrency: 2, fetch });
+    await Promise.all(Array.from({ length: 7 }, (_, i) => (i % 2 ? a : b).call("eth_blockNumber", [])));
+    expect(peak).toBe(2);
+  });
+
+  it("redacts path/query/user credentials from HTTP, JSON-RPC and transport errors", async () => {
+    const key = "test-path-key-never-log";
+    const url = `https://test-user:test-password@node.example/${key}?apiKey=test-query-key`;
+    const detail = `${url} ${key} test-password test-query-key`;
+    for (const kind of ["http", "rpc", "network"] as const) {
+      const fetch = async () => {
+        if (kind === "network") throw new Error(detail);
+        return new Response(JSON.stringify(kind === "http" ? { error: { code: -1, message: detail } } : [{ id: 1, error: { code: -1, message: detail } }]), { status: kind === "http" ? 403 : 200 });
+      };
+      const rpc = new BatchRpc(url, { ...quiet, retries: 0, fetch });
+      const error = await rpc.call("eth_blockNumber", []).catch((e: Error) => e);
+      expect(error).toBeInstanceOf(RpcError);
+      for (const secret of [key, "test-user", "test-password", "test-query-key", url]) expect(String(error)).not.toContain(secret);
+    }
+    const cause = new BaseError(detail);
+    const error = new BaseError(detail, { cause });
+    const safe = redactRpcError(error, url);
+    expect(safe).toBe(error);
+    expect(error.walk()).toBe(cause);
+    expect(String(safe)).not.toContain(key);
+    expect(String(cause)).not.toContain(key);
+  });
   it("does not send empty batches", async () => {
     const node = fakeNode(() => ({ result: null }));
     expect(await new BatchRpc("http://empty", { ...quiet, fetch: node.fetch }).many([])).toEqual([]);

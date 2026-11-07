@@ -139,7 +139,7 @@ export async function scanStreams(
 async function manyCalls<T>(rpc: BatchRpc, calls: Array<{ method: string; params: unknown[] }>): Promise<RpcAnswer<T>[]> {
   const parts: Array<typeof calls> = [];
   for (let i = 0; i < calls.length; i += 100) parts.push(calls.slice(i, i + 100));
-  return (await mapLimit(parts, 6, (p) => rpc.many<T>(p))).flat();
+  return (await mapLimit(parts, rpc.concurrency, (p) => rpc.many<T>(p))).flat();
 }
 
 const fail = (what: string, a: RpcAnswer) => new RpcError(`${what}: ${a.error?.message ?? "empty answer"}`, a.error?.code);

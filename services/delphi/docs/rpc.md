@@ -36,6 +36,21 @@ bounded, control-character-stripped response detail in `RpcError`.
 
 ## Budgets and recovery
 
+| Variable | Public default | Meaning |
+| --- | ---: | --- |
+| `DELPHI_RPC_BATCH_SIZE` | 10 | Metered calls per HTTP batch (1–1000) |
+| `DELPHI_RPC_GAP_MS` | 1000 | Minimum gap between heavy HTTP requests (0–60000) |
+| `DELPHI_RPC_CONCURRENCY` | 6 | Heavy in-flight HTTP requests / lookup workers (1–128) |
+| `DELPHI_RPC_SINGLE_GAP_MS` | 150 | Ordinary viem request gap (0–60000) |
+| `DELPHI_RPC_RETRIES` | 6 | Heavy/per-call and polite-fetch retries (0–20) |
+
+The approximate heavy call cap is batch size divided by request gap. Increasing
+concurrency does not create another URL budget. Set capacity only after measuring
+the authenticated provider's per-method/CU limits; large batches can still throttle.
+Invalid settings fail before requests. Endpoint path keys, query credentials and
+userinfo are removed from provider/transport error details, including nested viem
+errors; never print the configured URL itself.
+
 Default requests contain at most ten calls and are spaced one second apart.
 Pacing is shared by URL between `BatchRpc` instances in one process, including
 funding readers; different processes and ordinary viem reads do not share that
