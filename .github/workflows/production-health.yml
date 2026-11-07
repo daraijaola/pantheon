@@ -1,0 +1,68 @@
+name: Production health
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: production-health
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      SITE_URL: https://pantheonindex.com
+      ALERT_LABEL: production-alert
+      ALERT_TITLE: "[production] PANTHEON health check failed"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check production and manage the alert
+        shell: bash
+        run: |
+          set -u
+          home_status="$(curl --silent --show-error --location --max-time 20 --output /dev/null --write-out '%{http_code}' "$SITE_URL/" 2>&1)" || home_status="curl failed: $home_status"
+          health_body="$(mktemp)"
+          health_status="$(curl --silent --show-error --location --max-time 20 --output "$health_body" --write-out '%{http_code}' "$SITE_URL/api/health" 2>&1)" || health_status="curl failed: $health_status"
+
+          healthy=false
+          if [[ "$home_status" == "200" && "$health_status" == "200" ]] && jq -e '.ok == true and ([.checks[].ok] | all)' "$health_body" >/dev/null 2>&1; then
+            healthy=true
+          fi
+
+          gh api --method POST "repos/$GITHUB_REPOSITORY/labels" \
+            --field name="$ALERT_LABEL" \
+            --field color="B60205" \
+            --field description="Production needs attention" >/dev/null 2>&1 || true
+          issue="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "$ALERT_LABEL" --json number --jq '.[0].number // empty')"
+
+          if [[ "$healthy" == true ]]; then
+            if [[ -n "$issue" ]]; then
+              gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --comment "Production recovered. The homepage and aggregate health check are passing again."
+            fi
+            exit 0
+          fi
+
+          checks="$(jq -c '.checks // []' "$health_body" 2>/dev/null || printf '[]')"
+          body="$(cat <<EOF
+          The external production check failed.
+
+          - Homepage result: \`$home_status\`
+          - Health endpoint result: \`$health_status\`
+          - Component checks: \`$checks\`
+          - Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+
+          Check the failed component, the relevant systemd unit, and the latest verified backup before changing production.
+          EOF
+          )"
+          if [[ -z "$issue" ]]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$ALERT_TITLE" --label "$ALERT_LABEL" --body "$body"
+          fi
+          printf '%s\n' "$body" >&2
+          exit 1
