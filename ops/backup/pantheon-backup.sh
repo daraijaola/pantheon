@@ -87,13 +87,19 @@ backup_sqlite() {
   "$NODE" "$SQLITE_HELPER" backup "$module_root" "$source" "$destination"
 }
 
+backup_optional_sqlite() {
+  local module_root=$1 source=$2 destination=$3
+  [[ -f "$source" ]] || return 0
+  backup_sqlite "$module_root" "$source" "$destination"
+}
+
 copy_json "$INDEXER_STATE" "$snapshot/state/indexer.json"
-copy_json "$TRIALS_STATE" "$snapshot/state/trials.json"
-copy_json "$KEEPER_STATE" "$snapshot/state/keeper.json"
+copy_optional_json "$TRIALS_STATE" "$snapshot/state/trials.json"
+copy_optional_json "$KEEPER_STATE" "$snapshot/state/keeper.json"
 backup_sqlite "$REPO_ROOT/services/passport" "$PASSPORT_DB" "$snapshot/state/passport.db"
 backup_sqlite "$REPO_ROOT/services/delphi" "$DELPHI_DB" "$snapshot/delphi/delphi.db"
-backup_sqlite "$REPO_ROOT/services/delphi" "$DELPHI_FEED_DB" "$snapshot/delphi/feed.db"
-backup_sqlite "$REPO_ROOT/services/delphi" "$DELPHI_X_DB" "$snapshot/delphi/x.db"
+backup_optional_sqlite "$REPO_ROOT/services/delphi" "$DELPHI_FEED_DB" "$snapshot/delphi/feed.db"
+backup_optional_sqlite "$REPO_ROOT/services/delphi" "$DELPHI_X_DB" "$snapshot/delphi/x.db"
 copy_optional_json "$REPO_ROOT/services/delphi/out/site.json" "$snapshot/delphi/site.json"
 copy_optional_json "$REPO_ROOT/services/delphi/out/scan.json" "$snapshot/delphi/scan.json"
 copy_optional "$REPO_ROOT/services/delphi/out/disputes.log" "$snapshot/delphi/disputes.log"
@@ -122,11 +128,14 @@ chmod 0600 "$archive.sha256"
 
 verify="$(mktemp -d "$work/verify.XXXXXX")"
 "$ZSTD" -q -dc "$archive" | tar -xf - -C "$verify"
-"$JQ" -e . "$verify/state/indexer.json" "$verify/state/trials.json" "$verify/state/keeper.json" >/dev/null
+json_files=("$verify/state/indexer.json")
+[[ ! -f "$verify/state/trials.json" ]] || json_files+=("$verify/state/trials.json")
+[[ ! -f "$verify/state/keeper.json" ]] || json_files+=("$verify/state/keeper.json")
+"$JQ" -e . "${json_files[@]}" >/dev/null
 "$NODE" "$SQLITE_HELPER" check "$REPO_ROOT/services/passport" "$verify/state/passport.db"
 "$NODE" "$SQLITE_HELPER" check "$REPO_ROOT/services/delphi" "$verify/delphi/delphi.db"
-"$NODE" "$SQLITE_HELPER" check "$REPO_ROOT/services/delphi" "$verify/delphi/feed.db"
-"$NODE" "$SQLITE_HELPER" check "$REPO_ROOT/services/delphi" "$verify/delphi/x.db"
+[[ ! -f "$verify/delphi/feed.db" ]] || "$NODE" "$SQLITE_HELPER" check "$REPO_ROOT/services/delphi" "$verify/delphi/feed.db"
+[[ ! -f "$verify/delphi/x.db" ]] || "$NODE" "$SQLITE_HELPER" check "$REPO_ROOT/services/delphi" "$verify/delphi/x.db"
 
 completed_ms="$("$NODE" -e 'process.stdout.write(String(Date.now()))')"
 size_bytes="$(stat -c %s "$archive")"

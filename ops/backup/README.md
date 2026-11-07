@@ -4,8 +4,8 @@
 
 It backs up:
 
-- indexer, Trials and keeper JSON state;
-- Passport, DELPHI scanner, feed and X SQLite databases;
+- indexer JSON state, plus Trials and keeper state once those services have written it;
+- Passport and DELPHI scanner databases, plus feed and X databases once created;
 - current DELPHI site/scan snapshots and disputes;
 - public deployment metadata and the active web build slot.
 
