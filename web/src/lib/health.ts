@@ -43,7 +43,7 @@ function object(value: unknown): value is Record<string, unknown> {
 function valid(name: HealthCheck["name"], body: unknown): boolean {
   if (!object(body)) return false;
   if (name === "indexer") return object(body.pnth) && object(body.basket) && object(body.staking);
-  if (name === "passport") return typeof body.linked === "number" && typeof body.valid === "number";
+  if (name === "passport") return body.ok === true && typeof body.lastBlock === "string";
   if (name === "trials") return typeof body.round === "number" && typeof body.status === "string";
   return true;
 }
@@ -122,11 +122,10 @@ export async function healthReport(dependencies: Dependencies = {}): Promise<Hea
     endpoint("indexer", dependencies.indexerUrl ?? `${indexerBase}/stats`, fetcher, now, timeoutMs, serviceMaxAgeMs),
     endpoint(
       "passport",
-      dependencies.passportUrl ?? `${process.env.PASSPORT_API ?? "http://127.0.0.1:8787"}/passport/stats`,
+      dependencies.passportUrl ?? `${process.env.PASSPORT_API ?? "http://127.0.0.1:8787"}/passport/health`,
       fetcher,
       now,
       timeoutMs,
-      serviceMaxAgeMs,
     ),
     endpoint(
       "trials",

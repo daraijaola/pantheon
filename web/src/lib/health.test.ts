@@ -15,7 +15,7 @@ const urls = {
 
 function response(url: string, newestUpdateMs = NOW - 60_000): Response {
   if (url.endsWith("/indexer")) return Response.json({ pnth: {}, basket: {}, staking: {}, updatedAt: NOW / 1_000 - 60 });
-  if (url.endsWith("/passport")) return Response.json({ linked: 4, valid: 4, updatedAt: NOW / 1_000 - 60 });
+  if (url.endsWith("/passport")) return Response.json({ ok: true, lastBlock: "42", relayerBalance: "10000000000000000" });
   if (url.endsWith("/trials")) return Response.json({ round: 5, status: "closed" });
   return Response.json({ ok: true, newestUpdateMs });
 }
@@ -89,4 +89,18 @@ test("a running service with old indexed data is stale, not healthy", async () =
   });
   assert.equal(report.ok, false);
   assert.equal(report.checks.find((check) => check.name === "indexer")?.state, "stale");
+});
+
+test("Passport registry or relayer failures make the aggregate health check fail", async () => {
+  const report = await healthReport({
+    ...urls,
+    now: () => NOW,
+    fetch: async (url) =>
+      url.endsWith("/passport")
+        ? Response.json({ ok: false, lastBlock: null, relayerBalance: "0" }, { status: 503 })
+        : response(url),
+    readFile: async () => JSON.stringify({ ok: true, completedAtMs: NOW - 60_000 }),
+  });
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.find((check) => check.name === "passport")?.state, "unavailable");
 });
