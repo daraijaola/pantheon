@@ -25,6 +25,9 @@ type Props = {
   /** Connecting through a wallet app: a phone, or a QR code on a computer. */
   connectViaApp: boolean;
   connectError: string | null;
+  connectMessage?: string | null;
+  onRetryConnect?: (() => void) | null;
+  onCancelConnect?: (() => void) | null;
   onConnect: () => void;
   /** Computers only: WalletConnect's QR code, for a wallet on a phone. Null when it isn't set up. */
   onPhoneWallet: (() => void) | null;
@@ -111,6 +114,9 @@ export function UploadOrb({
   connecting,
   connectViaApp,
   connectError,
+  connectMessage,
+  onRetryConnect,
+  onCancelConnect,
   onConnect,
   onPhoneWallet,
   wallets = null,
@@ -527,6 +533,9 @@ export function UploadOrb({
             {connectError}
           </p>
         )}
+        {connectMessage && <p className={s.small} role="status">{connectMessage}</p>}
+        {onRetryConnect && <button type="button" className={s.other} onClick={onRetryConnect}>Retry</button>}
+        {onCancelConnect && <button type="button" className={s.other} onClick={onCancelConnect}>Cancel</button>}
         {onPhoneWallet && touch === false && (
           <button type="button" className={s.other} onClick={onPhoneWallet} disabled={connecting || !!address}>
             Use a phone wallet

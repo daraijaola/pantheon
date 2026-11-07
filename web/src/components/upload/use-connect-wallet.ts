@@ -8,11 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useConnect, useConnectors, type Connector } from "wagmi";
 import { reason } from "@/components/app/shared";
-
-/** How long WalletConnect gets to show its QR code (or hand off to the wallet app) before we say it can't. */
-const QR_WAIT_MS = 12_000;
-const NO_RELAY = "Phone wallets can’t reach WalletConnect from this network. Try mobile data or another network, or a browser wallet.";
-type WalletConnectProvider = { modal?: { close?: () => void } };
+import { walletAttempt, type PairingProvider, type WalletPhase } from "@/lib/wallet-connect-attempt";
 
 /** The one browser wallet if exactly one announced itself (EIP-6963), else whichever answers as window.ethereum. */
 const announcedWallets = (connectors: readonly Connector[]) => connectors.filter((c) => c.type === "injected" && c.id !== "injected");
@@ -35,49 +31,41 @@ export function useConnectWallet() {
   const [used, setUsed] = useState<Connector | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [choosing, setChoosing] = useState(false);
+  const [phase, setPhase] = useState<WalletPhase | null>(null);
   const phone = connectors.find((c) => c.type === "walletConnect");
   const announced = announcedWallets(connectors);
-  const qrTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Done one way or another (connected, closed, refused): nothing left to wait for.
-  useEffect(() => {
-    if (connect.isPending || !qrTimer.current) return;
-    clearTimeout(qrTimer.current);
-    qrTimer.current = null;
-  }, [connect.isPending]);
-  useEffect(
-    () => () => {
-      if (qrTimer.current) clearTimeout(qrTimer.current);
-    },
-    [],
-  );
+  const attempt = useRef<ReturnType<typeof walletAttempt> | null>(null);
+  const generation = useRef(0);
+  useEffect(() => () => {
+    generation.current++;
+    const previous = attempt.current;
+    attempt.current = null;
+    void previous?.cancel();
+  }, []);
 
-  // WalletConnect shows its QR code (or opens the wallet app) once its relay answers. Some networks block
-  // the relay (a DNS filter, a VPN), and its window then stays blank for good: close it and say why.
-  const watchQr = (connector: Connector) => {
-    if (qrTimer.current) clearTimeout(qrTimer.current);
-    const ready = (m: { type: string }) => {
-      if (m.type !== "display_uri") return;
-      if (qrTimer.current) clearTimeout(qrTimer.current);
-      qrTimer.current = null;
-      connector.emitter.off("message", ready);
-    };
-    connector.emitter.on("message", ready);
-    qrTimer.current = setTimeout(() => {
-      qrTimer.current = null;
-      connector.emitter.off("message", ready);
-      setNotice(NO_RELAY);
-      connector
-        .getProvider()
-        .then((p) => (p as WalletConnectProvider | undefined)?.modal?.close?.())
-        .catch(() => {});
-    }, QR_WAIT_MS);
-  };
-
-  const connectWith = (connector: Connector) => {
+  const connectWith = async (connector: Connector) => {
+    const id = ++generation.current;
+    setPhase("initializing");
+    if (attempt.current) await attempt.current.cancel();
+    if (generation.current !== id) return;
+    attempt.current = null;
     setChoosing(false);
     setUsed(connector);
-    if (connector.type === "walletConnect") watchQr(connector);
-    connect.mutate({ connector });
+    setNotice(null);
+    connect.reset();
+    if (connector.type !== "walletConnect") {
+      setPhase(null);
+      connect.mutate({ connector });
+      return;
+    }
+    const current = walletAttempt({
+      init: () => connector.getProvider() as Promise<PairingProvider>,
+      pair: () => connect.mutateAsync({ connector }),
+      disconnect: () => connector.disconnect(),
+      update: next => { if (generation.current === id) setPhase(next); },
+    });
+    attempt.current = current;
+    setPhase("initializing");
   };
 
   const open = (way: "wallet" | "phone") => {
@@ -93,22 +81,27 @@ export function useConnectWallet() {
       setNotice("Phone wallets aren’t switched on here yet.");
       return;
     }
-    connectWith(connector);
+    void connectWith(connector);
   };
 
   const pick = (id: string) => {
     const connector = announced.find((c) => c.id === id);
-    if (connector) connectWith(connector);
+    if (connector) void connectWith(connector);
   };
 
-  // Closing WalletConnect's window is a choice, not a failure: no message for it.
-  const closed = used?.type === "walletConnect" && /rejected|reset/i.test(connect.error?.message ?? "");
   return {
     open,
-    busy: connect.isPending,
+    busy: phase ? ["initializing", "pairing", "ready"].includes(phase) : connect.isPending,
     /** Waiting on a wallet app (phone or QR) rather than this browser's wallet. */
     viaApp: used?.type === "walletConnect",
-    error: notice ?? (connect.error && !closed ? reason(connect.error) : null),
+    error: notice ?? (phase === "init-failed" ? "WalletConnect couldn’t start. Retry reloads this page so you can connect again." : phase === "relay-failed" ? "WalletConnect’s relay connection failed. Retry, or use a browser wallet." : phase === "failed" ? "WalletConnect couldn’t connect. Retry, or use a browser wallet." : !phase && connect.error ? reason(connect.error) : null),
+    message: phase === "slow" ? "Still waiting for WalletConnect. Please try again." : phase === "initializing" ? "Opening WalletConnect…" : null,
+    retry: phase === "init-failed" ? () => window.location.reload() : phase === "slow" || phase === "failed" || phase === "relay-failed" ? () => used && void connectWith(used) : null,
+    cancel: phase && ["initializing", "pairing", "ready"].includes(phase) ? () => {
+      generation.current++;
+      setPhase("cancelled");
+      void attempt.current?.cancel();
+    } : null,
     hasPhone: !!phone,
     /** The wallets to pick from, while the user is choosing; null otherwise. */
     choices: choosing && announced.length > 1 ? announced.map((c): WalletChoice => ({ id: c.id, name: c.name, icon: safeIcon(c.icon) })) : null,
