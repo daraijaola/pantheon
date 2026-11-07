@@ -66,3 +66,31 @@ saved after each successful contiguous range, so interrupted runs can resume.
 The public node supports archive reads and safety simulations, but this is not a
 guarantee of unlimited throughput or of trace access. Do not silently substitute
 missing trace results with evidence that a wallet is unrelated or a contract safe.
+
+## Safe Multicall views
+
+`viewsAt` batches only `balanceOf(address)`, `totalSupply()` and `decimals()` at
+explicit historical blocks, in groups of at least eight. Unknown implementations,
+proxies/delegations, other selectors and `latest` use the original direct path.
+Multicall3's runtime hash is pinned to its measured canonical deployment on 99801.
+Every chunk checks its first and last answer against direct calls; a mismatch or
+outer failure discards the entire target/block group's batched results. Failed or
+malformed individual subcalls are re-read directly. Original null/revert/error
+handling is retained. No requests are signed or broadcast.
+
+The default runtime allowlist is deliberately small. Source-reviewed immutable
+implementations have caller-independent, side-effect-free storage/constant getters:
+
+- [TestUSDC](https://contracts.conduit.xyz/v2/contract/99801/0x852043605E2F2F326F6Bed69E5e5Baf970366473?fields=sources,compilation,runtimeBytecode):
+  `0x400afd838d4b8888b195f8231b65b87f326adf2cf0205dcbe71f2703ca1161fe`.
+- [EridanosToken](https://contracts.conduit.xyz/v2/contract/99801/0x13aCae05DF01026AbEf8A48425D41F6955f05C90?fields=sources,compilation,runtimeBytecode):
+  `0xfd581a067231878993acf06be55d9499fcd0b0f428041685933715be8ccb1546`.
+  Its only parent is OpenZeppelin ERC20; it does not override the three getters.
+
+Do not automatically approve a contract just because a few samples agree. Add
+comma-separated **source-audited runtime hashes** via `DELPHI_MULTICALL_CODE_HASHES`
+only after checking caller/gas independence, no writes/external dependencies, and
+same-block full-read parity. A code hash is not a proof that arbitrary code is safe.
+`DELPHI_MULTICALL_BATCH_SIZE` defaults to 128 (8–512). `DELPHI_MULTICALL=0` disables
+batching for parity checks/rollback. Most unverified Kalos implementations remain
+direct reads until reviewed: the optimistic all-token projection is not enabled.

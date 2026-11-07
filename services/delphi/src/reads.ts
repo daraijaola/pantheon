@@ -9,6 +9,7 @@ import type { AddressKind } from "./chain.ts";
 import { mapLimit } from "./chain.ts";
 import { asksTooMuch, RpcError, type BatchRpc, type RpcAnswer } from "./rpc.ts";
 import type { RawLog, Store } from "./store.ts";
+import { multicallPolicy, multicallViews, type MulticallPolicy } from "./multicall.ts";
 
 const lc = (a: string) => a.toLowerCase();
 
@@ -187,14 +188,19 @@ const reverted = (a: RpcAnswer) => !!a.error && (a.error.code === 3 || /revert/i
 export type View = { to: Address; data: Hex; block?: bigint };
 
 /** Raw answers to view calls at one block; `null` when the call reverted or returned nothing. */
-export async function viewsAt(rpc: BatchRpc, calls: readonly View[], block: bigint | "latest"): Promise<Array<Hex | null>> {
+export async function viewsAt(rpc: BatchRpc, calls: readonly View[], block: bigint | "latest", policy: MulticallPolicy | false = multicallPolicy()): Promise<Array<Hex | null>> {
   const tag = (b: bigint | "latest") => (b === "latest" ? b : numberToHex(b));
-  const answers = await manyCalls<Hex>(rpc, calls.map((c) => ({ method: "eth_call", params: [{ to: c.to, data: c.data }, tag(c.block ?? block)] })));
-  return answers.map((a, i) => {
+  const batched = policy ? await multicallViews(rpc, calls, block, policy) : new Map<number, Hex>();
+  const pending = calls.map((c, i) => ({ c, i })).filter(({ i }) => !batched.has(i));
+  const answers = await manyCalls<Hex>(rpc, pending.map(({ c }) => ({ method: "eth_call", params: [{ to: c.to, data: c.data }, tag(c.block ?? block)] })));
+  const out: Array<Hex | null> = calls.map((_, i) => batched.get(i) ?? null);
+  answers.forEach((a, j) => {
+    const i = pending[j]!.i;
     if (reverted(a)) return null;
     if (a.error || typeof a.result !== "string") throw fail(`eth_call to ${calls[i]!.to}`, a);
-    return a.result === "0x" ? null : a.result;
+    out[i] = a.result === "0x" ? null : a.result;
   });
+  return out;
 }
 
 const TOKEN0 = "0x0dfe1681"; // token0()
