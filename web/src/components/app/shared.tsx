@@ -9,6 +9,7 @@ import { formatUnits, parseUnits, type TransactionReceipt } from "viem";
 import { useBlock, useConfig, useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain, useWriteContract } from "wagmi";
 import { getPublicClient, waitForTransactionReceipt } from "wagmi/actions";
 import { elysium, explorer } from "@/lib/chain/config";
+import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import s from "./app.module.css";
 
 export type Hex = `0x${string}`;
@@ -95,7 +96,7 @@ export function TxNote({ error, lastTx }: { error: string | null; lastTx: Hex | 
 // ------------------------------------------------------------------ wallet
 
 export function WalletBar() {
-  const { address, isConnected, chainId } = useConnection();
+  const { address, isConnected, chainId } = useHydratedConnection();
   const connectors = useConnectors();
   const connect = useConnect();
   const disconnect = useDisconnect();
