@@ -326,15 +326,16 @@ void main(){
  float d=sceneD(fc,t);
  float dither=(hash(fc*1.37+fract(t))-0.5)/255.;
  float shKeep=1.;
- if(uR>0.5){float r0=min(uR,170.);float ds0=blobMain(fc-uC-vec2(0.,0.17*r0),uR,t)+0.05*r0;shKeep*=1.-(0.21*exp(-max(ds0,0.)/(0.15*r0))+0.05*exp(-max(ds0,0.)/(0.4*r0)))*smoothstep(4.,40.,uR);}
+ if(uR>0.5){float r0=min(uR,170.);float ds0=blobMain(fc-uC-vec2(0.,0.17*r0),uR,t)+0.05*r0;shKeep*=1.-(0.21*exp(-max(ds0,0.)/(0.15*r0))+0.05*exp(-max(ds0,0.)/(0.4*r0)))*smoothstep(4.,40.,uR)*(1.-smoothstep(0.8*r0,1.2*r0,max(ds0,0.)));}
  for(int i=0;i<7;i++){
   if(float(i)<uN){
    vec4 b=uB[i];
    if(b.z>0.5){float ri=min(b.z,170.);float dsi=blobField(fc-b.xy-vec2(0.,0.17*ri),b.z,t+uQ[i].x,uP[i].z,uP[i].w)+0.05*ri;
-    shKeep*=1.-(0.21*exp(-max(dsi,0.)/(0.15*ri))+0.05*exp(-max(dsi,0.)/(0.4*ri)))*(1.-uQ[i].y);}
+    shKeep*=1.-(0.21*exp(-max(dsi,0.)/(0.15*ri))+0.05*exp(-max(dsi,0.)/(0.4*ri)))*(1.-uQ[i].y)*(1.-smoothstep(0.8*ri,1.2*ri,max(dsi,0.)));}
   }
  }
- float sh=max(1.-shKeep+dither,0.);
+ float sh=max(1.-shKeep,0.);
+ sh=max(sh+dither*smoothstep(0.,0.002,sh),0.);
  float shR=clamp(nR,40.,170.);
  if(d>3.2*shR&&sh<0.002){gl_FragColor=vec4(0.);return;}
  if(d>1.5){gl_FragColor=vec4(0.,0.,0.,sh*uFade);return;}

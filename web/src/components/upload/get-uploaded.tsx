@@ -8,12 +8,11 @@ import s from "./get-uploaded.module.css";
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const voice = (t: number) => clamp(0.5 + 0.32 * Math.sin(t * 2.1) * Math.sin(t * 0.73 + 1) + 0.22 * Math.sin(t * 5.3 + 0.4) * Math.sin(t * 1.7) + 0.12 * Math.sin(t * 9.1), 0, 1);
 
-/** DELPHI's orb (the same one as /delphi/chat), drifting inside the button's dark glass window. It only
+/** DELPHI's orb (the same one as /delphi/chat), drifting beside the button's label. It only
  * draws while the button is on screen; with no WebGL, a still glass bead sits in its place. */
 function TileOrb({ pulseAt, hot }: { pulseAt: React.RefObject<number>; hot: React.RefObject<boolean> }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const bead = useRef<HTMLSpanElement>(null);
-  const glow = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const cv = canvas.current;
@@ -64,16 +63,12 @@ function TileOrb({ pulseAt, hot }: { pulseAt: React.RefObject<number>; hot: Reac
           angle: Math.atan2(vy, vx),
           time: t,
           fade: 1,
+          shadow: 0,
         },
         W,
         H,
         Math.min(window.devicePixelRatio || 1, 2),
       );
-      // Her coloured light, pooled on the glass under her, follows her across the window.
-      if (glow.current) {
-        glow.current.style.transform = `translate(${(x - W / 2).toFixed(2)}px, ${(y - H / 2).toFixed(2)}px)`;
-        glow.current.style.opacity = (0.55 + 0.25 * voice(t) + 0.3 * heat + 0.4 * pulse).toFixed(3);
-      }
       if (!reduced) raf = requestAnimationFrame(frame);
     };
     const start = () => {
@@ -99,14 +94,13 @@ function TileOrb({ pulseAt, hot }: { pulseAt: React.RefObject<number>; hot: Reac
 
   return (
     <>
-      <span ref={glow} className={s.glow} />
       <canvas ref={canvas} className={s.orb} />
       <span ref={bead} className={s.bead} />
     </>
   );
 }
 
-/** The hero's main call to action: DELPHI's orb, moving in a small dark glass window. Not open yet: a click
+/** The hero's main call to action: DELPHI's orb, moving beside the label. Not open yet: a click
  * says so in place instead of leading anywhere, and the orb answers with one soft pulse. */
 export function GetUploaded({ className }: { className?: string }) {
   const { soon, show } = useSoon();
@@ -115,7 +109,7 @@ export function GetUploaded({ className }: { className?: string }) {
   return (
     <button
       type="button"
-      className={`${s.btn} ${soon ? s.isSoon : ""} ${className ?? ""}`}
+      className={`${s.action} ${soon ? s.isSoon : ""} ${className ?? ""}`}
       onPointerEnter={() => (hot.current = true)}
       onPointerLeave={() => (hot.current = false)}
       onFocus={() => (hot.current = true)}
@@ -128,11 +122,13 @@ export function GetUploaded({ className }: { className?: string }) {
       <span className={s.tile} aria-hidden="true">
         <TileOrb pulseAt={pulseAt} hot={hot} />
       </span>
-      <span className={s.label} aria-live="polite">
-        {soon ? "Opening soon" : "Get uploaded"}
-      </span>
-      <span className={s.arrow} aria-hidden="true">
-        {soon ? "·" : "→"}
+      <span className={s.btn}>
+        <span className={s.label} aria-live="polite">
+          {soon ? "Opening soon" : "Get uploaded"}
+        </span>
+        <span className={s.arrow} aria-hidden="true">
+          {soon ? "·" : "→"}
+        </span>
       </span>
     </button>
   );
