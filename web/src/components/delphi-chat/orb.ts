@@ -10,7 +10,7 @@
 const VERTEX = "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
 
 const FRAGMENT = `precision highp float;
-uniform vec2 uRes;uniform float uDpr;uniform float uTime;uniform float uFade;
+uniform vec2 uRes;uniform float uDpr;uniform float uTime;uniform float uFade;uniform float uShadow;
 uniform vec2 uC;uniform float uR;uniform float uThink;uniform float uEnergy;uniform float uPulse;
 uniform vec3 uSq;uniform float uTiny;
 const vec3 K0=vec3(0.974,0.789,0.440);
@@ -114,7 +114,7 @@ void main(){
  float dither=(hash(fc*1.37+fract(t))-0.5)/255.;
  float r0=min(uR,170.);
  float ds=blob(fc-uC-vec2(0.,0.17*r0),uR,t)+0.05*r0;
- float sh=max((0.21*exp(-max(ds,0.)/(0.15*r0))+0.05*exp(-max(ds,0.)/(0.4*r0)))*smoothstep(4.,40.,uR)+dither,0.);
+ float sh=max((0.21*exp(-max(ds,0.)/(0.15*r0))+0.05*exp(-max(ds,0.)/(0.4*r0)))*smoothstep(4.,40.,uR)+dither,0.)*(1.-smoothstep(0.8*r0,1.2*r0,max(ds,0.)))*uShadow;
  if(d>1.5){gl_FragColor=vec4(0.,0.,0.,sh*uFade);return;}
  float a=clamp(0.5-d*uDpr,0.,1.);
  vec2 g=vec2(scene(fc+vec2(1.,0.),t)-scene(fc-vec2(1.,0.),t),scene(fc+vec2(0.,1.),t)-scene(fc-vec2(0.,1.),t));
@@ -142,7 +142,7 @@ void main(){
  gl_FragColor=vec4(col*a,a+sh*(1.-a))*uFade;
 }`;
 
-const NAMES = ["uRes", "uDpr", "uTime", "uFade", "uC", "uR", "uThink", "uEnergy", "uPulse", "uSq", "uTiny"] as const;
+const NAMES = ["uRes", "uDpr", "uTime", "uFade", "uShadow", "uC", "uR", "uThink", "uEnergy", "uPulse", "uSq", "uTiny"] as const;
 type Name = (typeof NAMES)[number];
 
 export type OrbState = {
@@ -157,6 +157,7 @@ export type OrbState = {
   angle: number;
   time: number;
   fade: number;
+  shadow?: number;
 };
 
 export class ChatOrb {
@@ -231,6 +232,7 @@ export class ChatOrb {
     gl.uniform1f(u.uDpr, dpr);
     gl.uniform1f(u.uTime, o.time);
     gl.uniform1f(u.uFade, o.fade);
+    gl.uniform1f(u.uShadow, o.shadow ?? 1);
     gl.uniform2f(u.uC, o.x, o.y);
     gl.uniform1f(u.uR, o.r);
     gl.uniform1f(u.uThink, o.think);

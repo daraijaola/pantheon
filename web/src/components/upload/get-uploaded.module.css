@@ -1,6 +1,4 @@
-/* "Get uploaded": the hero's main button. A small dark glass window with DELPHI's orb drifting in
-   it (the /delphi/chat orb, drawn on a canvas), her light pooled under her and a fine rim in her
-   colours. Hover warms the glass; a click or tap gives one soft pulse. Nothing swaps or glitches. */
+/* "Get uploaded": the hero's main button, with DELPHI's orb drifting beside the label. */
 .btn {
   position: relative;
   display: inline-flex;
@@ -43,62 +41,8 @@
   width: 72px;
   height: 48px;
   overflow: hidden;
-  border-radius: 10px;
-  /* Deep glass: a touch lighter at the top, falling to near black, with a soft vignette. */
-  background:
-    radial-gradient(120% 90% at 50% 0%, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0) 60%),
-    radial-gradient(140% 120% at 50% 55%, #121214 0%, #08080a 62%, #030304 100%);
-  box-shadow:
-    inset 0 0 0 0.5px rgb(255 255 255 / 0.14),
-    inset 0 1px 0 rgb(255 255 255 / 0.1),
-    inset 0 -10px 18px -10px rgb(171 117 223 / 0.28),
-    inset 0 0 14px rgb(0 0 0 / 0.75),
-    0 0 0 1px rgb(0 0 0 / 0.6),
-    0 1px 2px rgb(0 0 0 / 0.5);
   isolation: isolate;
   transform: translateZ(0);
-  transition: box-shadow 0.35s ease;
-}
-/* A fine rim of her colours along the glass's lower edge. */
-.tile::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(100deg, rgb(248 201 112 / 0) 8%, rgb(251 123 159 / 0.45) 38%, rgb(171 117 223 / 0.45) 62%, rgb(83 129 230 / 0) 92%) bottom / 100% 60% no-repeat;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0.55;
-  pointer-events: none;
-  transition: opacity 0.35s ease;
-}
-/* Glass sheen over everything. */
-.tile::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0) 42%);
-  pointer-events: none;
-}
-.glow {
-  position: absolute;
-  z-index: 0;
-  left: 50%;
-  top: 50%;
-  width: 64px;
-  height: 52px;
-  margin: -26px 0 0 -32px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(251 123 159 / 0.34), rgb(171 117 223 / 0.18) 55%, rgb(83 129 230 / 0) 100%);
-  filter: blur(6px);
-  opacity: 0.6;
-  pointer-events: none;
-  will-change: transform, opacity;
 }
 .orb {
   position: absolute;
@@ -108,20 +52,6 @@
   height: 100%;
   display: block;
   pointer-events: none;
-}
-.btn:hover .tile,
-.btn:focus-visible .tile {
-  box-shadow:
-    inset 0 0 0 0.5px rgb(255 255 255 / 0.2),
-    inset 0 1px 0 rgb(255 255 255 / 0.14),
-    inset 0 -12px 20px -10px rgb(251 123 159 / 0.4),
-    inset 0 0 14px rgb(0 0 0 / 0.7),
-    0 0 0 1px rgb(0 0 0 / 0.6),
-    0 0 18px -2px rgb(171 117 223 / 0.35);
-}
-.btn:hover .tile::before,
-.btn:focus-visible .tile::before {
-  opacity: 1;
 }
 /* Without WebGL: the orb as a still glass bead. */
 .bead {
@@ -138,7 +68,6 @@
     radial-gradient(circle at 34% 28%, rgb(255 255 255 / 0.8) 0 9%, rgb(255 255 255 / 0) 15%),
     radial-gradient(ellipse 72% 20% at 50% 60%, rgb(255 255 255 / 0.95), rgb(251 123 159 / 0.75) 42%, rgb(83 129 230 / 0) 78%),
     radial-gradient(circle at 50% 44%, #232326, #060606 72%);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.28);
 }
 .label {
   min-width: 7.6em;
