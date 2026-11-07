@@ -11,7 +11,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { stringToHex, UserRejectedRequestError } from "viem";
-import { useConfig, useConnection, useDisconnect } from "wagmi";
+import { useConfig, useDisconnect } from "wagmi";
+import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { signMessage } from "wagmi/actions";
 import { reason } from "@/components/app/shared";
 import { useSession } from "@/components/app/auth-session";
@@ -30,7 +31,7 @@ const noSubscribe = () => () => {};
 const onPhone = () => isMobile(navigator.userAgent, navigator.maxTouchPoints);
 
 function Steps() {
-  const { address, status, connector } = useConnection();
+  const { address, status, connector } = useHydratedConnection();
   const disconnect = useDisconnect();
   const wallet = useConnectWallet();
   const config = useConfig();
@@ -142,6 +143,9 @@ function Steps() {
       connecting={wallet.busy}
       connectViaApp={wallet.viaApp}
       connectError={wallet.error}
+      connectMessage={wallet.message}
+      onRetryConnect={wallet.retry}
+      onCancelConnect={wallet.cancel}
       onConnect={() => wallet.open("wallet")}
       onPhoneWallet={wallet.hasPhone ? () => wallet.open("phone") : null}
       wallets={wallet.choices}

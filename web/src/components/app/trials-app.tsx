@@ -7,7 +7,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useConnection, useSignTypedData } from "wagmi";
+import { useSignTypedData } from "wagmi";
+import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { deployment, elysium } from "@/lib/chain/config";
 import { NotLive, until, useNow, type Hex } from "./shared";
 import s from "./app.module.css";
@@ -64,7 +65,7 @@ const usdc = (raw: string) => (Number(raw) / 1e6).toLocaleString("en-US", { maxi
 // ------------------------------------------------------------------ the screen
 
 function Trials() {
-  const { address, isConnected, chainId } = useConnection();
+  const { address, isConnected, chainId } = useHydratedConnection();
   const onChain = isConnected && chainId === elysium.id;
   const voter = onChain ? address : undefined;
   const now = useNow();

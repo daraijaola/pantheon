@@ -2,13 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useConnection } from "wagmi";
+import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { clearSession } from "@/lib/auth-client";
 import { useSession } from "@/lib/use-session";
 
 export { useSession };
 export function AuthSession() {
-  const { address, status } = useConnection();
+  const { address, status } = useHydratedConnection();
   const client = useQueryClient();
   const previous = useRef<string | null>(null);
   const session = useSession();

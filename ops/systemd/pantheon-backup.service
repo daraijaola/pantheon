@@ -1,0 +1,16 @@
+[Unit]
+Description=Create and verify a PANTHEON product-data backup
+After=local-fs.target
+
+[Service]
+Type=oneshot
+Environment=SQLITE_HELPER=/usr/local/lib/pantheon/backup-sqlite.mjs
+ExecStart=/usr/local/sbin/pantheon-backup
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/srv/hackathon/pantheon /var/lib/indexer /var/lib/passport /var/lib/trials /var/lib/keeper
+ReadWritePaths=/var/backups/pantheon /var/lib/pantheon-ops

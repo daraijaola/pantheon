@@ -10,7 +10,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { useConnection, useDisconnect, useSwitchChain } from "wagmi";
+import { useDisconnect, useSwitchChain } from "wagmi";
+import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { CodeWordmark } from "@/components/code-type/code-wordmark";
 import { reason, short } from "@/components/app/shared";
 import { elysium } from "@/lib/chain/config";
@@ -147,7 +148,7 @@ export function Mark({ address, size = 22 }: { address: string; size?: number })
 }
 
 function Wallet() {
-  const { address, isConnected, chainId } = useConnection();
+  const { address, isConnected, chainId } = useHydratedConnection();
   const disconnect = useDisconnect();
   const switchChain = useSwitchChain();
   const [copied, setCopied] = useState(false);

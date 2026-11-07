@@ -9,7 +9,7 @@
 // live it shows a labelled example (data.ts says where the real answers will come from).
 
 import Link from "next/link";
-import { useConnection } from "wagmi";
+import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { readFonts } from "@/components/passport-book/draw";
 import { pantheonStakingAbi } from "@/lib/chain/abi";
@@ -364,7 +364,7 @@ export function Pill({ v }: { v: Verdict }) {
 // ------------------------------------------------------------------ for you: at most three things to do
 
 function Now({ items, example, wallet, partial, reading, inBag, onCoin }: { items: Todo[]; example: boolean; wallet: string; partial: boolean; reading: boolean; inBag: (token: string) => boolean; onCoin: (token: string, from: From) => void }) {
-  const { address } = useConnection();
+  const { address } = useHydratedConnection();
   const tx = useTx();
   const refresh = () => address && deployment && tx.run("Refreshing", [{ address: deployment.staking, abi: pantheonStakingAbi, functionName: "poke", args: [[wallet as Hex]] } as const]);
   return (

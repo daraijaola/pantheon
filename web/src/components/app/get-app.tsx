@@ -6,7 +6,8 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { encodeAbiParameters, erc20Abi, keccak256, pad, parseAbi, parseUnits, toHex, zeroAddress } from "viem";
-import { useBalance, useConnection, useReadContracts, useWatchAsset } from "wagmi";
+import { useBalance, useReadContracts, useWatchAsset } from "wagmi";
+import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { swapperAbi } from "@/lib/chain/abi";
 import { deployment, elysium, explorer } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
@@ -81,7 +82,7 @@ type Call = Parameters<ReturnType<typeof useTx>["run"]>[1][number];
 const QUICK = 100n * 10n ** 6n; // the one-click buy: 100 test USDC
 
 function Get({ d }: { d: Deployment & { swapper: Hex } }) {
-  const { address, isConnected, chainId } = useConnection();
+  const { address, isConnected, chainId } = useHydratedConnection();
   const onChain = isConnected && chainId === elysium.id;
   const me = (address ?? zeroAddress) as Hex;
   const tx = useTx();

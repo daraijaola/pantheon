@@ -6,7 +6,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { erc20Abi, formatUnits, zeroAddress } from "viem";
-import { useConnection, useReadContracts } from "wagmi";
+import { useReadContracts } from "wagmi";
+import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { constituentRegistryAbi, hypePassportRegistryAbi, pantheonStakingAbi } from "@/lib/chain/abi";
 import { deployment, elysium, explorer } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
@@ -25,7 +26,7 @@ export function StakeApp({ initialBasket = null }: { initialBasket?: BasketSnaps
 // ------------------------------------------------------------------ the screen
 
 function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnapshot[] | null }) {
-  const { address, isConnected, chainId } = useConnection();
+  const { address, isConnected, chainId } = useHydratedConnection();
   const onChain = isConnected && chainId === elysium.id;
   const me = (address ?? zeroAddress) as Hex;
   const now = useChainNow(); // the chain's clock decides when an unlock is ready
