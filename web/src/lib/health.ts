@@ -29,6 +29,7 @@ type Dependencies = {
   backupMaxAgeMs?: number;
   indexerUrl?: string;
   passportUrl?: string;
+  passportStatsUrl?: string;
   trialsUrl?: string;
   delphiUrl?: string;
   backupStatusFile?: string;
@@ -49,7 +50,7 @@ function valid(name: HealthCheck["name"], body: unknown): boolean {
 }
 
 async function endpoint(
-  name: "indexer" | "passport" | "trials",
+  name: "indexer" | "trials",
   url: string,
   fetcher: FetchLike,
   now: number,
@@ -71,6 +72,30 @@ async function endpoint(
     return { name, ok: true, state: "ok", latencyMs };
   } catch {
     return { name, ok: false, state: "unavailable", latencyMs: Math.round(performance.now() - started) };
+  }
+}
+
+async function passport(healthUrl: string, statsUrl: string, fetcher: FetchLike, timeoutMs: number): Promise<HealthCheck> {
+  const started = performance.now();
+  try {
+    const [healthResponse, statsResponse] = await Promise.all([
+      fetcher(healthUrl, { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) }),
+      fetcher(statsUrl, { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) }),
+    ]);
+    const latencyMs = Math.round(performance.now() - started);
+    if (!healthResponse.ok || !statsResponse.ok) return { name: "passport", ok: false, state: "unavailable", latencyMs };
+    const [health, stats]: unknown[] = await Promise.all([healthResponse.json(), statsResponse.json()]);
+    if (
+      !valid("passport", health) ||
+      !object(stats) ||
+      typeof stats.linked !== "number" ||
+      typeof stats.valid !== "number"
+    ) {
+      return { name: "passport", ok: false, state: "invalid", latencyMs };
+    }
+    return { name: "passport", ok: true, state: "ok", latencyMs };
+  } catch {
+    return { name: "passport", ok: false, state: "unavailable", latencyMs: Math.round(performance.now() - started) };
   }
 }
 
@@ -118,13 +143,13 @@ export async function healthReport(dependencies: Dependencies = {}): Promise<Hea
   const timeoutMs = dependencies.timeoutMs ?? 3_000;
   const serviceMaxAgeMs = dependencies.serviceMaxAgeMs ?? 15 * 60 * 1_000;
   const indexerBase = process.env.INDEXER_API ?? "http://127.0.0.1:8789";
+  const passportBase = process.env.PASSPORT_API ?? "http://127.0.0.1:8787";
   const checks = await Promise.all([
     endpoint("indexer", dependencies.indexerUrl ?? `${indexerBase}/stats`, fetcher, now, timeoutMs, serviceMaxAgeMs),
-    endpoint(
-      "passport",
-      dependencies.passportUrl ?? `${process.env.PASSPORT_API ?? "http://127.0.0.1:8787"}/passport/health`,
+    passport(
+      dependencies.passportUrl ?? `${passportBase}/passport/health`,
+      dependencies.passportStatsUrl ?? `${passportBase}/passport/stats`,
       fetcher,
-      now,
       timeoutMs,
     ),
     endpoint(

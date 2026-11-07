@@ -8,6 +8,7 @@ const NOW = Date.UTC(2026, 10, 8, 12);
 const urls = {
   indexerUrl: "https://local/indexer",
   passportUrl: "https://local/passport",
+  passportStatsUrl: "https://local/passport-stats",
   trialsUrl: "https://local/trials",
   delphiUrl: "https://local/delphi",
   backupStatusFile: "/backup.json",
@@ -16,6 +17,7 @@ const urls = {
 function response(url: string, newestUpdateMs = NOW - 60_000): Response {
   if (url.endsWith("/indexer")) return Response.json({ pnth: {}, basket: {}, staking: {}, updatedAt: NOW / 1_000 - 60 });
   if (url.endsWith("/passport")) return Response.json({ ok: true, lastBlock: "42", relayerBalance: "10000000000000000" });
+  if (url.endsWith("/passport-stats")) return Response.json({ linked: 4, valid: 4, updatedAt: NOW / 1_000 - 60 });
   if (url.endsWith("/trials")) return Response.json({ round: 5, status: "closed" });
   return Response.json({ ok: true, newestUpdateMs });
 }
@@ -99,6 +101,17 @@ test("Passport registry or relayer failures make the aggregate health check fail
       url.endsWith("/passport")
         ? Response.json({ ok: false, lastBlock: null, relayerBalance: "0" }, { status: 503 })
         : response(url),
+    readFile: async () => JSON.stringify({ ok: true, completedAtMs: NOW - 60_000 }),
+  });
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.find((check) => check.name === "passport")?.state, "unavailable");
+});
+
+test("Passport database failures make the aggregate health check fail", async () => {
+  const report = await healthReport({
+    ...urls,
+    now: () => NOW,
+    fetch: async (url) => (url.endsWith("/passport-stats") ? Response.json({ error: "INTERNAL" }, { status: 500 }) : response(url)),
     readFile: async () => JSON.stringify({ ok: true, completedAtMs: NOW - 60_000 }),
   });
   assert.equal(report.ok, false);
