@@ -15,6 +15,10 @@ be free. The build may fetch Google Fonts; runtime application data never uses
 production services. No wallet keys, signatures, credentials or live snapshots
 are needed. Unexpected outbound browser requests and unconfigured fixture calls
 fail the tests. Inherited model keys and WalletConnect configuration are disabled.
+Browser HTTP(S) traffic uses a deny-only local proxy, bypassed for loopback.
+Local requests are observed, not intercepted: WebKit can report aborted Next
+prefetches as access-control errors when Playwright interception is enabled.
+The proxy test verifies that both HTTP and HTTPS outbound attempts are denied.
 
 The twelve projects cover Chromium, WebKit and Firefox at 390×844, 360×800,
 768×1024 and 1440×900. Route discovery reads every `page.tsx` under `src/app`,
