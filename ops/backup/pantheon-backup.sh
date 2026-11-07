@@ -29,6 +29,10 @@ flock -n 9 || {
 }
 
 started_ms="$("$NODE" -e 'process.stdout.write(String(Date.now()))')"
+previous_components="[]"
+if [[ -f "$STATUS_FILE" ]]; then
+  previous_components="$("$JQ" -c 'if .ok == true then .components // [] else .lastGoodComponents // [] end' "$STATUS_FILE" 2>/dev/null || printf '[]')"
+fi
 work="$(mktemp -d "$BACKUP_DIR/.work.XXXXXX")"
 snapshot="$work/snapshot"
 mkdir -p "$snapshot/state" "$snapshot/delphi" "$snapshot/config"
@@ -46,7 +50,8 @@ write_failure() {
       --argjson startedAtMs "$started_ms" \
       --argjson failedAtMs "$failed_ms" \
       --argjson lastGoodCompletedAtMs "$previous" \
-      '{ok:false, startedAtMs:$startedAtMs, failedAtMs:$failedAtMs, lastGoodCompletedAtMs:$lastGoodCompletedAtMs}' \
+      --argjson lastGoodComponents "$previous_components" \
+      '{ok:false, startedAtMs:$startedAtMs, failedAtMs:$failedAtMs, lastGoodCompletedAtMs:$lastGoodCompletedAtMs, lastGoodComponents:$lastGoodComponents}' \
       >"$STATUS_FILE.tmp"
     chmod 0644 "$STATUS_FILE.tmp"
     mv -f "$STATUS_FILE.tmp" "$STATUS_FILE"
@@ -82,24 +87,43 @@ copy_optional_json() {
   copy_json "$source" "$destination"
 }
 
+was_previously_present() {
+  local component=$1
+  "$JQ" -e --arg component "$component" 'index($component) != null' <<<"$previous_components" >/dev/null
+}
+
+copy_tracked_optional_json() {
+  local component=$1 source=$2 destination=$3
+  if [[ -f "$source" ]]; then
+    copy_json "$source" "$destination"
+  elif was_previously_present "$component"; then
+    echo "$component state disappeared: $source" >&2
+    return 1
+  fi
+}
+
 backup_sqlite() {
   local module_root=$1 source=$2 destination=$3
   "$NODE" "$SQLITE_HELPER" backup "$module_root" "$source" "$destination"
 }
 
-backup_optional_sqlite() {
-  local module_root=$1 source=$2 destination=$3
-  [[ -f "$source" ]] || return 0
-  backup_sqlite "$module_root" "$source" "$destination"
+backup_tracked_optional_sqlite() {
+  local component=$1 module_root=$2 source=$3 destination=$4
+  if [[ -f "$source" ]]; then
+    backup_sqlite "$module_root" "$source" "$destination"
+  elif was_previously_present "$component"; then
+    echo "$component database disappeared: $source" >&2
+    return 1
+  fi
 }
 
 copy_json "$INDEXER_STATE" "$snapshot/state/indexer.json"
-copy_optional_json "$TRIALS_STATE" "$snapshot/state/trials.json"
-copy_optional_json "$KEEPER_STATE" "$snapshot/state/keeper.json"
+copy_tracked_optional_json "trials" "$TRIALS_STATE" "$snapshot/state/trials.json"
+copy_tracked_optional_json "keeper" "$KEEPER_STATE" "$snapshot/state/keeper.json"
 backup_sqlite "$REPO_ROOT/services/passport" "$PASSPORT_DB" "$snapshot/state/passport.db"
 backup_sqlite "$REPO_ROOT/services/delphi" "$DELPHI_DB" "$snapshot/delphi/delphi.db"
-backup_optional_sqlite "$REPO_ROOT/services/delphi" "$DELPHI_FEED_DB" "$snapshot/delphi/feed.db"
-backup_optional_sqlite "$REPO_ROOT/services/delphi" "$DELPHI_X_DB" "$snapshot/delphi/x.db"
+backup_tracked_optional_sqlite "delphi-feed" "$REPO_ROOT/services/delphi" "$DELPHI_FEED_DB" "$snapshot/delphi/feed.db"
+backup_tracked_optional_sqlite "delphi-x" "$REPO_ROOT/services/delphi" "$DELPHI_X_DB" "$snapshot/delphi/x.db"
 copy_optional_json "$REPO_ROOT/services/delphi/out/site.json" "$snapshot/delphi/site.json"
 copy_optional_json "$REPO_ROOT/services/delphi/out/scan.json" "$snapshot/delphi/scan.json"
 copy_optional "$REPO_ROOT/services/delphi/out/disputes.log" "$snapshot/delphi/disputes.log"
@@ -141,13 +165,20 @@ mv -f "$work/archive.sha256" "$archive.sha256"
 
 completed_ms="$("$NODE" -e 'process.stdout.write(String(Date.now()))')"
 size_bytes="$(stat -c %s "$archive")"
+components=("indexer" "passport" "delphi")
+[[ ! -f "$snapshot/state/trials.json" ]] || components+=("trials")
+[[ ! -f "$snapshot/state/keeper.json" ]] || components+=("keeper")
+[[ ! -f "$snapshot/delphi/feed.db" ]] || components+=("delphi-feed")
+[[ ! -f "$snapshot/delphi/x.db" ]] || components+=("delphi-x")
+components_json="$("$JQ" -n --args '$ARGS.positional' "${components[@]}")"
 "$JQ" -n \
   --arg archive "$(basename "$archive")" \
   --arg sha256 "$sha256" \
   --argjson startedAtMs "$started_ms" \
   --argjson completedAtMs "$completed_ms" \
   --argjson sizeBytes "$size_bytes" \
-  '{ok:true, verified:true, archive:$archive, sha256:$sha256, sizeBytes:$sizeBytes, startedAtMs:$startedAtMs, completedAtMs:$completedAtMs}' \
+  --argjson components "$components_json" \
+  '{ok:true, verified:true, archive:$archive, sha256:$sha256, sizeBytes:$sizeBytes, components:$components, startedAtMs:$startedAtMs, completedAtMs:$completedAtMs}' \
   >"$STATUS_FILE.tmp"
 chmod 0644 "$STATUS_FILE.tmp"
 mv -f "$STATUS_FILE.tmp" "$STATUS_FILE"

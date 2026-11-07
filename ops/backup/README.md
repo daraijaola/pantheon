@@ -13,6 +13,8 @@ Secrets and private keys are intentionally excluded. They belong in the environm
 
 The timer keeps 14 verified daily archives under `/var/backups/pantheon`. Archives remain root-only; `/var/lib/pantheon-ops` is traversable so the web process can read the non-secret, world-readable health heartbeat. `BACKUP_DIR`, `STATUS_FILE`, `REPO_ROOT`, source paths and `KEEP_BACKUPS` can be overridden for a restore drill or a different server layout.
 
+Optional state may be absent before a component's first write. Once a verified backup has seen Trials, keeper, DELPHI feed or DELPHI X state, a later disappearance fails the backup instead of silently publishing an incomplete archive.
+
 Install after the repository files are deployed:
 
 ```sh
