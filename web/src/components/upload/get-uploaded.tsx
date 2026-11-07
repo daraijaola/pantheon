@@ -109,7 +109,7 @@ export function GetUploaded({ className }: { className?: string }) {
   return (
     <button
       type="button"
-      className={`${s.btn} ${soon ? s.isSoon : ""} ${className ?? ""}`}
+      className={`${s.action} ${soon ? s.isSoon : ""} ${className ?? ""}`}
       onPointerEnter={() => (hot.current = true)}
       onPointerLeave={() => (hot.current = false)}
       onFocus={() => (hot.current = true)}
@@ -122,11 +122,13 @@ export function GetUploaded({ className }: { className?: string }) {
       <span className={s.tile} aria-hidden="true">
         <TileOrb pulseAt={pulseAt} hot={hot} />
       </span>
-      <span className={s.label} aria-live="polite">
-        {soon ? "Opening soon" : "Get uploaded"}
-      </span>
-      <span className={s.arrow} aria-hidden="true">
-        {soon ? "·" : "→"}
+      <span className={s.btn}>
+        <span className={s.label} aria-live="polite">
+          {soon ? "Opening soon" : "Get uploaded"}
+        </span>
+        <span className={s.arrow} aria-hidden="true">
+          {soon ? "·" : "→"}
+        </span>
       </span>
     </button>
   );

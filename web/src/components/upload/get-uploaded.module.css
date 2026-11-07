@@ -1,11 +1,20 @@
 /* "Get uploaded": the hero's main button, with DELPHI's orb drifting beside the label. */
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
 .btn {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 14px;
   height: 60px;
-  padding: 0 20px 0 6px;
+  padding: 0 20px;
   border-radius: 14px;
   background: var(--color-ink, #171717);
   color: #fff;
@@ -21,17 +30,20 @@
     0 0.5px 0.5px rgb(0 0 0 / 0.16);
   transition: box-shadow 0.3s ease, scale 0.12s ease;
 }
-.btn:hover {
+.action:hover .btn {
   box-shadow:
     inset 0 -6px 12px rgb(255 255 255 / 0.08),
     0 6px 16px -4px rgb(171 117 223 / 0.22),
     0 4px 8px rgb(0 0 0 / 0.16),
     0 1px 1px rgb(0 0 0 / 0.12);
 }
-.btn:active {
+.action:active {
   scale: 0.995;
 }
-.btn:focus-visible {
+.action:focus-visible {
+  outline: none;
+}
+.action:focus-visible .btn {
   outline: 2px solid var(--color-ink, #171717);
   outline-offset: 2px;
 }
@@ -83,17 +95,19 @@
   opacity: 0.55;
   transition: transform 0.15s, opacity 0.15s;
 }
-.btn:hover .arrow {
+.action:hover .arrow {
   transform: translateX(2px);
   opacity: 0.9;
 }
 @media (max-width: 639px) {
-  .btn {
+  .action {
     width: 100%;
+  }
+  .btn {
+    flex: 1;
   }
   .label {
     flex: 1;
     text-align: center;
-    margin-right: 30px;
   }
 }
