@@ -11,13 +11,14 @@ It backs up:
 
 Secrets and private keys are intentionally excluded. They belong in the environment/secret store, not a product-data archive.
 
-The timer keeps 14 verified daily archives under `/var/backups/pantheon`. `BACKUP_DIR`, `STATUS_FILE`, `REPO_ROOT`, source paths and `KEEP_BACKUPS` can be overridden for a restore drill or a different server layout.
+The timer keeps 14 verified daily archives under `/var/backups/pantheon`. Archives remain root-only; `/var/lib/pantheon-ops` is traversable so the web process can read the non-secret, world-readable health heartbeat. `BACKUP_DIR`, `STATUS_FILE`, `REPO_ROOT`, source paths and `KEEP_BACKUPS` can be overridden for a restore drill or a different server layout.
 
 Install after the repository files are deployed:
 
 ```sh
 sudo install -m 0755 ops/backup/pantheon-backup.sh /usr/local/sbin/pantheon-backup
-sudo install -d -m 0755 /usr/local/lib/pantheon
+sudo install -d -m 0700 /var/backups/pantheon
+sudo install -d -m 0755 /usr/local/lib/pantheon /var/lib/pantheon-ops
 sudo install -m 0644 ops/backup/backup-sqlite.mjs /usr/local/lib/pantheon/backup-sqlite.mjs
 sudo install -m 0644 ops/systemd/pantheon-backup.service /etc/systemd/system/pantheon-backup.service
 sudo install -m 0644 ops/systemd/pantheon-backup.timer /etc/systemd/system/pantheon-backup.timer

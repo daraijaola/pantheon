@@ -19,7 +19,9 @@ JQ="${JQ:-/usr/bin/jq}"
 ZSTD="${ZSTD:-/usr/bin/zstd}"
 
 mkdir -p "$BACKUP_DIR" "$(dirname "$STATUS_FILE")"
-chmod 0700 "$BACKUP_DIR" "$(dirname "$STATUS_FILE")"
+chmod 0700 "$BACKUP_DIR"
+# The web process only reads this non-secret heartbeat. Archives stay root-only.
+chmod 0755 "$(dirname "$STATUS_FILE")"
 exec 9>"$BACKUP_DIR/.lock"
 flock -n 9 || {
   echo "another PANTHEON backup is already running" >&2
