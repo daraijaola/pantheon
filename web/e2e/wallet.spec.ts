@@ -21,7 +21,6 @@ for (const route of ['/stake', '/get', '/trials/vote']) {
   });
 
   test(`${route}: right chain, rejected approval/signature leaves usable page`, async ({ page }) => {
-    test.fixme(route === '/stake', 'E2E F09: connected stake emits React hydration error 418');
     await connect(page);
     // Keep wallet state on client-side navigation, as the app's links do.
     await page.getByRole('link', { name: 'PANTHEON home' }).click();
