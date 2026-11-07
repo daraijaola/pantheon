@@ -1,0 +1,39 @@
+{
+  "rules": "delphi-v0.5",
+  "generatedAt": "2026-11-04T00:23:23.405Z",
+  "coin": {
+    "token": "0x8a2201953AF29e8BE7700bcB53dA3ce5caD18726",
+    "name": "KALOS",
+    "symbol": "KALOS",
+    "poolId": "0xc826b2a15a7d6bdb0e88f6d72900bf2c2d2e9127",
+    "creator": "0x9332e35e87eAc40a0810813a7a12C458E8043184",
+    "launchTx": "0x14a67625abeacedab3f018f9723a346509b00ede088e52566b7e2d125f7ae846",
+    "launchBlock": "8206747",
+    "launchTime": "2026-10-13T02:22:25.000Z",
+    "url": "https://elysium.kinetiq.xyz/testnet-explorer/token/0x8a2201953AF29e8BE7700bcB53dA3ce5caD18726",
+    "launchUrl": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x14a67625abeacedab3f018f9723a346509b00ede088e52566b7e2d125f7ae846",
+    "market": "kalos"
+  },
+  "stats": {
+    "trades": 222808,
+    "outsideTrades": 0,
+    "traders": 38559,
+    "holders": 50485,
+    "links": 252,
+    "fundingMissing": 0
+  },
+  "verdict": "CLEAN",
+  "notes": [
+    "The creator's wallet holds 73.27% of the total supply. It owns Kalos's factory: it is Kalos's own wallet. That is the project's own supply, not a hidden whale; it can still be sold.",
+    "34.92% of trading volume is quick round trips, spread over 12949 separate wallets or groups: people farming points with test money, not one actor faking volume.",
+    "Too busy to read in full: trades and transfers are read at launch and since block 21953613, and holders come from the balances of every wallet seen in those windows. Wash trading describes that recent window.",
+    "Contracts hold 11.68% of the tokens outside the pool (0xa753…5e35 11.5%, 0x1426…a875 0.14%, 0x3c4f…e5b1 0.04%). DELPHI checks wallets, so tokens in a contract (staking, a locker, a faucet) are nobody's holding and link no one. Check what a contract is before trusting it.",
+    "Too busy to read in full: trades and transfers are its launch (blocks 8128219-8212747) and the last 785000 blocks (from block 21953613, 2026-11-03 03:41 UTC). Holders are the 54,157 addresses seen moving tokens in those windows plus the creator, deployer and LP owners, with balances read from the token at block 22738612: wallets that never moved the token in those windows are not counted."
+  ],
+  "checks": {
+    "bundle": "clear",
+    "wash": "clear",
+    "concentration": "clear"
+  },
+  "findings": []
+}

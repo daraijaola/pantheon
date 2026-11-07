@@ -18,7 +18,7 @@ import { ContractsApi, ExplorerApi } from "../src/conduit.ts";
 import { pickHolder } from "../src/honeypot.ts";
 import type { Fetch } from "../src/http.ts";
 import { KalosApi } from "../src/kalos-api.ts";
-import { BatchRpc, EXPLORER_RPC } from "../src/rpc.ts";
+import { BatchRpc } from "../src/rpc.ts";
 import { checkSafety, SAFETY_RULES } from "../src/safety.ts";
 import { emptyTape, recordingFetch, type Tape } from "../src/tape.ts";
 
@@ -75,7 +75,7 @@ async function record(name: string, token: Address, holder: Address | undefined,
   if (!wanted(name)) return;
   const tape: Tape = { ...emptyTape(note), block: block.toString() };
   const fetch = recordingFetch(through(globalThis.fetch), tape);
-  const rpc = new BatchRpc(EXPLORER_RPC, { fetch });
+  const rpc = new BatchRpc(undefined, { fetch });
   const r = await checkSafety(
     { rpc, fetch, contracts: new ContractsApi({ fetch }), explorer: new ExplorerApi({ fetch }), kalosApi: new KalosApi({ fetch }) },
     token,
@@ -100,7 +100,7 @@ await record("nfalc", "0xCF52DE746CA0b5b8fCC2cC674A69C9B8B8768779", "0x45bd00c7c
 // The holder search on a quiet coin (BTC on Ascend: a few dozen transfers in its whole life).
 if (wanted("pick-holder")) {
   const tape: Tape = { ...emptyTape("pickHolder for BTC (an Ascend coin with few transfers)"), block: head.toString() };
-  const rpc = new BatchRpc(EXPLORER_RPC, { fetch: recordingFetch(globalThis.fetch, tape) });
+  const rpc = new BatchRpc(undefined, { fetch: recordingFetch(globalThis.fetch, tape) });
   const pick = await pickHolder(rpc, "0xe9D57Df7e1cbb05DC1C8dAF0fC05aDf3bDCEc6a1", head, SAFETY_RULES.holder);
   writeFileSync(join(DIR, "pick-holder.json"), `${JSON.stringify({ ...tape, expected: pick && { ...pick, balance: pick.balance.toString(), fromBlock: pick.fromBlock.toString(), toBlock: pick.toBlock.toString() } })}\n`);
   log(`pick-holder: ${pick?.holder} after ${pick?.transfersSeen} transfers`);

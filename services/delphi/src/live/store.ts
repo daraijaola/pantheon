@@ -51,8 +51,8 @@ export class FeedStore {
    */
   put(record: FeedRecord, why = ""): void {
     const r = FeedRecord.parse(record);
-    const prev = this.db.prepare("SELECT verdict FROM feed WHERE token = ?").get(r.token) as { verdict: string } | undefined;
     this.db.transaction(() => {
+      const prev = this.db.prepare("SELECT verdict FROM feed WHERE token = ?").get(r.token) as { verdict: string } | undefined;
       this.db
         .prepare(
           "INSERT INTO feed (token, venue, launch_block, verdict, record, updated_ms) VALUES (?, ?, ?, ?, ?, ?) " +
@@ -62,7 +62,7 @@ export class FeedStore {
       if (prev?.verdict !== r.verdict) {
         this.db.prepare("INSERT INTO verdicts (token, at_ms, verdict, rules, why) VALUES (?, ?, ?, ?, ?)").run(r.token, r.checkedAtMs, r.verdict, r.rules, why.slice(0, 300));
       }
-    })();
+    }).immediate();
   }
 
   get(token: string): FeedRecord | null {

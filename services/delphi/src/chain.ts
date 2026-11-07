@@ -20,6 +20,7 @@ import {
   type PublicClient,
 } from "viem";
 import type { RawLog, Store } from "./store.ts";
+import { redactRpcError, rpcSetting } from "./rpc.ts";
 
 export const LAUNCHED = parseAbiItem(
   "event Launched(bytes32 indexed poolId, address indexed token, address indexed creator, address quote, uint256 supplySeeded, uint256 devBuyTokens)",
@@ -91,8 +92,8 @@ export function politeFetch(opts: {
   sleep?: (ms: number) => Promise<void>;
   onWait?: (ms: number, methods: string) => void;
 } = {}): typeof globalThis.fetch {
-  const gap = opts.minGapMs ?? 150;
-  const retries = opts.retries ?? 6;
+  const gap = opts.minGapMs ?? rpcSetting("DELPHI_RPC_SINGLE_GAP_MS", 150, 0, 60_000);
+  const retries = opts.retries ?? rpcSetting("DELPHI_RPC_RETRIES", 6, 0, 20);
   const doFetch = opts.fetch ?? globalThis.fetch;
   const sleep = opts.sleep ?? ((ms) => new Promise<void>((r) => setTimeout(r, ms)));
   let nextSlot = 0;
@@ -124,7 +125,13 @@ export function makeClient(rpc: string, onWait?: (ms: number, methods: string) =
   });
   return createPublicClient({
     chain,
-    transport: http(rpc, { batch: false, retryCount: 3, timeout: 60_000, fetchFn: politeFetch({ onWait }) }),
+    transport: (options) => {
+      const transport = http(rpc, { batch: false, retryCount: 3, timeout: 60_000, fetchFn: politeFetch({ onWait }) })(options);
+      return { ...transport, request: (async (...args: Parameters<typeof transport.request>) => {
+        try { return await transport.request(...args); }
+        catch (error) { throw redactRpcError(error, rpc); }
+      }) as typeof transport.request };
+    },
   });
 }
 
