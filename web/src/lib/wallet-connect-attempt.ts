@@ -45,7 +45,14 @@ export function walletAttempt(options: {
     if (!active) return stopping ?? Promise.resolve();
     active = false;
     detach();
-    stopping = initialized.catch(() => {}).then(clean).then(() => options.update(phase), () => options.update("failed"));
+    if (!provider) {
+      // Never wait on a stalled init: report now, clean up a provider that arrives later.
+      options.update(phase);
+      void initialized.then(clean).catch(() => {});
+      stopping = Promise.resolve();
+      return stopping;
+    }
+    stopping = clean().then(() => options.update(phase), () => options.update("failed"));
     return stopping;
   };
   function onUri() {

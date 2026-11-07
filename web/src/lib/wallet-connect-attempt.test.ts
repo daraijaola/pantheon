@@ -79,7 +79,7 @@ test("cancel during initialization never pairs and cleans a late provider", asyn
   // No pairing was started, so closing the mock modal must not reject an unobserved promise.
   s.provider.modal = { close() {} };
   const cancelled = s.attempt.cancel(); s.init.resolve(s.provider);
-  await cancelled; await s.attempt.done;
+  await cancelled; await s.attempt.done; await tick();
   assert.equal(s.phases.includes("pairing"), false);
   assert.equal(s.cleaned, 1); s.empty();
 });
@@ -96,4 +96,15 @@ test("cancel disconnects a session that arrives while the pairing is settling", 
   const attempt = walletAttempt({ init: async () => provider, pair: () => pairing.promise, disconnect: async () => { disconnected = true; }, update() {} });
   await tick(); await attempt.cancel(); await attempt.done;
   assert.equal(disconnected, true);
+});
+
+test("cancel during a stalled initialization settles immediately", async () => {
+  const s = setup();
+  s.provider.modal = { close() {} };
+  await s.attempt.cancel();
+  assert.deepEqual(s.phases, ["initializing", "cancelled"]);
+  s.init.resolve(s.provider);
+  await s.attempt.done; await tick();
+  assert.equal(s.phases.includes("pairing"), false);
+  assert.equal(s.cleaned, 1); s.empty();
 });
