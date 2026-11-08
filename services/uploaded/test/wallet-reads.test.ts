@@ -87,3 +87,25 @@ it("returns an unavailable result for a failed fresh read", async () => {
   expect((await app.inject({ method: "POST", url: `/wallets/${wallet}/read` })).statusCode).toBe(503);
   await app.close();
 });
+
+for (const stage of ["wholeBag", "standing"]) it(`preserves a complete snapshot when ${stage} becomes partial and retries partial first reads`, async () => {
+  let now = 1_000_000;
+  let partial = false;
+  let calls = 0;
+  const scan = async function* () {
+    calls++;
+    yield* stages.map(event => event.ok && event.stage === stage ? { ...event, data: { ...event.data, complete: !partial } } as StageEvent : event);
+  };
+  const reads = new WalletReads(dir(), scan, () => now);
+  const first = await reads.refresh(wallet);
+  partial = true;
+  now += READ_COOLDOWN;
+  expect((await reads.refresh(wallet)).read).toEqual(first.read);
+  expect(reads.get(wallet).read?.readAt).toBe(first.read?.readAt);
+  const initial = new WalletReads(dir(), scan, () => now);
+  expect((await initial.refresh(wallet)).read?.complete).toBe(false);
+  const before = calls;
+  now += READ_COOLDOWN;
+  for await (const event of initial.scan(wallet)) expect(event.ok).toBe(true);
+  expect(calls).toBe(before + 1);
+});

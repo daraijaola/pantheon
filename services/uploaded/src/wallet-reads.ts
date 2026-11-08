@@ -4,8 +4,10 @@ import type { StageEvent } from "./scan.ts";
 
 export const READ_MAX_AGE = 24 * 60 * 60_000;
 export const READ_COOLDOWN = 10 * 60_000;
-export type WalletRead = { wallet: string; readAt: number; stages: StageEvent[] };
+export type WalletRead = { wallet: string; readAt: number; complete?: boolean; stages: StageEvent[] };
 export type ReadState = { read: WalletRead | null; refreshAfter: number };
+
+const complete = (stages: StageEvent[]) => stages.every((stage) => stage.ok && (!(stage.stage === "wholeBag" || stage.stage === "standing") || stage.data.complete !== false));
 
 export class WalletReads {
   readonly #dir: string;
@@ -29,6 +31,7 @@ export class WalletReads {
     try {
       const state = JSON.parse(readFileSync(join(this.#dir, `${key}.json`), "utf8")) as ReadState;
       if (!Number.isFinite(state.refreshAfter) || (state.read && (state.read.wallet !== key || !Number.isFinite(state.read.readAt) || !Array.isArray(state.read.stages)))) throw new Error("Invalid saved read");
+      if (state.read) state.read.complete = complete(state.read.stages);
       return state;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -55,7 +58,8 @@ export class WalletReads {
       const stages: StageEvent[] = [];
       for await (const stage of this.#scan(key)) stages.push(stage);
       if (!stages.length || stages.some((stage) => !stage.ok) || !stages.some((stage) => stage.stage === "wholeBag") || !stages.some((stage) => stage.stage === "standing")) throw new Error("READ_INCOMPLETE");
-      const next = { read: { wallet: key, readAt: this.#now(), stages }, refreshAfter };
+      const full = complete(stages);
+      const next = { read: !full && state.read ? state.read : { wallet: key, readAt: this.#now(), complete: full, stages }, refreshAfter };
       this.#save(key, next);
       return next;
     })().finally(() => this.#pending.delete(key));
@@ -65,7 +69,7 @@ export class WalletReads {
 
   async *scan(wallet: string): AsyncGenerator<StageEvent> {
     const state = this.get(wallet);
-    const next = state.read && this.#now() - state.read.readAt < READ_MAX_AGE ? state : await this.refresh(wallet);
+    const next = state.read?.complete && this.#now() - state.read.readAt < READ_MAX_AGE ? state : await this.refresh(wallet);
     if (!next.read) throw new Error("READ_UNAVAILABLE");
     yield* next.read.stages;
   }
