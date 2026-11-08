@@ -34,7 +34,9 @@ for (const balance of ['empty', 'funded', 'unavailable']) {
         : uploaded[key];
       return route.fulfill({ json });
     });
+    let failedReads = 0;
     if (balance === 'unavailable') await page.route('**/rpc', route => {
+      failedReads++;
       const data = route.request().postDataJSON();
       const error = (call: { id: number }) => ({ jsonrpc: '2.0', id: call.id, error: { code: -32000, message: 'Balance unavailable' } });
       return route.fulfill({ json: Array.isArray(data) ? data.map(error) : error(data) });
@@ -46,12 +48,13 @@ for (const balance of ['empty', 'funded', 'unavailable']) {
     await expect(bag.getByRole('link', { name: 'Get PNTH', exact: true })).toHaveAttribute('href', '/get');
     await expect(bag.locator('[class*="ghosts"]')).toHaveCount(0);
     await expect.poll(async () => (await bag.boundingBox())!.height).toBeLessThan(200);
-    const now = page.locator('aside').getByRole('link');
+    const now = page.getByRole('region', { name: 'Now', exact: true }).getByRole('link');
     if (balance === 'empty') {
-      await expect(now).toHaveText(['Get PNTH', 'Stake', 'Get one']);
+      await expect(now.locator('strong')).toHaveText(['Get PNTH', 'Earn from the basket', 'Get your passport']);
       await expect(now.first()).toHaveAttribute('href', '/get');
     } else {
-      await expect(now).toHaveText(['Stake', 'Get one']);
+      if (balance === 'unavailable') await expect.poll(() => failedReads).toBeGreaterThan(0);
+      await expect(now.locator('strong')).toHaveText(['Earn from the basket', 'Get your passport']);
     }
     if (page.viewportSize()!.width > 1023) {
       const panel = page.locator('aside > section').first();

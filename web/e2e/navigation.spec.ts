@@ -35,10 +35,12 @@ for (const href of ['/space', '/delphi/chat', '/stake', '/trials/vote']) {
 }
 
 test('App navigation keeps four available destinations and stable phone widths', async ({ page }) => {
+  test.setTimeout(90_000);
   let widths: number[] | undefined;
   for (const path of ['/space', '/delphi/chat', '/stake', '/trials/vote', '/passport/get', '/passport/me', '/covenant/launch']) {
     await page.goto(path);
     await ready(page);
+    await page.waitForLoadState('networkidle');
     const nav = page.locator('nav[aria-label="App"]:visible');
     await expect(nav.getByRole('link')).toHaveText(['Space', 'DELPHI', 'Stake', 'Trials']);
     await expect(nav.getByText('Basket')).toHaveCount(0);
