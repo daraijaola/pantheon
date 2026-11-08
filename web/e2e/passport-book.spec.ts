@@ -144,5 +144,8 @@ test('Per-wallet OG renders PNG for valid, expired and empty records', async ({ 
     expect(response.status()).toBe(200);
     expect(response.headers()['content-type']).toContain('image/png');
     expect((await response.body()).subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+    const stable = await request.get(`/passport/${address}/opengraph-image`);
+    expect(stable.status()).toBe(200);
+    expect(stable.headers()['content-type']).toContain('image/png');
   }
 });
