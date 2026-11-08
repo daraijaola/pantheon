@@ -96,7 +96,7 @@ export function YourSpace() {
 
 // ------------------------------------------------------------------ the top: the page's name, and how long you've been here
 
-function Top({ sp }: { sp: Space; now: number }) {
+function Top({ sp, now }: { sp: Space; now: number }) {
   const line = sp.mode === "mine" ? since(sp) : null;
   return (
     <header className={s.top}>

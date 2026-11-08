@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { uploadDestination } from "./upload-destination.ts";
+const { uploadDestination } = await import(new URL("./upload-destination.ts", import.meta.url).href) as typeof import("./upload-destination");
 
 for (const state of ["returning", "empty", "disconnected", "error"]) {
   test(`upload destination: ${state}`, async () => {

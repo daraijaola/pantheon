@@ -41,12 +41,11 @@ function Steps() {
   const client = useQueryClient();
   const session = useSession();
   const lastRead = useWalletRead(session.data, true);
-  const signedHere = useRef(false);
   const readingWallet = useRef<string | null>(null);
   useEffect(() => {
     if (!session.data || !lastRead.isFetched) return;
     if (!lastRead.data?.read) readingWallet.current = session.data;
-    else if (!signedHere.current && readingWallet.current !== session.data) router.replace("/space");
+    else if (readingWallet.current !== session.data) router.replace("/space");
   }, [session.data, lastRead.data, lastRead.isFetched, router]);
   const attempt = useRef(0);
   useEffect(() => {
@@ -86,7 +85,6 @@ function Steps() {
         throw new Error("Wallet changed. Sign again to go on.");
       }
       client.setQueryData(["me", "session"], verified.wallet);
-      signedHere.current = true;
       await client.invalidateQueries({ queryKey: ["me"] });
     },
     onSettled: () => client.removeQueries({ queryKey: ["auth", "nonce"] }),
@@ -161,7 +159,7 @@ function Steps() {
       wallets={wallet.choices}
       onPickWallet={wallet.pick}
       onCancelPick={wallet.cancelPick}
-      signed={signed && lastRead.isFetched && (!lastRead.data?.read || signedHere.current || readingWallet.current === session.data)}
+      signed={signed && lastRead.isFetched && !lastRead.data?.read}
       signing={sign.isPending}
       reopen={viaApp && sign.isPending}
       signError={signError}
