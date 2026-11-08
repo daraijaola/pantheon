@@ -1,4 +1,11 @@
 /* App screens: calm. Hairline cells, mono numbers, one dark button per action. No art, no motion. */
+.stakeGrid {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.stakeGrid > .side {
+  border-left: 0;
+  border-top: 1px solid var(--rule);
+}
 .page {
   --ink: var(--color-ink, #171717);
   --paper: var(--color-paper, #f9f9f9);

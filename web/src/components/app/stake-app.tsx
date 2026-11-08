@@ -105,7 +105,7 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
         </div>
       </header>
 
-      <div className={s.grid}>
+      <div className={`${s.grid} ${s.stakeGrid}`}>
         <section className={s.main}>
           <div className={s.cell}>
             <p className={s.label}>Your PNTH</p>
@@ -144,7 +144,9 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
               <p className={s.label}>Earned</p>
               <ClaimButton d={d} enabled={onChain && anyEarned} />
             </div>
-            {!pub.data ? (
+            {!onChain ? (
+              <p className={s.empty}>Your rewards appear once your wallet is connected.</p>
+            ) : !pub.data ? (
               <p className={s.empty}>{pub.isError ? "Rewards couldn’t be read just now." : "Reading rewards…"}</p>
             ) : rewardTokens.length === 0 ? (
               <p className={s.empty}>Nothing is streaming yet. The basket&rsquo;s first buy starts it.</p>
