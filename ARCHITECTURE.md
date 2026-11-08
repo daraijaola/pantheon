@@ -45,7 +45,7 @@ flowchart LR
     IDX[indexer :8789]
     PAS[passport :8787]
     TRI[trials :8790]
-    FEED[delphi feed :3210]
+    FEED[delphi feed :3310]
     DSCAN[delphi scan CLI -> out/scan.json, site.json]
     UPL[uploaded :8791 - loopback, not proxied]
     KEEP[keeper - worker, no HTTP]
@@ -102,7 +102,7 @@ Tests: ~39 Foundry test functions in `test/` (unit, Passport, fork). CI runs `fo
 | **passport** | :8787 | `GET /passport/stats /passport/pokes?since /passport/:address /health`, `POST /passport/challenge /verify /refresh` | DONE, live. 1 test file fails: `docs/passport-fixtures/` missing from repo |
 | **trials** | :8790 | `GET /health /trials/current?voter /trials/rounds/:n`, `POST /trials/vote` | DONE, live (34 tests). Note: `?voter=` shows that wallet's ballot to anyone |
 | **delphi scan** | CLIs in `scripts/` (scan, explain, kalos, perpme, safety, trials, x, fresh-read…) | writes `out/scan.json`, `out/site.json` | DONE (490 tests). Run by an external scheduler not in the repo |
-| **delphi feed** | :3210 | `GET /v1/token/:a /v1/tokens?ids /v1/new /v1/history/:a /v1/health /v1/format`, `POST /v1/dispute` | **HALF**: server + store done, **nothing writes real records into it** (only tests / fake loaders). Dispute works. |
+| **delphi feed** | :3310 | `GET /v1/token/:a /v1/tokens?ids /v1/new /v1/history/:a /v1/health /v1/format`, `POST /v1/dispute` | **HALF**: server + store done, **nothing writes real records into it** (only tests / fake loaders). Dispute works. |
 | **delphi X bot** | CLI `scripts/x.ts` | — | DONE behind flags |
 | **uploaded** ("Get uploaded" backend) | :8791 loopback | `GET /health /coins/:t /basket /trials/round /trials/campaigns[/:t]`, `GET /wallets/:a/{holdings,history,bag,standing,footprint,elsewhere,trials/record,trials/ballot,guard,rewards,stake,stake/unstake-preview,scan(SSE)}` | **HALF**: all readers built and tested (368 tests), **no auth, no Next rewrite, no systemd unit**, not reachable from the site |
 | **keeper** | worker, 5-min loop | none | DONE; **practice mode by default**. Must be in live mode with a funded key for mainnet |

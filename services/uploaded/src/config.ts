@@ -9,7 +9,7 @@ const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/, "must be an address");
 const DeploymentSchema = z.object({ staking: address, passportRegistry: address, pnth: address, usdc: address, indexVault: address.optional(), covenantFactory: address.optional() });
 
 const EnvSchema = z.object({
-  /** 8787 Passport, 8789 indexer, 8790 Trials, 3210 DELPHI feed. */
+  /** 8787 Passport, 8789 indexer, 8790 Trials, 3310 DELPHI feed. */
   PORT: wholeNumber.pipe(z.number().min(1024).max(65_535)).default(8791),
   ELYSIUM_RPC: z.url({ protocol: /^https?$/ }).default("https://testnet-rpc.elysium.kinetiq.xyz"),
   /** A node that keeps old blocks and takes batches: the explorer's, as DELPHI uses for heavy reads. */

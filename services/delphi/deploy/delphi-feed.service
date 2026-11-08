@@ -1,4 +1,4 @@
-# DELPHI live feed (scripts/feed.ts): pantheonindex.com/api/delphi/* → 127.0.0.1:3210, via Caddy
+# DELPHI live feed (scripts/feed.ts): pantheonindex.com/api/delphi/* → 127.0.0.1:3310, via Caddy
 # (deploy/Caddyfile.delphi-feed). Install:
 #   sudo install -m 0644 deploy/delphi-feed.service /etc/systemd/system/
 #   sudo systemctl daemon-reload && sudo systemctl enable --now delphi-feed
@@ -9,7 +9,7 @@
 # watcher writes. It needs no key, makes no outgoing connections and only talks to Caddy on loopback.
 
 [Unit]
-Description=DELPHI live feed for apps (127.0.0.1:3210)
+Description=DELPHI live feed for apps (127.0.0.1:3310)
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=300
@@ -21,7 +21,7 @@ Group=ayinde
 WorkingDirectory=/srv/hackathon/pantheon/services/delphi
 ExecStart=/usr/bin/node scripts/feed.ts
 Environment=NODE_ENV=production
-Environment=PORT=3210
+Environment=PORT=3310
 Environment=FEED_DB=/srv/hackathon/pantheon/services/delphi/data/feed.db
 Environment=DISPUTE_LOG=/srv/hackathon/pantheon/services/delphi/out/disputes.log
 Restart=always

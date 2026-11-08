@@ -160,7 +160,7 @@ export async function healthReport(dependencies: Dependencies = {}): Promise<Hea
       timeoutMs,
     ),
     delphi(
-      dependencies.delphiUrl ?? process.env.DELPHI_HEALTH_URL ?? "http://127.0.0.1:3210/v1/health",
+      dependencies.delphiUrl ?? process.env.DELPHI_HEALTH_URL ?? "http://127.0.0.1:3310/v1/health",
       fetcher,
       now,
       timeoutMs,

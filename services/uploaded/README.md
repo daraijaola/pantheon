@@ -17,7 +17,7 @@ npm start        # settings below; run it from this folder
 
 | Setting | Default | What it is |
 |---|---|---|
-| `PORT` | `8791` | Where it listens. Passport has 8787, the indexer 8789, Trials 8790 and the feed 3210. |
+| `PORT` | `8791` | Where it listens. Passport has 8787, the indexer 8789, Trials 8790 and the feed 3310. |
 | `ELYSIUM_RPC` | the public testnet node | Where balances are read. |
 | `ARCHIVE_RPC` | the explorer's node | Where wallet history is read: it needs old blocks and batches. |
 | `DEPLOYMENT_FILE` | `../../deployments/elysium-testnet.json` | The contract addresses, from the file the site reads. |

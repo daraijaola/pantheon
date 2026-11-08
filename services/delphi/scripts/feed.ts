@@ -1,6 +1,6 @@
 // Runs DELPHI's live feed server (src/live/server.ts) on 127.0.0.1, for Caddy to put on
 // pantheonindex.com/api/delphi/. Read-only, except that disputes are stored for a person to answer.
-//   node scripts/feed.ts                 serve FEED_DB (default data/feed.db) on 127.0.0.1:${PORT:-3210}
+//   node scripts/feed.ts                 serve FEED_DB (default data/feed.db) on 127.0.0.1:${PORT:-3310}
 //   node scripts/feed.ts --seed 500      serve a scratch db of 500 fake records instead (local testing only;
 //                                        it never touches FEED_DB and is deleted on exit)
 // Logs one summary line a minute, plus every server error and every dispute. Stops cleanly on SIGTERM.
@@ -20,7 +20,7 @@ if (args.includes("--seed") && !/^\d{1,6}$/.test(seedArg ?? "")) {
   console.error("--seed needs a number of fake records");
   process.exit(2);
 }
-const port = Number(process.env.PORT ?? 3210);
+const port = Number(process.env.PORT ?? 3310);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   console.error("PORT must be a port number");
   process.exit(2);
