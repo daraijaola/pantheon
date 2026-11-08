@@ -30,7 +30,9 @@
 /* Inside the app frame: under its bar (64px; 56px on a phone) and, on a phone, above its tab bar. The
    frame's mark stands in for this page's own, so only New chat stays in this header. */
 .framed {
-  top: 64px;
+  position: relative;
+  top: auto;
+  isolation: isolate;
   height: calc(100% - 64px);
 }
 @supports (height: 100dvh) {
@@ -47,7 +49,7 @@
 }
 @media (max-width: 760px) {
   .framed {
-    top: 56px;
+    top: auto;
     height: calc(100% - 56px - 82px - env(safe-area-inset-bottom, 0px));
   }
   @supports (height: 100dvh) {
@@ -146,8 +148,8 @@
   color: var(--ink);
   font: 450 14px/1 var(--sans);
   cursor: pointer;
-  opacity: 0;
-  visibility: hidden;
+  opacity: 1;
+  visibility: visible;
   transition:
     opacity 0.3s,
     visibility 0s 0.3s,

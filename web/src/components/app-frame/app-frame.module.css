@@ -324,6 +324,9 @@
 .content {
   padding-bottom: 32px;
 }
+.content[data-chat] {
+  padding-bottom: 0;
+}
 
 /* ------------------------------------------------------------------ DELPHI in the corner */
 .dock {

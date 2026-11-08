@@ -259,7 +259,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <div className={s.content}>{children}</div>
+      <div className={s.content} data-chat={pathname === "/delphi/chat" || undefined}>{children}</div>
       <div className={s.dock}>
         <Places pathname={pathname} places={PLACES} className={s.bottomPlaces} label="App" />
         {!atDelphi && <DelphiOrb />}

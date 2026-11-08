@@ -502,7 +502,7 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
         <Link href="/" aria-label="PANTHEON home" className={s.logo}>
           <CodeWordmark text="PANTHEON" module={2.2} />
         </Link>
-        <button type="button" className={s.newChat} onClick={newChat} tabIndex={started ? 0 : -1} aria-hidden={!started}>
+        <button type="button" className={s.newChat} onClick={newChat}>
           <span className={s.plusMark} aria-hidden="true" />
           <span className={s.newChatLabel}>New chat</span>
         </button>
