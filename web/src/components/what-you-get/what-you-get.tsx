@@ -210,7 +210,7 @@ export function WhatYouGet({ logos = "mono" }: { logos?: Logos }) {
           <span>Earn Ascend’s best coins.</span>
         </>
       }
-      sub="Four steps. No forms, no lockups to sign. Leave whenever you want."
+      sub="Four steps. Stake to earn; unstaking takes 3 days."
       steps={steps}
       foot={{ label: "Read the staking rules", href: "#rules" }}
       renderCard={(i, t) =>

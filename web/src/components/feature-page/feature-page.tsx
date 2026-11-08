@@ -12,6 +12,7 @@ export type Feature = {
   sub: string;
   actions: { label: string; href: string; primary?: boolean }[];
   diagram: ReactNode; // a worked example, shown beside the text
+  example?: boolean;
   steps: { title: string; desc: string }[];
   details: { title: string; sub: string; head: string[]; rows: ReactNode[][]; note?: string };
   faq: { q: string; a: ReactNode }[];
@@ -41,7 +42,7 @@ export function FeaturePage({ page }: { page: Feature }) {
           </div>
         </div>
         <div className={f.stage}>
-          <span className={f.example}>EXAMPLE</span>
+          {page.example !== false && <span className={f.example}>EXAMPLE</span>}
           {page.diagram}
         </div>
       </section>
