@@ -13,6 +13,7 @@ import { deployment, elysium, explorer } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
 import { fmt, NotLive, parse, Row, short, Stat, TxNote, until, useChainNow, useTx, type Hex } from "./shared";
 import s from "./app.module.css";
+import { ConnectWallet } from "./connect-wallet";
 const ONE = 10n ** 18n;
 const AGE_RAMP = 30 * 86_400;
 
@@ -104,7 +105,7 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
         </div>
       </header>
 
-      <div className={s.grid}>
+      <div className={`${s.grid} ${s.stakeGrid}`}>
         <section className={s.main}>
           <div className={s.cell}>
             <p className={s.label}>Your PNTH</p>
@@ -143,7 +144,9 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
               <p className={s.label}>Earned</p>
               <ClaimButton d={d} enabled={onChain && anyEarned} />
             </div>
-            {!pub.data ? (
+            {!onChain ? (
+              <p className={s.empty}>Your rewards appear once your wallet is connected.</p>
+            ) : !pub.data ? (
               <p className={s.empty}>{pub.isError ? "Rewards couldn’t be read just now." : "Reading rewards…"}</p>
             ) : rewardTokens.length === 0 ? (
               <p className={s.empty}>Nothing is streaming yet. The basket&rsquo;s first buy starts it.</p>
@@ -269,6 +272,7 @@ function Actions(p: {
 
   return (
     <div className={s.cell}>
+      <ConnectWallet />
       <div className={s.tabs} role="tablist">
         {(["stake", "unstake"] as const).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? s.tabOn : s.tab} onClick={() => setTab(t)}>

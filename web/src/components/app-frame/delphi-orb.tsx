@@ -28,7 +28,10 @@ export function DelphiOrb() {
     const cv = document.createElement("canvas");
     cv.className = s.delphiCanvas;
     win.prepend(cv);
-    const orb = ChatOrb.create(cv);
+    const orb = ChatOrb.create(cv, (available) => {
+      if (bead.current) bead.current.style.display = available ? "none" : "block";
+      if (available) start();
+    });
     if (!orb) {
       cv.remove();
       if (bead.current) bead.current.style.display = "block";
@@ -71,14 +74,12 @@ export function DelphiOrb() {
     io.observe(cv);
     const onVis = () => !document.hidden && start();
     document.addEventListener("visibilitychange", onVis);
-    const onLost = (e: Event) => e.preventDefault();
-    cv.addEventListener("webglcontextlost", onLost);
     start();
     return () => {
       if (raf) cancelAnimationFrame(raf);
       io.disconnect();
       document.removeEventListener("visibilitychange", onVis);
-      cv.removeEventListener("webglcontextlost", onLost);
+      orb.dispose();
       cv.getContext("webgl")?.getExtension("WEBGL_lose_context")?.loseContext();
       cv.remove();
     };

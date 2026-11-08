@@ -175,6 +175,7 @@ const at = (address: string) => (
 );
 
 export const SECURITY: Feature = {
+  example: false,
   eyebrow: "Security",
   title: (
     <>

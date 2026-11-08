@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
 import { CoinReport, NotPublished } from "@/components/delphi/delphi";
 import { SiteShell } from "@/components/site-shell";
 import { liveRound, readDelphi } from "@/lib/delphi";
@@ -11,7 +12,10 @@ export const metadata: Metadata = {
 };
 
 async function Report({ token }: { token: string }) {
-  const [data, live] = await Promise.all([readDelphi(), readLive()]);
+  if (!/^0x[0-9a-fA-F]{40}$/.test(token)) notFound();
+  const data = await readDelphi();
+  if (data && !data.coins.some((coin) => coin.token.toLowerCase() === token.toLowerCase())) notFound();
+  const live = await readLive();
   const current = liveRound(live.basket?.coins.map((c) => c.token) ?? null);
   return data ? <CoinReport data={data} token={token} current={current} /> : <NotPublished />;
 }

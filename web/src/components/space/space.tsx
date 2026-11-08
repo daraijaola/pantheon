@@ -9,13 +9,13 @@
 // live it shows a labelled example (data.ts says where the real answers will come from).
 
 import Link from "next/link";
+import { ConnectWallet } from "@/components/app/connect-wallet";
 import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { readFonts } from "@/components/passport-book/draw";
 import { pantheonStakingAbi } from "@/lib/chain/abi";
 import { deployment } from "@/lib/chain/config";
 import { short, TxNote, useNow, useTx, type Hex } from "@/components/app/shared";
-import { Mark } from "@/components/app-frame/app-frame";
 import { createBag, layoutTiles, MARGIN, type TileItem } from "./bag";
 import { useSpace, type Alert, type Bag, type BagCoin, type Part, type Space, type Verdict } from "./data";
 import { fromEl, Tray, useCloseTray, type From } from "./tray";
@@ -56,7 +56,7 @@ export function YourSpace() {
     <div className={s.page} aria-busy={!ready}>
       <div className={s.inner}>
         <Top sp={sp} now={now} />
-        <div className={s.grid}>
+        <div className={s.grid} data-empty={bag?.coins.length === 0 || undefined}>
           <BagCard part={ready ? sp.bag : LOADING} ready={ready} now={now} lensAt={lensAt} onLens={setLensAt} onOpen={openCoin} onAll={(from) => setTray({ v: { view: "all" }, from })} onAbout={(from) => setTray({ v: { view: "about" }, from })} />
           <aside className={s.side}>
             {ready && (
@@ -100,12 +100,6 @@ function Top({ sp }: { sp: Space; now: number }) {
   const line = sp.mode === "mine" ? since(sp) : null;
   return (
     <header className={s.top}>
-      {/* yours: your wallet's own mark, the one in the bar, as the seal on the page */}
-      {sp.mode === "mine" && (
-        <span className={`${s.seal} ${s.rise}`} style={at(0)} aria-hidden="true">
-          <Mark address={sp.wallet} size={50} />
-        </span>
-      )}
       <div className={s.topText}>
         <h1 className={`${s.title} ${s.rise}`} style={at(0)}>
           Your space
@@ -247,7 +241,7 @@ function BagCard({
   const grade = bag ? integrity(bag) : null;
 
   return (
-    <section className={`${s.card} ${ready ? s.rise : ""}`} style={at(2)} aria-labelledby="bag-title">
+    <section className={`${s.card} ${ready ? s.rise : ""}`} data-empty={bag?.coins.length === 0 || undefined} style={at(2)} aria-labelledby="bag-title">
       <header className={s.cardHead}>
         <h2 id="bag-title" className={s.cardTitle}>
           Your bag {bag && bag.coins.length > 0 && <span className={s.cardCount}>{bag.coins.length}</span>}
@@ -313,17 +307,19 @@ function BagCard({
             })}
           </div>
         )}
-        {/* nothing to lay out yet: three ghost tiles and one line (they shimmer while she reads) */}
         {!bag?.coins.length && (
           <>
-            <div className={s.ghosts} data-reading={part.state === "loading" || undefined} aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </div>
+            {!bag && (
+              <div className={s.ghosts} data-reading={part.state === "loading" || undefined} aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </div>
+            )}
             <p className={s.cardQuiet}>
               {bag ? "Nothing here yet." : part.state === "unread" ? "DELPHI couldn’t read your bag just now. She’ll try again in a minute." : "DELPHI is reading your bag…"}
             </p>
+            {bag && <Link className={s.whiteBtn} href="/get">Get PNTH</Link>}
           </>
         )}
       </div>
@@ -372,6 +368,7 @@ function Now({ items, example, wallet, partial, reading, inBag, onCoin }: { item
       <h2 id="todo-title" className={s.boxTitle}>
         Now
       </h2>
+      <ConnectWallet />
       {items.length ? (
         <ul className={s.todos}>
           {items.map((t, i) => {

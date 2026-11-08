@@ -1,3 +1,9 @@
+.form {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--rule);
+}
 /* The Covenant launch screen: the app's calm cells, plus a pick-one list and the coins already on it. */
 .pair {
   display: grid;

@@ -152,7 +152,7 @@
   }
 }
 
-/* ------------------------------------------------------------------ the top: your seal and the page's name */
+/* ------------------------------------------------------------------ the top: the page's name */
 .top {
   display: flex;
   flex-wrap: wrap;
@@ -161,23 +161,6 @@
 }
 .topText {
   min-width: 0;
-}
-/* your wallet's mark, set in a white medallion like a seal */
-.seal {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 66px;
-  height: 66px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, #fff, #f7f7f7);
-  box-shadow:
-    inset 0 1px 0 #fff,
-    var(--lift);
-}
-.seal svg {
-  width: 50px;
-  height: 50px;
 }
 .title {
   margin: 0;
@@ -239,6 +222,12 @@
 }
 .side > :first-child {
   flex: 1 1 auto;
+}
+.grid[data-empty] {
+  align-items: start;
+}
+.grid[data-empty] .side > :first-child {
+  flex: 0 0 auto;
 }
 
 /* ------------------------------------------------------------------ the bag: a slab of dark glass */
@@ -360,6 +349,17 @@
 }
 .mosaic[data-quiet] + .cardFill {
   display: none;
+}
+.card[data-empty] {
+  min-height: 0;
+}
+.card[data-empty] .mosaic {
+  flex: none;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
 }
 .ghosts {
   display: flex;
@@ -1406,14 +1406,6 @@
   }
   .top {
     gap: 0 14px;
-  }
-  .seal {
-    width: 54px;
-    height: 54px;
-  }
-  .seal svg {
-    width: 40px;
-    height: 40px;
   }
   .sub {
     margin-top: 8px;

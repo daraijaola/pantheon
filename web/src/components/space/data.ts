@@ -6,6 +6,9 @@
 // so the browser never chooses whose data it gets. Until those exist, the page shows a labelled example.
 
 import { useQueries } from "@tanstack/react-query";
+import { erc20Abi, type Address } from "viem";
+import { useReadContract } from "wagmi";
+import { deployment } from "@/lib/chain/config";
 import { useSession } from "@/lib/use-session";
 
 export type Verdict = "FLAG" | "WATCH" | "CLEAN" | "NOT_ENOUGH_DATA" | "UNKNOWN";
@@ -120,6 +123,8 @@ export type Space = {
   /** Example until someone is signed in. */
   mode: "loading" | "example" | "mine";
   wallet: string;
+  /** Liquid PNTH balance, in base units. Unknown never means zero. */
+  pnth: Part<string>;
   bag: Part<Bag>;
   rewards: Part<Rewards>;
   stake: Part<Stake>;
@@ -143,6 +148,13 @@ async function json<T>(url: string): Promise<T> {
 export function useSpace(): Space {
   const session = useSession();
   const wallet = session.data ?? null;
+  const balance = useReadContract({
+    address: deployment?.pnth,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: wallet ? [wallet as Address] : undefined,
+    query: { enabled: !!wallet && !!deployment, staleTime: 30_000, refetchInterval: 60_000 },
+  });
   const parts = useQueries({
     queries: KEYS.map((k) => ({
       queryKey: ["me", k, wallet],
@@ -164,6 +176,7 @@ export function useSpace(): Space {
   return {
     mode: "mine",
     wallet,
+    pnth: balance.data !== undefined ? { state: "ok", data: balance.data.toString() } : { state: balance.isError ? "unread" : "loading" },
     bag: part<Bag>(0),
     rewards: part<Rewards>(1),
     stake: part<Stake>(2),
@@ -202,6 +215,7 @@ const TX = (n: number) => ({ tx: `0x${n.toString(16).padStart(2, "0")}${"c4f1".r
 export const EXAMPLE: Space = {
   mode: "example",
   wallet: "0x7f3ab2c90d4e61f8a35b0c2e9d17f4a6b8c3e41e",
+  pnth: { state: "ok", data: "1250000000000000000000" },
   bag: {
     state: "ok",
     data: {

@@ -7,12 +7,16 @@ export const test = base.extend<{ browserGuards: void }>({
   browserGuards: [async ({ context, page, browserName, request }, use) => {
     const errors: string[] = [];
     const external: string[] = [];
-    page.on('pageerror', error => errors.push(error.message));
-    page.on('console', message => {
+    const watch = (target: Page) => {
+    target.on('pageerror', error => errors.push(error.message));
+    target.on('console', message => {
       if (message.type() !== 'error') return;
       if (browserName === 'webkit' && message.text() === 'Viewport argument key "interactive-widget" not recognized and ignored.') return;
       errors.push(message.text());
     });
+    };
+    watch(page);
+    context.on('page', watch);
     context.on('request', request => {
       const url = new URL(request.url());
       if ((url.protocol === 'http:' || url.protocol === 'https:') && url.origin !== 'http://127.0.0.1:4173' && url.origin !== 'http://127.0.0.1:4174' && url.origin !== 'https://127.0.0.1:4176') external.push(url.href);

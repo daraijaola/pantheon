@@ -156,6 +156,18 @@
   padding: 56px 40px;
   border-right: 1px solid var(--rule);
 }
+.fold {
+  grid-column: 1 / -1;
+}
+.foldTitle {
+  padding: 24px 40px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.ruleBody {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+}
 .h2 {
   margin: 0;
   font-size: 28px;
@@ -306,6 +318,12 @@
   .details,
   .faq {
     grid-template-columns: 1fr;
+  }
+  .ruleBody {
+    grid-template-columns: 1fr;
+  }
+  .foldTitle {
+    padding: 24px 20px;
   }
   .copy {
     padding: 56px 20px 40px;

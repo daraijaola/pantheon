@@ -59,7 +59,7 @@ const key = path.join(runtime, 'localhost.key');
 const cert = path.join(runtime, 'localhost.crt');
 execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', key, '-out', cert, '-days', '1', '-subj', '/CN=localhost', '-addext', 'subjectAltName=IP:127.0.0.1'], { stdio: 'ignore' });
 const secureServer = createSecureServer({ key: await readFile(key), cert: await readFile(cert) }, (req, res) => {
-  const upstream = request({ hostname: '127.0.0.1', port: 4175, method: req.method, path: req.url, headers: { ...req.headers, 'x-forwarded-proto': 'https' } }, response => {
+  const upstream = request({ hostname: '127.0.0.1', port: req.url === '/rpc' ? 4174 : 4175, method: req.method, path: req.url, headers: { ...req.headers, 'x-forwarded-proto': 'https' } }, response => {
     res.writeHead(response.statusCode, response.headers);
     response.pipe(res);
   });
@@ -69,7 +69,7 @@ const secureServer = createSecureServer({ key: await readFile(key), cert: await 
 await new Promise((resolve, reject) => { secureServer.once('error', reject); secureServer.listen(4176, '127.0.0.1', resolve); });
 const env = {
   ...process.env, NEXT_TELEMETRY_DISABLED: '1', NEXT_DIST_DIR: '.next',
-  NEXT_PUBLIC_DEPLOYMENT: 'elysium-testnet', NEXT_PUBLIC_RPC_URL: `${service}/rpc`,
+  NEXT_PUBLIC_DEPLOYMENT: 'elysium-testnet', NEXT_PUBLIC_RPC_URL: 'https://127.0.0.1:4176/rpc',
   NEXT_PUBLIC_WC_PROJECT_ID: '', NEXT_PUBLIC_DEV_WALLET: '',
   INDEXER_API: service, TRIALS_API: service, PASSPORT_API: service,
   DELPHI_SITE_JSON: path.join(runtime, 'site.json'), DELPHI_HEALTH_URL: `${service}/health`,

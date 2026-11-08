@@ -13,6 +13,8 @@ Playwright starts `server.mjs`, which starts local service/RPC fixtures on port
 4174, runs a plain `next build`, then `next start` on port 4173. Ports 4173–4176 must
 be free. Successful SIWE uses a second Next process on 4175 behind a local TLS
 proxy on 4176, with an ephemeral OpenSSL certificate in the ignored runtime directory.
+The same TLS proxy serves browser RPC fixtures at `/rpc`, avoiding mixed-content
+requests after HTTPS sign-in. Test contexts accept this self-signed loopback certificate.
 This exercises unchanged production Secure, HttpOnly, __Host- cookies in every browser.
 The build may fetch Google Fonts; runtime application data never uses
 production services. No real wallet keys, credentials or live snapshots
@@ -37,7 +39,11 @@ Explore and app navigation use real links. The injected EIP-1193 wallet rejects
 all signing and transaction requests by default; only the successful onboarding
 case enables fixture SIWE signatures. RPC reads and gas estimates are local.
 The mobile chat regression runs at 390 and 360 widths in all three browsers.
-All other active specs run in every project.
+Controlled `WEBGL_lose_context` recovery runs in Chromium and checks that nontransparent
+pixels are painted again; unavailable-WebGL fallbacks run in all browsers. The floating
+DELPHI orb is desktop-only; phones keep DELPHI in the four-tab navigation.
+Space checks cover session-heading alignment and empty, funded and unreadable PNTH balances.
+All remaining active specs run in every project.
 
 Audit F01 (homepage navigation) and F09 (connected Stake hydration) are active
 regressions, not fixmes or console allowlists.

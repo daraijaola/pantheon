@@ -30,3 +30,20 @@ for (const route of routes(path.resolve(__dirname, '../src/app'))) {
     expect(layout.overlap, 'Visible content overlaps the global header').toEqual([]);
   });
 }
+
+test('Security facts are not labelled as examples; Passport examples still are', async ({ page }) => {
+  await page.goto('/security');
+  await ready(page);
+  await expect(page.getByText('EXAMPLE', { exact: true })).toHaveCount(0);
+  const passport = await page.context().newPage();
+  await passport.goto('/passport');
+  await ready(passport);
+  await expect(passport.getByText('EXAMPLE', { exact: true })).toBeVisible();
+});
+
+test('Homepage explains the three-day unstake', async ({ page }) => {
+  await page.goto('/');
+  await ready(page);
+  await expect(page.getByText('Four steps. Stake to earn; unstaking takes 3 days.', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Leave whenever you want/)).toHaveCount(0);
+});

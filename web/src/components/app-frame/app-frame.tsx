@@ -24,12 +24,9 @@ type Place = { label: string; href: string | null; glyph: Glyph };
 const PLACES: Place[] = [
   { label: "Space", href: "/space", glyph: "space" },
   { label: "DELPHI", href: "/delphi/chat", glyph: "delphi" },
-  { label: "Basket", href: null, glyph: "basket" },
   { label: "Stake", href: "/stake", glyph: "stake" },
   { label: "Trials", href: "/trials/vote", glyph: "trials" },
 ];
-// On a phone DELPHI is her orb at the end of the bar, so the bar itself holds the other four.
-const PHONE_PLACES = PLACES.filter((p) => p.glyph !== "delphi");
 
 const here = (pathname: string, href: string | null) => !!href && (pathname === href || pathname.startsWith(`${href}/`) || (href === "/trials/vote" && pathname.startsWith("/trials")));
 
@@ -264,7 +261,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
       </header>
       <div className={s.content}>{children}</div>
       <div className={s.dock}>
-        <Places pathname={pathname} places={PHONE_PLACES} className={s.bottomPlaces} label="App" />
+        <Places pathname={pathname} places={PLACES} className={s.bottomPlaces} label="App" />
         {!atDelphi && <DelphiOrb />}
       </div>
     </div>

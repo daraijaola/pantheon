@@ -95,6 +95,12 @@ export function todos(sp: Space, now: number): Todo[] {
     const bits = [ballot.votes != null ? plural(ballot.votes, "vote") : null, ballot.closesAt && now ? `closes in ${left(ballot.closesAt, now)}` : null].filter(Boolean);
     out.push({ key: "vote", glyph: "vote", title: voted ? `You voted in round ${ballot.round}` : `Round ${ballot.round} is open`, sub: voted ? `You can change it${ballot.closesAt && now ? ` for ${left(ballot.closesAt, now)}` : ""}` : bits.join(" · "), action: voted ? "Change" : "Vote", href: "/trials/vote" });
   }
+  if (sp.mode === "mine" && ok(sp.pnth) === "0" && stake && Number(stake.staked.amount) === 0 && Number(stake.cooling.amount) === 0) {
+    out.push({ key: "get", glyph: "stake", title: "Get PNTH", sub: "Start with test PNTH", action: "Get PNTH", href: "/get" });
+    out.push({ key: "stake", glyph: "stake", title: "Earn from the basket", sub: "Stake PNTH to share every buy", action: "Stake", href: "/stake" });
+    if ((standing?.passport.tier ?? stake.passportTier) === 0) out.push({ key: "passport", glyph: "passport", title: "Get your passport", sub: "Up to 1.25× and more votes", action: "Get one", href: "/passport/get" });
+    return out.slice(0, 3);
+  }
   // refreshing a stake is the Stake page's business unless there's room
   if (stake?.needsRefresh && out.length < 3) out.push({ key: "refresh", glyph: "refresh", title: `Earn ${times(stake.multiplier.ifRefreshed)} instead of ${times(stake.multiplier.earning)}`, emph: times(stake.multiplier.ifRefreshed), sub: "Your time bonus grew", action: "Refresh", refresh: true });
   if (stake?.canWithdraw && Number(stake.cooling.amount) > 0) out.push({ key: "withdraw", glyph: "claim", title: `${amount(stake.cooling.amount)} PNTH is ready`, emph: `${amount(stake.cooling.amount)} PNTH`, sub: "Your unstake has finished cooling", action: "Withdraw", href: "/stake" });

@@ -12,6 +12,8 @@ export type Feature = {
   sub: string;
   actions: { label: string; href: string; primary?: boolean }[];
   diagram: ReactNode; // a worked example, shown beside the text
+  example?: boolean;
+  discloseDetails?: boolean;
   steps: { title: string; desc: string }[];
   details: { title: string; sub: string; head: string[]; rows: ReactNode[][]; note?: string };
   faq: { q: string; a: ReactNode }[];
@@ -41,7 +43,7 @@ export function FeaturePage({ page }: { page: Feature }) {
           </div>
         </div>
         <div className={f.stage}>
-          <span className={f.example}>EXAMPLE</span>
+          {page.example !== false && <span className={f.example}>EXAMPLE</span>}
           {page.diagram}
         </div>
       </section>
@@ -57,6 +59,7 @@ export function FeaturePage({ page }: { page: Feature }) {
       </section>
 
       <section id="details" className={f.details}>
+        <Fold closed={page.discloseDetails} label="Rules" split>
         <header className={f.detailsHead}>
           <h2 className={f.h2}>{page.details.title}</h2>
           <p className={f.detailsSub}>{page.details.sub}</p>
@@ -82,10 +85,12 @@ export function FeaturePage({ page }: { page: Feature }) {
           </table>
           {page.details.note && <p className={f.note}>{page.details.note}</p>}
         </div>
+        </Fold>
       </section>
 
       <section className={f.faq}>
-        <h2 className={f.h2}>Questions</h2>
+        <Fold closed={page.discloseDetails} label="Questions">
+        {!page.discloseDetails && <h2 className={f.h2}>Questions</h2>}
         <div className={f.qs}>
           {page.faq.map((item) => (
             <details key={item.q} className={f.q}>
@@ -97,7 +102,12 @@ export function FeaturePage({ page }: { page: Feature }) {
             </details>
           ))}
         </div>
+        </Fold>
       </section>
     </main>
   );
+}
+
+function Fold({ closed, label, split, children }: { closed?: boolean; label: string; split?: boolean; children: ReactNode }) {
+  return closed ? <details className={f.fold}><summary className={`${f.h2} ${f.foldTitle}`}>{label}</summary><div className={split ? f.ruleBody : undefined}>{children}</div></details> : children;
 }
