@@ -39,6 +39,63 @@ test("healthy means every service, fresh DELPHI data and a verified recent backu
   ]);
 });
 
+for (const state of ["ok", "empty", "unavailable"] as const) {
+  test(`the dedicated DELPHI port reports ${state} without an override`, async () => {
+    const original = process.env.DELPHI_HEALTH_URL;
+    delete process.env.DELPHI_HEALTH_URL;
+    let requests = 0;
+    try {
+      const report = await healthReport({
+        ...urls,
+        delphiUrl: undefined,
+        now: () => NOW,
+        fetch: async (url) => {
+          if (url === "http://127.0.0.1:3310/v1/health") {
+            requests++;
+            if (state === "unavailable") throw new Error("Feed unavailable");
+            if (state === "empty") return Response.json({ ok: true, newestUpdateMs: null });
+          }
+          return response(url);
+        },
+        readFile: async () => JSON.stringify({ ok: true, completedAtMs: NOW - 60_000 }),
+      });
+      assert.equal(requests, 1);
+      assert.equal(report.ok, state === "ok");
+      assert.equal(report.checks.find((check) => check.name === "delphi")?.state, state);
+    } finally {
+      if (original === undefined) delete process.env.DELPHI_HEALTH_URL;
+      else process.env.DELPHI_HEALTH_URL = original;
+    }
+  });
+}
+
+for (const injected of [false, true]) {
+  test(`DELPHI health respects the ${injected ? "injected URL over the environment" : "environment URL over the default"}`, async () => {
+    const original = process.env.DELPHI_HEALTH_URL;
+    const override = "http://127.0.0.1:4310/v1/health";
+    process.env.DELPHI_HEALTH_URL = override;
+    const requests: string[] = [];
+    try {
+      const report = await healthReport({
+        ...urls,
+        delphiUrl: injected ? urls.delphiUrl : undefined,
+        now: () => NOW,
+        fetch: async (url) => {
+          requests.push(url);
+          return response(url);
+        },
+        readFile: async () => JSON.stringify({ ok: true, completedAtMs: NOW - 60_000 }),
+      });
+      assert.equal(report.ok, true);
+      assert.ok(requests.includes(injected ? urls.delphiUrl : override));
+      assert.ok(!requests.includes("http://127.0.0.1:3310/v1/health"));
+    } finally {
+      if (original === undefined) delete process.env.DELPHI_HEALTH_URL;
+      else process.env.DELPHI_HEALTH_URL = original;
+    }
+  });
+}
+
 test("an empty DELPHI feed is unhealthy even if its old endpoint says ok", async () => {
   const report = await healthReport({
     ...urls,

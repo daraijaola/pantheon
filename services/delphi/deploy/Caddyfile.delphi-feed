@@ -12,7 +12,7 @@
 			max_size 8KB
 		}
 		encode zstd gzip
-		reverse_proxy 127.0.0.1:3210 {
+		reverse_proxy 127.0.0.1:3310 {
 			transport http {
 				dial_timeout 2s
 				response_header_timeout 5s

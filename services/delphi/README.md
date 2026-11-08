@@ -324,12 +324,12 @@ Kalos). Powers hidden behind functions with no known name in unverified code are
 ## The live feed for apps (format v1)
 
 `scripts/feed.ts` serves the live feed store (`src/live/store.ts`, written by the watcher) as open JSON on
-`127.0.0.1:3210`, which Caddy puts on `pantheonindex.com/api/delphi/`. Kalos's Sniper is the first user. The
+`127.0.0.1:3310`, which Caddy puts on `pantheonindex.com/api/delphi/`. Kalos's Sniper is the first user. The
 endpoints, every field and a working Sniper adapter are in `docs/kalos-adapter.md`; the same is served at
 `/v1/format`. Records go out exactly as stored, in an envelope that adds `stale` and `servedAtMs`.
 
 ```sh
-node scripts/feed.ts                    # serve FEED_DB (default data/feed.db) on 127.0.0.1:${PORT:-3210}
+node scripts/feed.ts                    # serve FEED_DB (default data/feed.db) on 127.0.0.1:${PORT:-3310}
 node scripts/feed.ts --seed 500         # a scratch db of 500 fake records (local testing; never touches FEED_DB)
 node scripts/disputes.ts                # open disputes (all: every one); text people sent is printed escaped
 node scripts/disputes.ts answer 3 upheld "The two wallets share a funder: see the report."
