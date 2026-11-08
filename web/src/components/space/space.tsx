@@ -9,6 +9,7 @@
 // live it shows a labelled example (data.ts says where the real answers will come from).
 
 import Link from "next/link";
+import { ConnectWallet } from "@/components/app/connect-wallet";
 import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { readFonts } from "@/components/passport-book/draw";
@@ -367,6 +368,7 @@ function Now({ items, example, wallet, partial, reading, inBag, onCoin }: { item
       <h2 id="todo-title" className={s.boxTitle}>
         Now
       </h2>
+      <ConnectWallet />
       {items.length ? (
         <ul className={s.todos}>
           {items.map((t, i) => {

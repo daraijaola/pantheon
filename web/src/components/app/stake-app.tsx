@@ -13,6 +13,7 @@ import { deployment, elysium, explorer } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
 import { fmt, NotLive, parse, Row, short, Stat, TxNote, until, useChainNow, useTx, type Hex } from "./shared";
 import s from "./app.module.css";
+import { ConnectWallet } from "./connect-wallet";
 const ONE = 10n ** 18n;
 const AGE_RAMP = 30 * 86_400;
 
@@ -269,6 +270,7 @@ function Actions(p: {
 
   return (
     <div className={s.cell}>
+      {!p.enabled && <ConnectWallet />}
       <div className={s.tabs} role="tablist">
         {(["stake", "unstake"] as const).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? s.tabOn : s.tab} onClick={() => setTab(t)}>

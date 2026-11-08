@@ -5,6 +5,7 @@
 // from the registry on Elysium for the connected wallet; with no passport it shows a labelled example.
 
 import Link from "next/link";
+import { ConnectWallet } from "@/components/app/connect-wallet";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { zeroAddress } from "viem";
 import { useConnection, useReadContracts } from "wagmi";
@@ -163,6 +164,7 @@ function Book({ view, note, getOne = false }: { view: PassportView | null; note:
 
   return (
     <main className={a.page}>
+      <ConnectWallet />
       <header className={a.head}>
         <div>
           <p className={a.eyebrow}>App · Elysium testnet</p>

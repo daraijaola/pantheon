@@ -5,6 +5,7 @@
 // counts refresh every few seconds, and every ballot is public, so anyone can recount.
 
 import Link from "next/link";
+import { ConnectWallet } from "./connect-wallet";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSignTypedData } from "wagmi";
@@ -180,7 +181,7 @@ function Trials() {
           <section className={s.cell}>
             <p className={s.label}>Your vote</p>
             {!onChain ? (
-              <p className={s.empty}>Connect the wallet you stake PNTH with.</p>
+              <><p className={s.empty}>Connect the wallet you stake PNTH with.</p>{r.status === "open" && <ConnectWallet />}</>
             ) : weight === 0 ? (
               <p className={s.empty}>
                 This wallet has no PNTH staked, so it can’t vote yet. <Link href="/stake">Stake any amount of PNTH</Link> and come back. No PNTH?{" "}

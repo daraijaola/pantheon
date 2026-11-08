@@ -4,6 +4,7 @@
 // Ascend's test USDC, then a buy straight from PNTH's Ascend pool), and a link on to staking.
 
 import Link from "next/link";
+import { ConnectWallet } from "./connect-wallet";
 import { useState, type ReactNode } from "react";
 import { encodeAbiParameters, erc20Abi, keccak256, pad, parseAbi, parseUnits, toHex, zeroAddress } from "viem";
 import { useBalance, useReadContracts, useWatchAsset } from "wagmi";
@@ -203,6 +204,7 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
           </section>
 
           <section className={s.cell}>
+            {!onChain && <ConnectWallet />}
             {mode === "claim" ? (
               <>
                 <button

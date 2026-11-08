@@ -17,6 +17,7 @@ import { deployment, elysium, explorer } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
 import { NotLive, short, TxNote, until, useChainNow, useTx, type Hex } from "./shared";
 import s from "./app.module.css";
+import { ConnectWallet } from "./connect-wallet";
 
 const PORTRAITS = [
   "caspian", "maddie", "maddie-orb", "maddie-adult", "david", "david-young", "ellen", "cary",
@@ -120,6 +121,7 @@ function Passport({ d }: { d: Deployment }) {
           {!onChain ? (
             <div className={s.cell}>
               <p className={s.empty}>Connect your Elysium wallet to see or get your Passport.</p>
+              <ConnectWallet />
             </div>
           ) : valid && passport ? (
             <PassportCard
