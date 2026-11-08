@@ -202,7 +202,8 @@ export function makeProgram<K extends string>(canvas: HTMLCanvasElement, frag: s
   g.linkProgram(pr);
   if (!g.getProgramParameter(pr, g.LINK_STATUS)) return null;
   g.useProgram(pr);
-  g.bindBuffer(g.ARRAY_BUFFER, g.createBuffer());
+  const buffer = g.createBuffer();
+  g.bindBuffer(g.ARRAY_BUFFER, buffer);
   g.bufferData(g.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), g.STATIC_DRAW);
   const loc = g.getAttribLocation(pr, "p");
   g.enableVertexAttribArray(loc);
@@ -210,12 +211,15 @@ export function makeProgram<K extends string>(canvas: HTMLCanvasElement, frag: s
   const U = {} as Record<K, WebGLUniformLocation | null>;
   for (const n of names) U[n] = g.getUniformLocation(pr, n);
   const onLost = (e: Event) => e.preventDefault();
+  const textures: WebGLTexture[] = [];
+  let destroyed = false;
   canvas.addEventListener("webglcontextlost", onLost);
   return {
     gl: g,
     U,
     texture(unit: number) {
       const t = g.createTexture();
+      if (t) textures.push(t);
       g.activeTexture(g.TEXTURE0 + unit);
       g.bindTexture(g.TEXTURE_2D, t);
       g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.LINEAR);
@@ -232,8 +236,15 @@ export function makeProgram<K extends string>(canvas: HTMLCanvasElement, frag: s
       g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, g.RGBA, g.UNSIGNED_BYTE, src);
     },
     destroy() {
+      if (destroyed) return;
+      destroyed = true;
       canvas.removeEventListener("webglcontextlost", onLost);
-      g.getExtension("WEBGL_lose_context")?.loseContext();
+      g.useProgram(null);
+      for (const texture of textures) g.deleteTexture(texture);
+      g.deleteBuffer(buffer);
+      g.deleteProgram(pr);
+      g.deleteShader(vs);
+      g.deleteShader(fs);
     },
   };
 }

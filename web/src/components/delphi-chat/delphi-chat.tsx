@@ -7,6 +7,7 @@
 
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { afterPaint } from "@/lib/after-paint";
 import { CodeWordmark } from "@/components/code-type/code-wordmark";
 import { blocks, LABEL, plain, shortHash, type Block, type Piece, type Verdict } from "./format";
 import { AGAIN, CHECK, COPY, DOWN, Pixels } from "./glyphs";
@@ -441,7 +442,7 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
   }, []);
 
   // ------------------------------------------------------------------ the orb
-  useEffect(() => {
+  useEffect(() => afterPaint(() => {
     const cv = canvas.current;
     if (!cv) return;
     const L = live.current;
@@ -576,7 +577,7 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
       cancelAnimationFrame(raf);
       orb?.dispose();
     };
-  }, []);
+  }), []);
 
   // ------------------------------------------------------------------ the page
   const cur = turns.at(-1);
