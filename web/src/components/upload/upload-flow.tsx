@@ -171,7 +171,7 @@ function Steps() {
         attempt.current++;
         disconnect.mutate();
       }}
-      onContinue={() => connected && signed && router.push("/space")}
+      onContinue={() => signed && router.push("/space")}
     />
   );
 }
