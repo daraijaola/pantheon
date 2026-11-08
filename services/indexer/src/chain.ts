@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // What the indexer reads from Elysium: PANTHEON's contract events, turned into plain records, and a
 // polite RPC client (same as the keeper's and DELPHI's: Elysium's public RPC rate-limits bursts).
 import { createPublicClient, decodeEventLog, defineChain, http, parseAbi, type Address, type Hex, type PublicClient } from "viem";
@@ -166,11 +167,11 @@ export function politeFetch(opts: { minGapMs?: number; retries?: number; fetch?:
 
 export function makeClient(rpc: string): PublicClient {
   const chain = defineChain({
-    id: 99_801,
-    name: "Elysium testnet",
+    id: profile().chainId,
+    name: profile().network.name,
     nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
-    contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
+    contracts: { multicall3: { address: profile().network.external.multicall3 as `0x${string}` } },
   });
   return createPublicClient({ chain, transport: http(rpc, { batch: false, retryCount: 3, timeout: 60_000, fetchFn: politeFetch() }) });
 }

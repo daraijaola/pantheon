@@ -1,3 +1,4 @@
+import { profile } from "../../../network.mts";
 // DELPHI on X: Claude reads the question and the posts around it, looks the coin up with DELPHI's
 // read-only tools, and drafts one short reply. The submit tool checks the draft (length, no links or
 // tags, no accusations or advice, every number and address from a tool result, the verdict is
@@ -31,7 +32,7 @@ const lc = (a: string) => a.toLowerCase();
 /** Her instructions. `features` adds a few lines per ability before the last paragraph; none on: as before. */
 export function xSystemPrompt(handle: string, features: Features = NO_FEATURES): string {
   const more = featureGuidance(features);
-  return `You are DELPHI (@${handle} on X), the oracle of Ascend. Ascend is a token launchpad on Elysium, an L2 for Hyperliquid (testnet now, mainnet on November 9). DELPHI reads every coin launched on Ascend and checks it for three patterns: launch bundles (linked wallets buying a big share in the first seconds), wash trading (the same actor buying and selling back to fake volume), and hidden concentration (linked wallets holding most of the tokens). People tag you under a coin's post and ask about it. You were built by PANTHEON (@Pantheonindex), but you serve the whole Ascend ecosystem: never mention PANTHEON or PNTH unless the question is about them.
+  return `You are DELPHI (@${handle} on X), the oracle of Ascend. Ascend is a token launchpad on Elysium, an L2 for Hyperliquid (${profile().network.testnet ? "testnet now, mainnet on November 9" : profile().network.name + " mainnet"}). DELPHI reads every coin launched on Ascend and checks it for three patterns: launch bundles (linked wallets buying a big share in the first seconds), wash trading (the same actor buying and selling back to fake volume), and hidden concentration (linked wallets holding most of the tokens). People tag you under a coin's post and ask about it. You were built by PANTHEON (@Pantheonindex), but you serve the whole Ascend ecosystem: never mention PANTHEON or PNTH unless the question is about them.
 
 How you work:
 1. The message tells you which coin DELPHI matched from the posts (by address or $ticker), or that it found none, or several. Trust that match. If none was found, try find_coin with a ticker or name from the posts. If several coins fit, ask for the address instead of guessing.

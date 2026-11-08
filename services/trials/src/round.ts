@@ -61,7 +61,7 @@ export const statusOf = (r: RoundDef, nowSec: number): Status => (nowSec < r.ope
 const FILE = /^round-(\d+)\.vote\.json$/;
 
 /** Every vote round in the folder, oldest first. A file that doesn't parse is an error, not skipped. */
-export function loadRounds(dir: string): RoundDef[] {
+export function loadRounds(dir: string, chainId?: number): RoundDef[] {
   let names: string[];
   try {
     names = readdirSync(dir).filter((n) => FILE.test(n));
@@ -72,6 +72,7 @@ export function loadRounds(dir: string): RoundDef[] {
     .map((n) => {
       const parsed = RoundDef.safeParse(JSON.parse(readFileSync(join(dir, n), "utf8")));
       if (!parsed.success) throw new Error(`${n}: ${parsed.error.issues.map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`);
+      if (chainId !== undefined && parsed.data.chainId !== chainId) throw new Error(`${n}: round chainId mismatch`);
       if (Number(FILE.exec(n)![1]) !== parsed.data.round) throw new Error(`${n} says it is round ${parsed.data.round}`);
       return parsed.data;
     })

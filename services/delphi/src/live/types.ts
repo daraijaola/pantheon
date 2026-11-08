@@ -1,3 +1,4 @@
+import { profile } from "../../../network.mts";
 // DELPHI live: the shared shapes for watching new coins as they launch and serving what DELPHI knows
 // about them to other apps (Kalos's Sniper first). Three "doors" bring coins in: PerpMe launches,
 // new pools on Kalos's exchange, and Ascend launches. Every coin gets a feed record at once ("checking")
@@ -14,16 +15,14 @@ export type Venue = "perpme" | "kalos" | "ascend";
  * Every address changes on mainnet: these are settings, never assumptions elsewhere.
  */
 export const PERPME_TESTNET = {
-  launchFactory: "0x296a8d32ac9315cd9aaa33b1e624eb206d35638c",
-  poolFactory: "0x1186DEFCaf121Da6E773425Fec0814608798e792",
-  positionManager: "0xD85fC505093A6b4a2AfE6CE5069cE6E4e0c9eA83",
-  router: "0xD218817cfCcA3Ae397dE3a6E66889D4Fb4b9e2D1",
-  quoter: "0x2A2b7645839e55A1683E7Fd64436AEEd5ed2793C",
-  /** PerpMe's own wrapped HYPE (not Kalos's). */
-  whype: "0x757a34dd7b411546C6dd8f510B52e4381102f9B0",
-  /** The launch factory's deployment (Oct 21): no PerpMe coin is older. */
-  fromBlock: 13_700_000n,
-} as const satisfies Record<string, string | bigint>;
+  get launchFactory() { return profile(process.env, "delphi").network.external.perpme.launchFactory; },
+  get poolFactory() { return profile(process.env, "delphi").network.external.perpme.poolFactory; },
+  get positionManager() { return profile(process.env, "delphi").network.external.perpme.positionManager; },
+  get router() { return profile(process.env, "delphi").network.external.perpme.router; },
+  get quoter() { return profile(process.env, "delphi").network.external.perpme.quoter; },
+  get whype() { return profile(process.env, "delphi").network.external.perpme.whype; },
+  get fromBlock() { return BigInt(profile(process.env, "delphi").network.external.perpme.fromBlock); },
+};
 
 /** One transaction makes the token, its pool and liquidity, and the creator's first buy (all 1,530 testnet launches). */
 export const TOKEN_DEPLOYED = parseAbiItem(

@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // A wallet's stake, and exactly what unstaking would cost before it signs. The sums copy PantheonStaking,
 // in whole numbers the way it does them. Four things the contract does that a person wouldn't guess:
 // - requestUnstake restarts the time bonus on the whole stake, however small the amount unstaked.
@@ -25,7 +26,7 @@ const stakingAbi = parseAbi([
 ]);
 const passportAbi = parseAbi(["function multiplierOf(address) view returns (uint256)", "function tierOf(address) view returns (uint8)"]);
 const clockAbi = parseAbi(["function getCurrentBlockTimestamp() view returns (uint256)"]);
-const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11";
+const MULTICALL3 = profile(process.env, "uploaded").network.external.multicall3;
 
 /** What the contract holds for a wallet, all read at the same moment. */
 export type StakeState = {

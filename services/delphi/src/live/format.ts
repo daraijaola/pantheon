@@ -15,7 +15,7 @@ export type FieldDoc = { path: string; type: string; meaning: string };
 /** Every record field, in the order a record carries them. `[]` marks the items of a list. */
 export const RECORD_FIELDS: FieldDoc[] = [
   { path: "v", type: "1", meaning: "Format version. Always 1 in /v1: no field changes meaning within it." },
-  { path: "chainId", type: "integer", meaning: "Elysium chain id: 99801 on testnet, 99901 on mainnet." },
+  { path: "chainId", type: "integer", meaning: "Elysium chain id from the selected deployment manifest." },
   { path: "token", type: "address", meaning: "The coin's contract address, lowercase." },
   { path: "venue", type: '"perpme" | "kalos" | "ascend"', meaning: "Where DELPHI first saw the coin: a PerpMe launch, a new pool on Kalos, or an Ascend launch." },
   { path: "pool", type: "address | bytes32", meaning: "The coin's main pool: a pool address (PerpMe, Kalos) or Ascend's 32-byte pool id." },

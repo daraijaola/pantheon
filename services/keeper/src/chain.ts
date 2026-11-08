@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // Elysium access for the keeper: contract interfaces, a polite RPC client, and decoding of the events
 // a simulated or sent call emits.
 import { createPublicClient, decodeEventLog, defineChain, http, parseAbi, type Address, type Hex, type PublicClient } from "viem";
@@ -136,11 +137,11 @@ export function politeFetch(opts: {
 
 export const elysium = (rpc: string) =>
   defineChain({
-    id: 99_801,
-    name: "Elysium testnet",
+    id: profile().chainId,
+    name: profile().network.name,
     nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
-    contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
+    contracts: { multicall3: { address: profile().network.external.multicall3 as `0x${string}` } },
   });
 
 export function makeClient(rpc: string): PublicClient {

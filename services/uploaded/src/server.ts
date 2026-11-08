@@ -1,5 +1,6 @@
 // Entry point: node --env-file-if-exists=.env src/server.ts   (npm start)
 // Loads DELPHI's latest verdicts, then looks for a new scan every REFRESH_SEC.
+import { assertRpcChain } from "../../network.mts";
 import { buildApp } from "./api.ts";
 import { dirname, join } from "node:path";
 import { WalletReads } from "./wallet-reads.ts";
@@ -23,6 +24,8 @@ import { RoundReader, trialsCalls } from "./trials.ts";
 import { Verdicts } from "./verdicts.ts";
 
 const cfg = loadConfig();
+await assertRpcChain(makeClient(cfg.rpc));
+await assertRpcChain(makeClient(cfg.archiveRpc));
 const verdicts = new Verdicts(cfg.scanFile);
 // Not the server's logger: Guard can log while it starts, before the server exists.
 const guard = new Guard(cfg.guardFile, { log: (msg) => console.warn(`[guard] ${msg}`) });

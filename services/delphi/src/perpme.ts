@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // PerpMe (perpme.fun), the launchpad whose coins fill Kalos's Sniper, read into DELPHI's shape so the same
 // three checks run on its coins. One transaction makes everything: the token, its pool on PerpMe's own
 // Uniswap V3 copy, a single-sided liquidity position sent to PerpMe's locker for good, and the creator's
@@ -7,7 +8,7 @@
 import { decodeEventLog, getAddress, toEventSelector, type Address, type Hex } from "viem";
 import { holderOf, type CoinTransfer, type Skeleton } from "./ingest.ts";
 import { amountsOf, BURN, sideOf, type KSwap, type Position } from "./kalos.ts";
-import { PERPME_TESTNET, TOKEN_DEPLOYED, TOKEN_LAUNCHED } from "./live/types.ts";
+import { TOKEN_DEPLOYED, TOKEN_LAUNCHED } from "./live/types.ts";
 import type { RawLog } from "./store.ts";
 import type { Coin, TokenTransfer, Trade } from "./types.ts";
 
@@ -17,24 +18,7 @@ const lc = (a: string) => a.toLowerCase();
  * PerpMe's testnet contracts: the ones Kalos pins (live/types.ts PERPME_TESTNET) plus those its docs list
  * (perpme.fun/elysium/docs, read 2026-10-31) that Kalos doesn't need. Every address changes on mainnet.
  */
-export const PERPME = {
-  ...PERPME_TESTNET,
-  /** Holds every coin's LP position forever ("no withdrawal function"; fee collection only). */
-  locker: "0x9277340f050ea8523c9e6aa069182de8aed119c8",
-  /** Performs the CREATE2 that makes each coin (every coin is its own contract, not a proxy). */
-  coinDeployer: "0x2cef3b6ee12a96f1fbcd58c8937b27032da17399",
-  /** PerpMe's Multicall3: its getBlockNumber() answers the parent chain's block, the one the window counts. */
-  multicall3: "0x60f94a264779d5F957B36F54D90aFb53693b56D4",
-  /**
-   * The first launchpad and its locker ("superseded" in the docs, yet 269 launches up to Oct 31, the same
-   * events). Not read as a coin source by default (Kalos's Sniper pins only `launchFactory`), but its
-   * addresses are PerpMe infrastructure.
-   */
-  oldLaunchFactory: "0x5644D1043998E602f582e3b282f1185102A6499E",
-  oldLocker: "0xc627cf00e4ac649db40348c515a500c534cfa187",
-  /** PerpMe's free data API (cross-checks only: the chain is the source of truth). */
-  api: "https://perpme.fun/elysium/dex-sync",
-} as const;
+export const PERPME = { ...profile(process.env, "delphi").network.external.perpme, fromBlock: BigInt(profile(process.env, "delphi").network.external.perpme.fromBlock) };
 
 /** Every PerpMe contract: infrastructure, never a holder or a trader. Every PerpMe pool is added on top. */
 export const PERPME_CONTRACTS: readonly Address[] = [
@@ -49,7 +33,7 @@ export const PERPME_CONTRACTS: readonly Address[] = [
   PERPME.multicall3,
   PERPME.oldLaunchFactory,
   PERPME.oldLocker,
-].map((a) => getAddress(a));
+].filter((a): a is Address => !!a).map((a) => getAddress(a));
 
 /**
  * What PerpMe coins are priced in on the current factory (checked on all 1,530 launches): its own WHYPE,
@@ -58,7 +42,7 @@ export const PERPME_CONTRACTS: readonly Address[] = [
  * must not make it a Kalos coin either (add PERPME_BASE_TOKENS to kalos.ts coinsOf's base list when merging).
  * KALOS stays a coin on Kalos.
  */
-export const PERPME_QUOTES: readonly Address[] = [getAddress(PERPME.whype), "0x7D29d8047B905000459c0E80c34a26CeedcB47b2", "0x8a2201953AF29e8BE7700bcB53dA3ce5caD18726"];
+export const PERPME_QUOTES: readonly Address[] = profile(process.env, "delphi").network.perpmeQuotes as Address[];
 export const PERPME_BASE_TOKENS: readonly Address[] = [getAddress(PERPME.whype)];
 
 /**

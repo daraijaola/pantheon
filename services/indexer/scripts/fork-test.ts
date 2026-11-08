@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // End-to-end test of the indexer on a local fork of Elysium (never the real chain). Run by hand:
 //   anvil --host 127.0.0.1 --port 8547 --fork-url https://testnet-rpc.elysium.kinetiq.xyz --compute-units-per-second 40
 //   node scripts/fork-test.ts [http://127.0.0.1:8547]
@@ -18,7 +19,7 @@ if (!/^http:\/\/(127\.0\.0\.1|localhost):/.test(FORK)) throw new Error("fork-tes
 const cfg = { ...loadConfig({ ...process.env, ELYSIUM_RPC: FORK }), stateFile: join(mkdtempSync(join(tmpdir(), "indexer-fork-")), "index.json") };
 const d = cfg.deployment;
 const client = makeClient(FORK);
-const chain = { id: 99_801, name: "fork", nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 }, rpcUrls: { default: { http: [FORK] } } } as const;
+const chain = { id: profile().chainId, name: "fork", nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 }, rpcUrls: { default: { http: [FORK] } } } as const;
 // A fresh fork fetches contract storage from the public RPC on first use (rate-limited): be patient.
 const test = createTestClient({ mode: "anvil", chain, transport: http(FORK, { timeout: 300_000 }) });
 const TRADER: Address = "0x000000000000000000000000000000000000ac1d";

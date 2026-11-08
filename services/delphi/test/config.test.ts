@@ -21,11 +21,11 @@ describe("loadConfig", () => {
     expect(c.explorerWeb).toBe("https://x.test/explorer");
   });
 
-  it("picks the rule profile from the chain settings, unless told", () => {
+  it("selects the manifest explicitly, never inferring a mainnet switch from RPC text", () => {
     expect(loadConfig({}).network).toBe("testnet");
     const main = { ELYSIUM_RPC: "https://rpc.elysium.test", EXPLORER_WEB: "https://elysium.test/explorer" };
-    expect(loadConfig(main).network).toBe("mainnet");
-    expect(loadConfig({ NETWORK: "mainnet" }).network).toBe("mainnet");
+    expect(loadConfig(main).network).toBe("testnet");
+    expect(() => loadConfig({ NETWORK: "mainnet" })).toThrow(/missing required fields/);
     expect(loadConfig({ ...main, NETWORK: "testnet" }).network).toBe("testnet");
     expect(() => loadConfig({ NETWORK: "devnet" })).toThrow(/NETWORK/);
   });

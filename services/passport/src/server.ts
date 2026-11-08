@@ -1,5 +1,6 @@
 // Entry point: node --env-file-if-exists=.env src/server.ts   (npm start)
 // Wires config, keys, clients, storage and the API, and listens on 127.0.0.1 only.
+import { assertRpcChain } from "../../network.mts";
 import { loadAttestor, loadPepper } from "./attest.ts";
 import { loadConfig } from "./config.ts";
 import { openDatabase, PassportStore, SqliteChallengeStore } from "./db.ts";
@@ -14,6 +15,7 @@ import { PassportService } from "./service.ts";
 import { createPreflightReader, preflight, PreflightError } from "./preflight.ts";
 
 const config = loadConfig();
+await assertRpcChain(createElysiumClient(config));
 if (!config.registryAddress) {
   console.error("REGISTRY_ADDRESS is not set: deploy HypePassportRegistry first (P9)");
   process.exit(1);

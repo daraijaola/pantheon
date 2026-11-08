@@ -1,3 +1,4 @@
+import { backendEnv, configured, profile, assertDeploymentChain } from "../../network.mts";
 // Keeper settings. Practice mode ("dry") is the default: it simulates everything and sends nothing.
 // Live mode needs a gas-only key file (mode 0600); creating or funding that key needs Micheal's OK.
 import { readFileSync, statSync } from "node:fs";
@@ -12,9 +13,9 @@ const address = z
 const wholeNumber = z.string().trim().regex(/^\d+$/, "must be a whole number").transform(Number);
 
 const EnvSchema = z.object({
-  ELYSIUM_RPC: z.url({ protocol: /^https?$/ }).default("https://testnet-rpc.elysium.kinetiq.xyz"),
+  ELYSIUM_RPC: z.url({ protocol: /^https?$/ }).default(() => profile().network.publicRpc),
   /** The addresses the site uses too (written by the deploy script). */
-  DEPLOYMENT_FILE: z.string().min(1).default("../../deployments/elysium-testnet.json"),
+  DEPLOYMENT_FILE: z.string().min(1).default(() => backendEnv({}, "keeper").DEPLOYMENT_FILE!),
   PASSPORT_API: z.url({ protocol: /^https?$/ }).default("http://127.0.0.1:8787"),
   KEEPER_MODE: z.enum(["dry", "live"]).default("dry"),
   KEEPER_KEY_FILE: z.string().min(1).default("/var/lib/keeper/keys/keeper.key"),
@@ -26,12 +27,12 @@ const EnvSchema = z.object({
   /** Most accounts in one poke transaction (~450k gas each on Oct 22; a heavier batch is split anyway). */
   POKE_BATCH: wholeNumber.pipe(z.number().min(1).max(200)).default(20),
   /** First block to look for stakers in (just before the Oct 14 deployment). */
-  FROM_BLOCK: wholeNumber.default(9_127_000),
+  FROM_BLOCK: wholeNumber.default(() => profile().network.deployedFrom),
   STATE_FILE: z.string().min(1).default("data/state.json"),
 });
 
 const DeploymentSchema = z.object({
-  chainId: z.literal(99_801),
+  chainId: z.number().int().positive(),
   pnth: address,
   pnthRouter: address,
   indexVault: address,
@@ -64,6 +65,7 @@ export class ConfigError extends Error {
 const issues = (e: z.ZodError) => e.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("\n  ");
 
 export function loadConfig(env: Record<string, string | undefined> = process.env, readFile = (p: string) => readFileSync(p, "utf8")): Config {
+  try { env = backendEnv(env, "keeper"); } catch (error) { throw new ConfigError((error as Error).message); }
   const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v !== ""));
   const parsed = EnvSchema.safeParse(cleaned);
   if (!parsed.success) throw new ConfigError(`invalid keeper config:\n  ${issues(parsed.error)}`);
@@ -75,10 +77,11 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   } catch (err) {
     throw new ConfigError(`cannot read DEPLOYMENT_FILE ${e.DEPLOYMENT_FILE}: ${(err as Error).message}`);
   }
+  try { assertDeploymentChain(env, raw); } catch (error) { throw new ConfigError((error as Error).message); }
   const deployment = DeploymentSchema.safeParse(raw);
   if (!deployment.success) throw new ConfigError(`bad deployment file ${e.DEPLOYMENT_FILE}:\n  ${issues(deployment.error)}`);
 
-  return Object.freeze({
+  return configured(env, "keeper", {
     rpc: e.ELYSIUM_RPC,
     passportApi: e.PASSPORT_API.replace(/\/$/, ""),
     mode: e.KEEPER_MODE,

@@ -1,6 +1,7 @@
 // Entry point: node --env-file-if-exists=.env src/main.ts   (npm start)
 // One keeper round every INTERVAL_SEC, never two at once. Each round is one JSON line on stdout.
 // Practice mode (the default) never loads a key and never sends anything.
+import { assertRpcChain } from "../../network.mts";
 import { createWalletClient, http, type Address, type WalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { elysium, makeClient, politeFetch } from "./chain.ts";
@@ -10,6 +11,7 @@ import { loadState, saveState } from "./state.ts";
 
 const cfg = loadConfig();
 const client = makeClient(cfg.rpc);
+await assertRpcChain(client);
 let wallet: WalletClient | undefined;
 let sender: Address | undefined;
 if (cfg.mode === "live") {

@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // Reads Elysium over plain JSON-RPC: Ascend launches, swaps and token transfers (cached, resumable),
 // plus who sent each transaction, block times, what kind of thing an address is, and coin names.
 import {
@@ -118,8 +119,8 @@ export function politeFetch(opts: {
 
 export function makeClient(rpc: string, onWait?: (ms: number, methods: string) => void): PublicClient {
   const chain = defineChain({
-    id: 99_801,
-    name: "Elysium testnet",
+    id: profile().chainId,
+    name: profile().network.name,
     nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
   });

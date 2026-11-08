@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // End-to-end rehearsal of a Trials round on a local fork of Elysium (never the real chain). Run by hand:
 //   anvil --host 127.0.0.1 --port 8547 --fork-url https://testnet-rpc.elysium.kinetiq.xyz --compute-units-per-second 40
 //   node scripts/fork-trials.ts out/trials/round-2.json [http://127.0.0.1:8547]
@@ -20,7 +21,7 @@ const TRADER: Address = "0x000000000000000000000000000000000000ac1d";
 const SWAPPER: Address = "0x31A67d054D34Ec18cb23A43B0E3ad1F756aA1500";
 const PM: Address = "0x12E84206cB53aE0df055482ebc4658635096E1aA";
 
-const chain = { id: 99_801, name: "fork", nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 }, rpcUrls: { default: { http: [FORK] } } } as const;
+const chain = { id: profile().chainId, name: "fork", nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 }, rpcUrls: { default: { http: [FORK] } } } as const;
 const client = makeClient(FORK);
 const test = createTestClient({ mode: "anvil", chain, transport: http(FORK, { timeout: 300_000 }) });
 const abi = parseAbi([

@@ -23,8 +23,49 @@
       "whype": null,
       "multicall3": null,
       "ascendLaunchpad": null,
-      "ascendRouter": null
+      "ascendRouter": null,
+      "kalos": {
+        "api": null,
+        "factory": null,
+        "factoryBlock": null,
+        "positionManager": null,
+        "whype": null,
+        "contracts": null,
+        "pinned": {
+          "factory": null,
+          "positionManager": null,
+          "swapRouter": null,
+          "quoterV2": null,
+          "whype": null
+        }
+      },
+      "perpme": {
+        "launchFactory": null,
+        "poolFactory": null,
+        "positionManager": null,
+        "router": null,
+        "quoter": null,
+        "whype": null,
+        "fromBlock": null,
+        "locker": null,
+        "coinDeployer": null,
+        "multicall3": null,
+        "oldLaunchFactory": null,
+        "oldLocker": null,
+        "api": null,
+        "indexer": null
+      }
     },
-    "acquireUrl": null
+    "acquireUrl": null,
+    "explorerApi": null,
+    "archiveRpc": null,
+    "creationExplorer": null,
+    "ascendFromBlock": null,
+    "knownHubs": null,
+    "baseTokens": null,
+    "perpmeQuotes": null,
+    "knownContracts": null,
+    "knownAddresses": null,
+    "genericAddresses": null
   }
 }

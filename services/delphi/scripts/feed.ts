@@ -1,3 +1,4 @@
+import { assertRpcChain, backendEnv, configured } from "../../network.mts";
 // Runs DELPHI's live feed server (src/live/server.ts) on 127.0.0.1, for Caddy to put on
 // pantheonindex.com/api/delphi/. Read-only, except that disputes are stored for a person to answer.
 //   node scripts/feed.ts                 serve FEED_DB (default data/feed.db) on 127.0.0.1:${PORT:-3310}
@@ -14,6 +15,9 @@ import { fakeRecord } from "../src/live/fake.ts";
 import { appendDisputeLog, createFeedServer, verifyPlainWallet, type FeedLogEvent, type VerifySigner } from "../src/live/server.ts";
 import { FeedStore } from "../src/live/store.ts";
 
+Object.assign(process.env, backendEnv(process.env, "feed"));
+
+configured(process.env, "feed", {});
 const args = process.argv.slice(2);
 const seedArg = args.includes("--seed") ? args[args.indexOf("--seed") + 1] : undefined;
 if (args.includes("--seed") && !/^\d{1,6}$/.test(seedArg ?? "")) {
@@ -63,6 +67,7 @@ summary.unref();
 
 const disputeRpc = process.env.DISPUTE_RPC;
 const chain = disputeRpc ? createPublicClient({ transport: http(disputeRpc, { timeout: 5_000, retryCount: 0 }) }) : null;
+if (chain) await assertRpcChain(chain);
 // A node that fails is an error on our side (500), never a "bad signature"; viem falls back to plain wallets by itself.
 const verifySigner: VerifySigner = chain ? (a) => chain.verifyMessage(a) : verifyPlainWallet;
 if (chain) say("signed disputes: smart wallets are checked on chain too");

@@ -1,11 +1,12 @@
+import { profile } from "../../network.mts";
 // Batched JSON-RPC for archive reads and dry runs. Public endpoints meter individual calls,
 // including calls inside batches; keep requests small and pace them across readers.
 // Read-only: only read methods are ever sent.
 import { z } from "zod";
 
 /** Explorer gateway; now denies eth_getLogs and debug_traceBlockByNumber (2026-11-06). */
-export const EXPLORER_RPC = "https://test-explorer.elysium.kinetiq.xyz/rpc";
-export const PUBLIC_RPC = "https://testnet-rpc.elysium.kinetiq.xyz";
+export const EXPLORER_RPC = profile(process.env, "delphi").network.archiveRpc;
+export const PUBLIC_RPC = profile(process.env, "delphi").network.publicRpc;
 export const heavyRpcUrl = () => process.env.DELPHI_HEAVY_RPC || process.env.ELYSIUM_RPC || PUBLIC_RPC;
 
 export function rpcSetting(name: string, fallback: number, min = 1, max = 1_000): number {

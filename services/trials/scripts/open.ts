@@ -1,3 +1,4 @@
+import { backendEnv, statePath, assertDeploymentChain } from "../../network.mts";
 // Opens a Trials vote: writes deployments/trials/round-N.vote.json from DELPHI's latest data. Commit the
 // file and the vote is live (the service re-reads the folder on every request).
 //   node scripts/open.ts --round 6 --hours 46 [--opens 2026-10-15T12:00:00Z] [--seats 3] [--coins 10]
@@ -9,20 +10,22 @@
 // (the best ranks), so whenever there are more candidates than --coins, the vote decides --seats coins of
 // its own. A stake gives its vote only if it holds --min-stake PNTH and started --min-hold-days before the
 // vote opens, so a stake can't vote, move to a new wallet during the vote and vote again.
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { getAddress } from "viem";
 import { RoundDef } from "../src/round.ts";
 
 const args = process.argv.slice(2);
 const opt = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
-const DELPHI_OUT = resolve(opt("--delphi") ?? "../delphi/out");
-const OUT_DIR = resolve(opt("--out") ?? "../../deployments/trials");
-const deployment = JSON.parse(readFileSync(resolve(opt("--deployment") ?? "../../deployments/elysium-testnet.json"), "utf8")) as {
+const DELPHI_OUT = resolve(statePath(opt("--delphi") ?? "../delphi/out", process.env, true));
+const OUT_DIR = resolve(statePath(opt("--out") ?? "../../deployments/trials", process.env, true));
+mkdirSync(OUT_DIR, { recursive: true });
+const deployment = JSON.parse(readFileSync(resolve(opt("--deployment") ?? backendEnv(process.env, "trials").DEPLOYMENT_FILE!), "utf8")) as {
   chainId: number;
   pnth: string;
 };
 
+assertDeploymentChain(process.env, deployment);
 const round = Number(opt("--round"));
 const hours = Number(opt("--hours") ?? 46);
 const seats = Number(opt("--seats") ?? 3);

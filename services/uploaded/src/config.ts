@@ -1,3 +1,4 @@
+import { backendEnv, configured, profile, assertDeploymentChain } from "../../network.mts";
 // Settings. Read-only: no keys, nothing to sign. A wrong value stops it at start.
 import { readFileSync } from "node:fs";
 import { z } from "zod";
@@ -11,10 +12,10 @@ const DeploymentSchema = z.object({ staking: address, passportRegistry: address,
 const EnvSchema = z.object({
   /** 8787 Passport, 8789 indexer, 8790 Trials, 3310 DELPHI feed. */
   PORT: wholeNumber.pipe(z.number().min(1024).max(65_535)).default(8791),
-  ELYSIUM_RPC: z.url({ protocol: /^https?$/ }).default("https://testnet-rpc.elysium.kinetiq.xyz"),
+  ELYSIUM_RPC: z.url({ protocol: /^https?$/ }).default(() => profile().network.publicRpc),
   /** A node that keeps old blocks and takes batches: the explorer's, as DELPHI uses for heavy reads. */
-  ARCHIVE_RPC: z.url({ protocol: /^https?$/ }).default("https://test-explorer.elysium.kinetiq.xyz/rpc"),
-  DEPLOYMENT_FILE: z.string().min(1).default("../../deployments/elysium-testnet.json"),
+  ARCHIVE_RPC: z.url({ protocol: /^https?$/ }).default(() => profile().network.archiveRpc),
+  DEPLOYMENT_FILE: z.string().min(1).default(() => backendEnv({}, "uploaded").DEPLOYMENT_FILE!),
   /** The Trials service on this machine: who voted in each round. */
   TRIALS_URL: z.url({ protocol: /^https?$/ }).default("http://127.0.0.1:8790"),
   /** The indexer on this machine: the basket's buys and every claim. */
@@ -59,15 +60,18 @@ export class ConfigError extends Error {
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env, readFile = (p: string) => readFileSync(p, "utf8")): Config {
+  try { env = backendEnv(env, "uploaded"); } catch (error) { throw new ConfigError((error as Error).message); }
   const set = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v !== ""));
   const p = EnvSchema.safeParse(set);
   if (!p.success) throw new ConfigError(`invalid settings:\n  ${p.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("\n  ")}`);
   const e = p.data;
   let deployment: Config["deployment"];
   try {
-    deployment = DeploymentSchema.parse(JSON.parse(readFile(e.DEPLOYMENT_FILE)));
+    const raw = JSON.parse(readFile(e.DEPLOYMENT_FILE));
+    assertDeploymentChain(env, raw);
+    deployment = DeploymentSchema.parse(raw);
   } catch (err) {
     throw new ConfigError(`can't use ${e.DEPLOYMENT_FILE}: ${(err as Error).message.split("\n")[0]}`);
   }
-  return Object.freeze({ port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, deployment, indexerUrl: e.INDEXER_URL, trialsUrl: e.TRIALS_URL, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", elsewhereReads: e.ELSEWHERE_READS === "on", freshGapSec: e.FRESH_GAP_SEC, guardReadSec: e.GUARD_READ_SEC, guardFile: e.GUARD_FILE });
+  return configured(env, "uploaded", { port: e.PORT, rpc: e.ELYSIUM_RPC, archiveRpc: e.ARCHIVE_RPC, deployment, indexerUrl: e.INDEXER_URL, trialsUrl: e.TRIALS_URL, scanFile: e.SCAN_FILE, refreshSec: e.REFRESH_SEC, delphiDir: e.DELPHI_DIR, freshReads: e.FRESH_READS === "on", elsewhereReads: e.ELSEWHERE_READS === "on", freshGapSec: e.FRESH_GAP_SEC, guardReadSec: e.GUARD_READ_SEC, guardFile: e.GUARD_FILE });
 }

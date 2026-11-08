@@ -2,7 +2,7 @@
 // and (when different) the Elysium wallet over the SAME Link message, rebuilt server-side.
 import { randomBytes } from "node:crypto";
 import { encodePacked, getAddress, isAddress, isHex, keccak256, verifyTypedData, zeroAddress, type Address, type Hex } from "viem";
-import { ELYSIUM_TESTNET_CHAIN_ID, TIMING } from "./config.ts";
+import { ELYSIUM_CHAIN_ID, TIMING } from "./config.ts";
 import type { ChallengeStore } from "./db.ts";
 import { LINK_PURPOSE, linkTypedData, passportDomain, passportTypes, type LinkMessage } from "./eip712.ts";
 import type { HlClient } from "./hl/client.ts";
@@ -102,7 +102,7 @@ function message(deps: LinkDeps, hl: Address, elysium: Address, nonce: Hex, dead
     elysiumAccount: elysium,
     nonce,
     deadline,
-    chainId: deps.chainId ?? ELYSIUM_TESTNET_CHAIN_ID,
+    chainId: deps.chainId ?? ELYSIUM_CHAIN_ID,
   };
 }
 

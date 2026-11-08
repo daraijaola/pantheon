@@ -36,12 +36,13 @@ describe("scanner report publisher", () => {
     expect(records[3]!.state).toBe("thin");
   });
 
-  it("maps Ascend and mainnet explicitly, and caps hostile text", () => {
+  it("maps Ascend on the selected chain, caps hostile text and rejects other networks", () => {
     const r = structuredClone(reports[0]);
     delete r.coin.market;
     r.coin.name = "\u001b" + "N".repeat(100);
-    const record = reportRecord(r, { ...meta, network: "mainnet" }, "https://example.com");
-    expect(record).toMatchObject({ venue: "ascend", chainId: 99901, name: " " + "N".repeat(39) });
+    expect(() => reportRecord(r, { ...meta, network: "mainnet" }, "https://example.com")).toThrow(/network does not match/);
+    const record = reportRecord(r, meta, "https://example.com");
+    expect(record).toMatchObject({ venue: "ascend", chainId: 99801, name: " " + "N".repeat(39) });
     expect(record.disputeUrl).toBe(`https://example.com/delphi/dispute?token=${record.token}`);
   });
 
@@ -79,6 +80,7 @@ describe("scanner report publisher", () => {
     expect(s.get(tokens[0]!)).toBeNull();
     expect(() => publishScan({ reports }, s)).toThrow();
     expect(() => publishScan({ ...meta, network: "unknown", reports }, s)).toThrow();
+    expect(() => publishScan({ ...meta, network: "mainnet", reports }, s)).toThrow(/network does not match/);
     expect(() => reportRecord(reports[0], { ...meta, head: "1" })).toThrow();
     expect(() => reportRecord(reports[0], { ...meta, generatedAt: "2026-11-01T00:00:00.000Z" })).toThrow();
   });

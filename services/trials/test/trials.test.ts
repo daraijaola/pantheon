@@ -15,6 +15,8 @@ describe("round files", () => {
     writeFileSync(join(dir, "round-3.vote.json"), JSON.stringify(round()));
     writeFileSync(join(dir, "round-1.json"), "{}"); // a proposal file, not a vote: ignored
     expect(loadRounds(dir).map((r) => r.round)).toEqual([3]);
+    expect(loadRounds(dir, CHAIN).map((r) => r.round)).toEqual([3]);
+    expect(() => loadRounds(dir, CHAIN + 1)).toThrow(/chainId mismatch/);
     writeFileSync(join(dir, "round-4.vote.json"), JSON.stringify(round()));
     expect(() => loadRounds(dir)).toThrow(/says it is round 3/);
     const twice = round({ round: 4 });

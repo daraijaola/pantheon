@@ -1,3 +1,4 @@
+import { profile } from "../../../network.mts";
 // Any address, not only a wallet on one coin (feature "wallet"): "@heyDelph check 0x…". From the chain:
 // what kind of address it is (wallet, contract or pool), its HYPE and how many transactions it sent.
 // From the funding lookup: who first funded it, and when. From DELPHI's coins: the coins it created,
@@ -177,7 +178,7 @@ export async function walletProfileAny(
     coinsTradedOrHeld: cap(traded),
     linkedGroups: cap(groups),
     ...(paidFor.length ? { fundedLinkedWalletsOn: cap(paidFor) } : {}),
-    network: "Elysium testnet: HYPE here is test money",
+    network: profile().network.testnet ? "Elysium testnet: HYPE here is test money" : profile().network.name,
     note: "Coins are the ones DELPHI reads (every Ascend launch). A wallet can use fresh wallets for each coin, so none found doesn't prove a first time.",
   };
 }

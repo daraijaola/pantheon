@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // A wallet's voting record, and whether it can vote now. The vote itself still goes through the Trials
 // service's existing signed ballot, which already refuses more picks than seats. For each round: the coins
 // this wallet picked, whether each took a seat, whether it's in the basket now, DELPHI's verdict now, and
@@ -171,7 +172,7 @@ export class RecordReader {
     const picks = rounds.flatMap((r) => r.picks);
     return {
       wallet: w,
-      network: network ?? "testnet",
+      network: network ?? (profile().network.testnet ? "testnet" : "mainnet"),
       readAt: new Date(this.#now()).toISOString(),
       rounds,
       totals: { rounds: rounds.length, picks: picks.length, seatsWon: picks.filter((p) => p.wonSeat).length },

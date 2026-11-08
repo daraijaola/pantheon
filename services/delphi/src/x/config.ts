@@ -1,3 +1,4 @@
+import { backendEnv, configured } from "../../../network.mts";
 // DELPHI-on-X settings. Keys live in files only the service user can read, outside the repo, and are
 // never logged. Everything else has a safe default: she starts in shadow mode (drafts only).
 import { readFileSync, statSync } from "node:fs";
@@ -70,12 +71,13 @@ export class XConfigError extends Error {
 }
 
 export function loadXConfig(env: Record<string, string | undefined> = process.env): XConfig {
+  env = backendEnv(env, "x");
   const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v !== ""));
   const p = Env.safeParse(cleaned);
   if (!p.success) throw new XConfigError(`invalid X config:\n  ${p.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("\n  ")}`);
   const e = p.data;
   const allow = e.X_ALLOW.split(",").map((s) => s.trim().replace(/^@/, "").toLowerCase()).filter(Boolean);
-  return Object.freeze({
+  return configured(env, "x", {
     mode: e.X_MODE,
     handle: e.X_HANDLE,
     keysFile: e.X_KEYS_FILE,

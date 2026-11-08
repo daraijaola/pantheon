@@ -3,7 +3,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { hashTypedData, isAddress, isHex, zeroAddress, type Address, type Hex, type LocalAccount } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { ELYSIUM_TESTNET_CHAIN_ID, STAMP_MASK, TIMING } from "./config.ts";
+import { ELYSIUM_CHAIN_ID, STAMP_MASK, TIMING } from "./config.ts";
 import { passportDomain, passportTypes } from "./eip712.ts";
 
 /** Plain numbers (all fit in 2^53) so it serialises to JSON for the API and the DB. */
@@ -28,7 +28,7 @@ export type AttestationInput = {
 };
 
 /** issuedAt = now (or last + 1), expiry = issuedAt + 7 d, deadline = now + 1 h, chain 99801 (§13 P5). */
-export function buildAttestation(input: AttestationInput, nowSec: number, chainId = ELYSIUM_TESTNET_CHAIN_ID): Attestation {
+export function buildAttestation(input: AttestationInput, nowSec: number, chainId = ELYSIUM_CHAIN_ID): Attestation {
   if (!isAddress(input.account, { strict: false }) || input.account.toLowerCase() === zeroAddress) {
     throw new RangeError("account must be a non-zero address");
   }
