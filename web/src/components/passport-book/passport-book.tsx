@@ -2,7 +2,7 @@
 
 // Your Passport: the HYPE Passport as a floating card with a liquid-glass lens riding on it, and its
 // second page, the stamps, each pressed in under a bubble of the same glass. Everything shown is read
-// from the registry on Elysium for the connected wallet; with no passport it shows a labelled example.
+// from the registry on Elysium. Disconnected wallets get a labelled preview.
 
 import Link from "next/link";
 import { ConnectWallet } from "@/components/app/connect-wallet";
@@ -18,51 +18,44 @@ import a from "@/components/app/app.module.css";
 import { createCard, type Layout } from "./card";
 import { createStamps } from "./stamps";
 import { loadFonts, readFonts, type FinishName } from "./draw";
-import { EXAMPLE, TIER_NAMES, dmy, stampNames, type PassportView } from "./view";
+import { EXAMPLE, TIER_NAMES, dmy, extraVotes, registryView, type PassportView } from "./view";
+import { PassportShare } from "./share";
 import s from "./passport-book.module.css";
 
-export function PassportBook() {
-  return deployment ? <Live d={deployment} /> : <Book view={null} note="PANTHEON isn’t live on testnet yet, so this is an example passport." />;
+export function PassportBook({ publicAddress }: { publicAddress?: Hex }) {
+  return deployment ? <Live d={deployment} publicAddress={publicAddress} /> : <State title="Passport unavailable" note="PANTHEON isn’t live on this network yet." />;
 }
 
-function Live({ d }: { d: Deployment }) {
+function Live({ d, publicAddress }: { d: Deployment; publicAddress?: Hex }) {
   const { address, isConnected, chainId } = useHydratedConnection();
-  const onChain = isConnected && chainId === elysium.id;
-  const me = (address ?? zeroAddress) as Hex;
+  const onChain = !!publicAddress || (isConnected && chainId === elysium.id);
+  const me = (publicAddress ?? address ?? zeroAddress) as Hex;
   const chain = useReadContracts({
+    chainId: elysium.id,
     contracts: [
       { address: d.passportRegistry, abi: hypePassportRegistryAbi, functionName: "passportOf", args: [me] },
       { address: d.passportRegistry, abi: hypePassportRegistryAbi, functionName: "isValid", args: [me] },
       { address: d.passportRegistry, abi: hypePassportRegistryAbi, functionName: "multiplierOf", args: [me] },
     ],
-    query: { enabled: onChain, refetchInterval: 30_000 },
+    query: { enabled: onChain, refetchInterval: 30_000, retry: 1 },
   });
-  const p = chain.data?.[0].result;
-  const valid = chain.data?.[1].result ?? false;
-  const mult = chain.data?.[2].result;
+  const p = chain.data?.[0]?.result;
+  const valid = chain.data?.[1]?.result;
+  const mult = chain.data?.[2]?.result;
   const view = useMemo<PassportView | null>(() => {
-    if (!onChain || !valid || !p || p.tier === 0) return null;
-    return {
-      wallet: me.toLowerCase(),
-      tier: p.tier,
-      issued: new Date(Number(p.issuedAt) * 1000),
-      valid: new Date(Number(p.expiry) * 1000),
-      linked: new Date(Number(p.linkedAt) * 1000),
-      stamps: stampNames(p.stamps),
-      boost: `${(Number(mult ?? 10n ** 18n) / 1e18).toFixed(2)}×`,
-      example: false,
-    };
+    if (!onChain || !p || valid === undefined || mult === undefined) return null;
+    return registryView(me, p, valid, mult);
   }, [onChain, valid, p, me, mult]);
-  const note = !isConnected
-    ? "Connect your Elysium wallet to see your passport. Until then, this is an example."
-    : !onChain
-      ? "Switch to Elysium testnet to see your passport. Until then, this is an example."
-      : chain.isPending
-        ? "Reading your passport…"
-        : view
-          ? null
-          : "This wallet has no passport yet, so this is an example.";
-  return <Book view={view} note={note} getOne={onChain && !chain.isPending && !view} />;
+  if (!publicAddress && !isConnected) return <Book key="example" view={null} note="Connect your Elysium wallet to see your passport. This is a labelled example, not your data." />;
+  if (!onChain) return <State title="Switch to Elysium" note="Your Passport lives on Elysium testnet."><ConnectWallet /></State>;
+  if (chain.isPending) return <State title="Reading your passport…" note="Checking the public registry." />;
+  if (chain.isError || chain.data?.some(r => r.status === "failure") || !p || valid === undefined || mult === undefined) return <State title="Couldn't read your passport" note="The registry is unavailable. This does not mean you have no passport."><button type="button" className={s.action} onClick={() => void chain.refetch()}>Retry</button></State>;
+  if (!view) return <State title="No passport yet" note={`${me.slice(0, 6)}…${me.slice(-4)} has no Passport in the public registry.`}><Link className={s.action} href="/passport/get">Get your Passport</Link><PassportShare wallet={me} /></State>;
+  return <Book key={me} view={view} note={view.status === "Expired" ? `Expired on ${dmy(view.valid)}. Your recorded tier and stamps remain visible; boosts and extra votes are inactive.` : view.status === "Inactive" ? "This registry record is inactive. Boosts and extra votes are inactive." : null} publicPage={!!publicAddress} />;
+}
+
+function State({ title, note, children }: { title: string; note: string; children?: React.ReactNode }) {
+  return <main className={a.page}><header className={a.head}><div><p className={a.eyebrow}>App · Elysium testnet</p><h1 className={a.h1}>HYPE Passport</h1></div></header><section className={s.state}><h2>{title}</h2><p>{note}</p><div className={s.actions}>{children}</div></section></main>;
 }
 
 const FINISHES: FinishName[] = ["ink", "paper"];
@@ -77,7 +70,7 @@ function layoutFor(width: number, screenH: number, dpr: number): Layout {
   return { tall, W, s: W / LW, dpr: Math.min(dpr || 1, 3) };
 }
 
-function Book({ view, note, getOne = false }: { view: PassportView | null; note: string | null; getOne?: boolean }) {
+function Book({ view, note, publicPage = false }: { view: PassportView | null; note: string | null; publicPage?: boolean }) {
   const shown = view ?? EXAMPLE;
   const [finish, setFinish] = useState<FinishName>("ink");
   const wrap = useRef<HTMLDivElement>(null);
@@ -154,7 +147,7 @@ function Book({ view, note, getOne = false }: { view: PassportView | null; note:
   }, []);
 
   const tierName = TIER_NAMES[shown.tier] ?? "";
-  const cardLabel = `${shown.example ? "Example HYPE Passport" : "Your HYPE Passport"}: tier ${shown.tier}, ${tierName}. Staking boost ${shown.boost}, ${shown.tier} extra Trials ${shown.tier === 1 ? "vote" : "votes"}. Valid until ${dmy(shown.valid)}.`;
+  const cardLabel = `${shown.example ? "Example HYPE Passport" : "HYPE Passport"}: tier ${shown.tier}, ${tierName}. Staking boost ${shown.boost}, ${extraVotes(shown)} extra Trials votes. ${shown.status ?? "Example"}. Expires ${dmy(shown.valid)}.`;
   const onSegKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
     e.preventDefault();
@@ -168,8 +161,8 @@ function Book({ view, note, getOne = false }: { view: PassportView | null; note:
       <header className={a.head}>
         <div>
           <p className={a.eyebrow}>App · Elysium testnet</p>
-          <h1 className={a.h1}>Your Passport</h1>
-          <p className={a.sub}>Your HYPE Passport and the stamps it carries, read from the chain. Only your tier and stamps are on it, never your Hyperliquid address or balance.</p>
+          <h1 className={a.h1}>{publicPage ? "HYPE Passport" : "Your Passport"}</h1>
+          <p className={a.sub}>Public Elysium registry facts. Never your Hyperliquid address or balances.</p>
         </div>
       </header>
 
@@ -177,16 +170,12 @@ function Book({ view, note, getOne = false }: { view: PassportView | null; note:
         {note && (
           <p className={s.note} aria-live="polite">
             {note}
-            {getOne && (
-              <>
-                {" "}
-                <Link href="/passport/get">Get your passport</Link>
-              </>
-            )}
+            {view?.status === "Expired" && <> <Link href="/passport/get">Refresh passport</Link></>}
           </p>
         )}
-        <ConnectWallet />
-        <p className={s.eyebrow}>PANTHEON · {shown.example ? "Example passport" : "Your passport"}</p>
+        {!publicPage && <ConnectWallet />}
+        {view && <div className={s.actions}><PassportShare wallet={view.wallet} view={view} /></div>}
+        <p className={s.eyebrow}>PANTHEON · {shown.example ? "Example passport · preview only" : "Public registry record"}</p>
         <div ref={scene} className={s.scene}>
           <div ref={floor} className={s.floor} />
           <div ref={card} className={s.card} tabIndex={0} role="img" aria-label={cardLabel}>
@@ -207,6 +196,9 @@ function Book({ view, note, getOne = false }: { view: PassportView | null; note:
             ))}
           </div>
         </div>
+        {view && <dl className={s.facts} aria-label="Passport facts">
+          {[["Tier", `${tierName}${view.status !== "Valid" ? " (recorded)" : ""}`], ["Staking boost", view.boost], ["Extra Trials votes", `+${extraVotes(view)}`], ["Stamps earned", `${view.stamps.length}/8`], ["Issued", dmy(view.issued)], ["Expires", dmy(view.valid)], ["Linked", dmy(view.linked)], ["Status", view.status ?? "Valid"], ["Elysium wallet", view.wallet]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+        </dl>}
         <section ref={stamps} className={s.stamps} aria-labelledby="passport-stamps">
           <h2 className={s.sr} id="passport-stamps">
             Stamps: {shown.stamps.length} of 8

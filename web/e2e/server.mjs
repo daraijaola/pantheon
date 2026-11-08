@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { rpc } from './fixtures/rpc.mjs';
 import { basket, site, stats, trials } from './fixtures/data.mjs';
 import { uploaded } from './fixtures/uploaded.mjs';
+import { passportRpc } from './fixtures/passport.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const service = 'http://127.0.0.1:4174';
@@ -25,11 +26,12 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, service);
   try {
     let body;
-    if (url.pathname === '/rpc') {
+    if (url.pathname === '/rpc' || url.pathname === '/passport-rpc') {
       let text = '';
       for await (const chunk of req) text += chunk;
       const data = JSON.parse(text);
-      body = Array.isArray(data) ? await Promise.all(data.map(rpc)) : await rpc(data);
+      const read = url.pathname === '/passport-rpc' ? passportRpc : rpc;
+      body = Array.isArray(data) ? await Promise.all(data.map(call => read(call))) : await read(data);
     } else if (url.pathname === '/__unexpected') body = unexpected;
     else if (url.pathname === '/__denied') body = denied;
     else if (url.pathname === '/health') body = { ...stats, newestUpdateMs: 1794000000000 };
@@ -76,6 +78,7 @@ const env = {
   ANTHROPIC_API_KEY: '', XAI_API_KEY: '',
   SESSION_SECRET: 'e2e-only-session-secret-not-for-deployment', AUTH_ORIGIN: 'http://127.0.0.1:4173',
   UPLOADED_API: service,
+  ELYSIUM_RPC: `${service}/passport-rpc`,
 };
 let child;
 let secureChild;

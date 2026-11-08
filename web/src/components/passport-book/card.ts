@@ -3,7 +3,7 @@
 // bends what lies past its rim into the glass split into its colours, and stretches like jelly.
 
 import { FINISH, PAGE, clamp, smooth, makeProgram, microtext, rgba, rosette, rrect, spaced, waves, type Finish, type FinishName, type Fonts } from "./draw";
-import { TIER_NAMES, dmy, mrzLines, passportNo, shortWallet, type PassportView } from "./view";
+import { TIER_NAMES, dmy, extraVotes, passportNo, shortWallet, type PassportView } from "./view";
 
 /** Where the page is laid out: wide (760 × 520 design units) or tall (360 × 600), and its scale. */
 export type Layout = { tall: boolean; W: number; s: number; dpr: number };
@@ -197,8 +197,8 @@ function seal({ F, fonts, v }: Ink, ctx: CanvasRenderingContext2D, cx: number, c
   ctx.restore();
 }
 
-function mrz({ F, fonts, v }: Ink, ctx: CanvasRenderingContext2D, x0: number, x1: number, y1: number, y2: number, size: number) {
-  const lines = mrzLines(v);
+function mrz({ F, fonts }: Ink, ctx: CanvasRenderingContext2D, x0: number, x1: number, y1: number, y2: number, size: number) {
+  const lines = ["PUBLIC ELYSIUM REGISTRY RECORD", "DECORATIVE ART · NOT AN ID DOCUMENT"].map(line => line.padEnd(44, " "));
   ctx.font = `500 ${size}px ${fonts.mono}`;
   ctx.fillStyle = rgba(F.fg, 0.86);
   const adv = ctx.measureText("<").width;
@@ -234,7 +234,7 @@ type CardLayout = {
   draw: (ink: Ink, ctx: CanvasRenderingContext2D) => void;
 };
 const WIDE: CardLayout = {
-  W: 760, H: 520, radius: 30, lens: [98, 68], seal: [204, 312, 36],
+  W: 760, H: 520, radius: 30, lens: [59, 41], seal: [204, 312, 36],
   tour: [[350, 262], [138, 196], [156, 74], [600, 150], [590, 350], [330, 447], [204, 312], [330, 186]],
   draw(ink, ctx) {
     const { F, v } = ink;
@@ -251,7 +251,7 @@ const WIDE: CardLayout = {
     portrait(ctx, F, 40, 108, 172, 212, 14);
     seal(ink, ctx, 204, 312, 36);
     const x0 = 260;
-    label(ink, ctx, "PASSPORT NO.", x0, 120);
+    label(ink, ctx, "WALLET SUFFIX", x0, 120);
     value(ink, ctx, passportNo(v), x0, 142, 16, true);
     label(ink, ctx, "TYPE", x0 + 176, 120);
     value(ink, ctx, "P", x0 + 176, 142, 16, true);
@@ -267,12 +267,12 @@ const WIDE: CardLayout = {
     value(ink, ctx, TIER_NAMES[v.tier] ?? "", x0 + tw + 14, 288, 30);
     ctx.font = `500 9px ${ink.fonts.mono}`;
     ctx.fillStyle = rgba(F.fg, F.label);
-    spaced(ctx, `TIER ${v.tier} OF 3 · CHECKED DAILY`, x0 + tw + 16, 262, 1.2);
+    spaced(ctx, `TIER ${v.tier} OF 3 · REGISTRY RECORD`, x0 + tw + 16, 262, 1.2);
     label(ink, ctx, "STAKING BOOST", x0, 322);
     value(ink, ctx, v.boost, x0, 345, 19);
     label(ink, ctx, "TRIALS VOTES", x0 + 150, 322);
-    value(ink, ctx, `+${v.tier}`, x0 + 150, 345, 19);
-    label(ink, ctx, "VALID UNTIL", x0 + 300, 322);
+    value(ink, ctx, `+${extraVotes(v)}`, x0 + 150, 345, 19);
+    label(ink, ctx, "EXPIRES", x0 + 300, 322);
     value(ink, ctx, dmy(v.valid), x0 + 300, 345, 15, true);
     label(ink, ctx, "ISSUED", x0, 370);
     value(ink, ctx, dmy(v.issued), x0, 391, 13, true, 400);
@@ -283,12 +283,12 @@ const WIDE: CardLayout = {
     ctx.beginPath();
     ctx.arc(x0 + 304, 386.5, 3.2, 0, Math.PI * 2);
     ctx.fill();
-    value(ink, ctx, v.example ? "EXAMPLE" : "VALID", x0 + 314, 391, 13, true, 500);
+    value(ink, ctx, v.example ? "EXAMPLE" : (v.status ?? "Valid").toUpperCase(), x0 + 314, 391, 13, true, 500);
     mrz(ink, ctx, 40, 720, 446, 480, 15);
   },
 };
 const TALL: CardLayout = {
-  W: 360, H: 600, radius: 26, lens: [66, 46], seal: [140, 228, 26],
+  W: 360, H: 600, radius: 26, lens: [40, 28], seal: [140, 228, 26],
   tour: [[228, 130], [86, 142], [104, 52], [140, 228], [120, 312], [180, 402], [180, 548]],
   draw(ink, ctx) {
     const { F, v } = ink;
@@ -314,20 +314,20 @@ const TALL: CardLayout = {
     label(ink, ctx, "STAKING BOOST", x0, 184, 8.4);
     value(ink, ctx, v.boost, x0, 204, 17);
     label(ink, ctx, "VOTES", x0 + 92, 184, 8.4);
-    value(ink, ctx, `+${v.tier}`, x0 + 92, 204, 17);
+    value(ink, ctx, `+${extraVotes(v)}`, x0 + 92, 204, 17);
     label(ink, ctx, "STATUS", x0, 226, 8.4);
     ctx.fillStyle = rgba(F.fg, F.text);
     ctx.beginPath();
     ctx.arc(x0 + 3.5, 237.5, 3, 0, Math.PI * 2);
     ctx.fill();
-    value(ink, ctx, v.example ? "EXAMPLE" : "VALID", x0 + 12, 242, 12, true);
-    label(ink, ctx, "PASSPORT NO.", 24, 274, 8.4);
+    value(ink, ctx, v.example ? "EXAMPLE" : (v.status ?? "Valid").toUpperCase(), x0 + 12, 242, 12, true);
+    label(ink, ctx, "WALLET SUFFIX", 24, 274, 8.4);
     value(ink, ctx, passportNo(v), 24, 294, 14, true);
     label(ink, ctx, "ISSUED BY", 196, 274, 8.4);
     value(ink, ctx, "PANTHEON", 196, 294, 14, true);
     label(ink, ctx, "HOLDER · ELYSIUM WALLET", 24, 322, 8.4);
     value(ink, ctx, shortWallet(v), 24, 342, 14, true);
-    label(ink, ctx, "VALID UNTIL", 24, 370, 8.4);
+    label(ink, ctx, "EXPIRES", 24, 370, 8.4);
     value(ink, ctx, dmy(v.valid), 24, 390, 13, true);
     label(ink, ctx, "LINKED SINCE", 196, 370, 8.4);
     value(ink, ctx, dmy(v.linked), 196, 390, 13, true, 400);
@@ -600,14 +600,14 @@ export function createCard(els: CardEls, fonts: Fonts, reduced: boolean) {
       S.y += S.vy * h;
       // shape: stretches with speed and wobbles back when it stops (an underdamped spring)
       const sp = Math.hypot(S.vx, S.vy);
-      const want = reduced ? 0 : Math.min(sp / (2600 * Math.max(s, 0.6)), 0.26);
+      const want = reduced ? 0 : Math.min(sp / (3200 * Math.max(s, 0.6)), 0.12);
       const dirx = sp > 1e-3 ? S.vx / sp : 1, diry = sp > 1e-3 ? S.vy / sp : 0;
       S.svx += (210 * (dirx * want - S.sx) - 9 * S.svx) * h;
       S.svy += (210 * (diry * want - S.sy) - 9 * S.svy) * h;
       S.sx += S.svx * h;
       S.sy += S.svy * h;
       // size: grows when pressed; appears with a little bounce
-      S.vk += (260 * (1 + 0.12 * S.press - S.k) - 15 * S.vk) * h;
+      S.vk += (260 * (1 + 0.05 * S.press - S.k) - 15 * S.vk) * h;
       S.k += S.vk * h;
       S.a += (1 - S.a) * Math.min(1, h * 5);
       // the card leans toward the pointer
@@ -647,7 +647,7 @@ export function createCard(els: CardEls, fonts: Fonts, reduced: boolean) {
     gl.uniform2f(U.uHalf, L.lens[0] * s * S.k, L.lens[1] * s * S.k);
     gl.uniform1f(U.uAngle, ang);
     gl.uniform1f(U.uStretch, st * sign);
-    gl.uniform1f(U.uZoom, 1.2);
+    gl.uniform1f(U.uZoom, 1.15);
     gl.uniform1f(U.uAlpha, S.a);
     gl.uniform1f(U.uDark, F.dark);
     gl.uniform3f(U.uPage, PAGE[0] / 255, PAGE[1] / 255, PAGE[2] / 255);
