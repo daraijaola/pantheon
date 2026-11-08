@@ -124,7 +124,7 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
       live.current.full.set(turn.id, turn.text);
       if (turn.sig) live.current.sigs.set(turn.id, turn.sig);
     }
-    setTurns(chat.turns.map((turn) => ({ ...turn, proofs: new Set(turn.proofs), at: 0 })));
+    setTurns(chat.turns.map((turn) => ({ ...turn, text: turn.text.trimEnd(), proofs: new Set(turn.proofs), at: 0 })));
   };
 
   useEffect(() => {
@@ -147,7 +147,7 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
     if (!historyReady || !turns.length) return;
     const id = activeChat.current ??= crypto.randomUUID();
     const next = saveChat(saved.current, id, turns.map((turn) => ({
-      id: turn.id, question: turn.question, text: turn.status === "done" ? turn.text : "", coins: turn.coins,
+      id: turn.id, question: turn.question, text: turn.status === "done" ? live.current.full.get(turn.id) ?? turn.text : "", coins: turn.coins,
       proofs: [...turn.proofs], sig: live.current.sigs.get(turn.id),
       status: turn.status === "thinking" ? "error" : turn.status,
       error: turn.status === "thinking" ? "Stopped before the answer finished." : turn.error,

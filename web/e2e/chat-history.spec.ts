@@ -4,6 +4,30 @@ test.beforeEach(async ({ context }, info) => {
   await context.setExtraHTTPHeaders({ 'x-forwarded-for': `198.18.0.${info.workerIndex + 1}` });
 });
 
+test('Restored answers send exactly the signed streamed text on follow-up', async ({ page }) => {
+  const text = '\n  A signed fixture answer.  \n\n';
+  const sig = 'fixture-signature';
+  const requests: Array<{ messages: Array<{ role: string; content: string; sig?: string }> }> = [];
+  await page.route('**/api/ask-delphi', route => {
+    requests.push(route.request().postDataJSON());
+    return route.fulfill({ contentType: 'application/x-ndjson', body: [
+      { type: 'coins', coins: [], proofs: [] }, { type: 'text', text }, { type: 'done', sig },
+    ].map(event => JSON.stringify(event)).join('\n') + '\n' });
+  });
+  await page.goto('/delphi/chat');
+  await ready(page);
+  await page.getByRole('button', { name: 'Is PACT clean?', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('pantheon.delphi.chats.v1') ?? '{}').chats?.[0]?.turns?.[0]?.text)).toBe(text);
+  await page.waitForLoadState('networkidle');
+  await page.reload();
+  await ready(page);
+  await expect(page.getByRole('list', { name: 'Conversation with DELPHI' })).toContainText('A signed fixture answer.');
+  await page.getByRole('textbox', { name: 'Ask DELPHI', exact: true }).fill('Why?');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect.poll(() => requests.length).toBe(2);
+  expect(requests[1].messages[1]).toEqual({ role: 'assistant', content: text, sig });
+});
+
 test('New chat preserves signed answers in browser history; reload and reopen restore them', async ({ page }) => {
   await page.goto('/delphi/chat');
   await ready(page);

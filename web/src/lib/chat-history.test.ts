@@ -29,3 +29,11 @@ test("an empty chat does not replace saved history", () => {
   const history = saveChat(loadChats(null), "one", turns);
   assert.equal(saveChat(history, "two", []), history);
 });
+
+test("history round trips signed answer whitespace without normalization", () => {
+  const text = "\n  A signed answer.  \n\n";
+  const saved = saveChat(loadChats(null), "signed", [{ ...turns[0], text }]);
+  const restored = loadChats(JSON.stringify(saved)).chats[0].turns[0];
+  assert.equal(restored.text, text);
+  assert.equal(restored.sig, turns[0].sig);
+});
