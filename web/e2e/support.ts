@@ -11,11 +11,9 @@ export const test = base.extend<{ browserGuards: void }>({
       if (browserName === 'webkit' && message.text() === 'Viewport argument key "interactive-widget" not recognized and ignored.') return;
       errors.push(message.text());
     });
-    await context.route('**/*', async route => {
-      const url = new URL(route.request().url());
-      if (url.origin === 'http://127.0.0.1:4173' || url.origin === 'http://127.0.0.1:4174') return route.continue();
-      external.push(url.href);
-      await route.fulfill({ contentType: 'application/json', body: '{}' });
+    context.on('request', request => {
+      const url = new URL(request.url());
+      if ((url.protocol === 'http:' || url.protocol === 'https:') && url.origin !== 'http://127.0.0.1:4173' && url.origin !== 'http://127.0.0.1:4174') external.push(url.href);
     });
     await context.routeWebSocket('**/*', socket => { external.push(socket.url()); socket.close(); });
     await use();
