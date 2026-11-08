@@ -13,6 +13,7 @@ export type Feature = {
   actions: { label: string; href: string; primary?: boolean }[];
   diagram: ReactNode; // a worked example, shown beside the text
   example?: boolean;
+  discloseDetails?: boolean;
   steps: { title: string; desc: string }[];
   details: { title: string; sub: string; head: string[]; rows: ReactNode[][]; note?: string };
   faq: { q: string; a: ReactNode }[];
@@ -58,6 +59,8 @@ export function FeaturePage({ page }: { page: Feature }) {
       </section>
 
       <section id="details" className={f.details}>
+        <details open={!page.discloseDetails}>
+          {page.discloseDetails && <summary className={f.h2}>Rules</summary>}
         <header className={f.detailsHead}>
           <h2 className={f.h2}>{page.details.title}</h2>
           <p className={f.detailsSub}>{page.details.sub}</p>
@@ -83,9 +86,12 @@ export function FeaturePage({ page }: { page: Feature }) {
           </table>
           {page.details.note && <p className={f.note}>{page.details.note}</p>}
         </div>
+        </details>
       </section>
 
       <section className={f.faq}>
+        <details open={!page.discloseDetails}>
+          {page.discloseDetails && <summary className={f.h2}>Questions</summary>}
         <h2 className={f.h2}>Questions</h2>
         <div className={f.qs}>
           {page.faq.map((item) => (
@@ -98,6 +104,7 @@ export function FeaturePage({ page }: { page: Feature }) {
             </details>
           ))}
         </div>
+        </details>
       </section>
     </main>
   );
