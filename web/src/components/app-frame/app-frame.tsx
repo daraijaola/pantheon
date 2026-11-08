@@ -59,7 +59,7 @@ function Places({ pathname, places, className, label }: { pathname: string; plac
       />
       {places.map(({ label: name, href, glyph }) =>
         href ? (
-          <Link key={name} className={s.place} href={href} aria-current={here(pathname, href) ? "page" : undefined}>
+          <Link key={name} className={s.place} href={href} prefetch={href === "/delphi/chat" ? true : undefined} aria-current={here(pathname, href) ? "page" : undefined}>
             <Glyph name={glyph} />
             <span>{name}</span>
           </Link>

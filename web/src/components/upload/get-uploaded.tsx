@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { uploadDestination } from "@/lib/upload-destination";
+import { afterPaint } from "@/lib/after-paint";
 import { ChatOrb } from "@/components/delphi-chat/orb";
 import s from "./get-uploaded.module.css";
 
@@ -15,7 +15,7 @@ function TileOrb({ pulseAt, hot }: { pulseAt: React.RefObject<number>; hot: Reac
   const canvas = useRef<HTMLCanvasElement>(null);
   const bead = useRef<HTMLSpanElement>(null);
 
-  useEffect(() => {
+  useEffect(() => afterPaint(() => {
     const cv = canvas.current;
     if (!cv) return;
     const orb = ChatOrb.create(cv, (available) => {
@@ -71,7 +71,7 @@ function TileOrb({ pulseAt, hot }: { pulseAt: React.RefObject<number>; hot: Reac
         },
         W,
         H,
-        Math.min(window.devicePixelRatio || 1, 2),
+        Math.min(window.devicePixelRatio || 1, 1.5),
       );
       if (!reduced) raf = requestAnimationFrame(frame);
     };
@@ -92,7 +92,7 @@ function TileOrb({ pulseAt, hot }: { pulseAt: React.RefObject<number>; hot: Reac
       document.removeEventListener("visibilitychange", onVis);
       orb.dispose();
     };
-  }, [pulseAt, hot]);
+  }, canvas.current), [pulseAt, hot]);
 
   return (
     <>
@@ -107,6 +107,7 @@ export function GetUploaded({ className }: { className?: string }) {
   const router = useRouter();
   const pulseAt = useRef(-1e9);
   const hot = useRef(false);
+  useEffect(() => { router.prefetch("/upload"); }, [router]);
   return (
     <button
       type="button"
@@ -117,7 +118,7 @@ export function GetUploaded({ className }: { className?: string }) {
       onBlur={() => (hot.current = false)}
       onClick={() => {
         pulseAt.current = performance.now();
-        void uploadDestination().then((href) => router.push(href));
+        router.push("/upload");
       }}
     >
       <span className={s.tile} aria-hidden="true">
@@ -138,8 +139,9 @@ export function GetUploaded({ className }: { className?: string }) {
 /** The same call to action as a plain text button (header bar, phone menu). */
 export function GetUploadedText({ className }: { className?: string }) {
   const router = useRouter();
+  useEffect(() => { router.prefetch("/upload"); }, [router]);
   return (
-    <button type="button" className={className} onClick={() => void uploadDestination().then((href) => router.push(href))} style={{ cursor: "pointer" }}>
+    <button type="button" className={className} onClick={() => router.push("/upload")} style={{ cursor: "pointer" }}>
       <span aria-live="polite">Get uploaded</span>
     </button>
   );

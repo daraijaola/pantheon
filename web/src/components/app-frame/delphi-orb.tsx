@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { ChatOrb } from "@/components/delphi-chat/orb";
+import { afterPaint } from "@/lib/after-paint";
 import s from "./app-frame.module.css";
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -20,7 +21,7 @@ export function DelphiOrb() {
   const bead = useRef<HTMLSpanElement>(null);
   const hot = useRef(false);
 
-  useEffect(() => {
+  useEffect(() => afterPaint(() => {
     const win = windowRef.current;
     if (!win) return;
     // A canvas made here, not kept by the page: after a cached navigation this runs again, and a WebGL
@@ -61,7 +62,7 @@ export function DelphiOrb() {
         { x, y, r, think: 0, energy: 0.28 + 0.2 * voice(t) + 0.3 * heat, pulse: 0, stretch: reduced ? 0 : clamp(Math.hypot(vx, vy) / 900, 0, 0.08), angle: Math.atan2(vy, vx), time: t, fade: 1 },
         W,
         H,
-        Math.min(window.devicePixelRatio || 1, 2),
+        Math.min(window.devicePixelRatio || 1, 1.5),
       );
     };
     const start = () => {
@@ -80,14 +81,14 @@ export function DelphiOrb() {
       io.disconnect();
       document.removeEventListener("visibilitychange", onVis);
       orb.dispose();
-      cv.getContext("webgl")?.getExtension("WEBGL_lose_context")?.loseContext();
       cv.remove();
     };
-  }, []);
+  }, windowRef.current), []);
 
   return (
     <Link
       href="/delphi/chat"
+      prefetch
       className={s.delphi}
       aria-label="Ask DELPHI"
       onPointerEnter={() => (hot.current = true)}

@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { short } from "@/components/app/shared";
 import { CodeWordmark } from "@/components/code-type/code-wordmark";
+import { afterPaint } from "@/lib/after-paint";
 import { BUBBLES, LINES, READ, T, budReach, clamp, inOut, layout, mainOrb, readRadius, simTo, smooth, voice, type BubbleDesign, type Sim, type Timeline } from "./orb-motion";
 import { OrbRenderer } from "./orb-renderer";
 import s from "./upload-orb.module.css";
@@ -166,11 +167,13 @@ export function UploadOrb({
   });
 
   useEffect(() => {
+    live.current.t0 = performance.now();
+  }, []);
+  useEffect(() => afterPaint(() => {
     const el = root.current;
     const cv = canvas.current;
     if (!el || !cv) return;
     const L = live.current;
-    L.t0 = performance.now();
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let gl = OrbRenderer.create(cv);
     const fine = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
@@ -402,7 +405,7 @@ export function UploadOrb({
       cv.removeEventListener("webglcontextlost", onLost);
       cv.removeEventListener("webglcontextrestored", onRestored);
     };
-  }, []);
+  }), []);
 
   // A wallet comes in: the page turns to signing. It goes (or another takes its place): start over.
   const seen = useRef<string | null>(null);
