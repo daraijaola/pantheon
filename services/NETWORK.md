@@ -46,8 +46,8 @@ explain and feed-publish. Fresh-reader subprocesses inherit the selection.
 Trial generators use selected manifests and isolated input/output folders.
 Feed publication rejects scan metadata from another network.
 
-Passport registry defaults now come from the manifest even without an explicit
-`REGISTRY_ADDRESS`; existing deployment overrides retain their behavior. No keys
+Mainnet Passport registry defaults come from the manifest; testnet retains its
+explicit `REGISTRY_ADDRESS` requirement. Existing overrides retain their behavior. No keys
 are generated or changed by selection. Do not reuse operating/signing state or
 point mainnet service URLs at testnet services.
 

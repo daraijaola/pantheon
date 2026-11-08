@@ -94,7 +94,7 @@ export function backendEnv(env: Environment, service: Service, input?: unknown):
     FROM_BLOCK: String(service === "delphi" || service === "x" ? p.network.ascendFromBlock : p.network.deployedFrom),
     DEPLOYMENT_FILE: new URL(`../deployments/${name}.json`, import.meta.url).pathname,
   };
-  if (service === "passport") defaults.REGISTRY_ADDRESS = p.passportRegistry;
+  if (service === "passport" && name === "elysium-mainnet") defaults.REGISTRY_ADDRESS = p.passportRegistry;
   const clean = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v !== ""));
   const result = { ...defaults, ...clean };
   if (service === "trials" && !env.DEPLOYMENT?.endsWith(".json")) result.DEPLOYMENT = defaults.DEPLOYMENT_FILE;

@@ -12,6 +12,7 @@ describe("canonical backend networks", () => {
     expect(backendEnv({}, "indexer").FROM_BLOCK).toBe(String(testnet.network.deployedFrom));
     expect(backendEnv({}, "delphi").FROM_BLOCK).toBe(String(testnet.network.ascendFromBlock));
     expect(statePath("data/state.json", {})).toBe("data/state.json");
+    expect(backendEnv({}, "passport").REGISTRY_ADDRESS).toBeUndefined();
   });
 
   it("accepts aliases and rejects conflicting or unknown selectors", () => {

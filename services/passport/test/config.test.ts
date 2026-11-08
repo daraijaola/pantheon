@@ -9,7 +9,7 @@ describe("loadConfig", () => {
     expect(c.elysiumRpc).toBe("https://testnet-rpc.elysium.kinetiq.xyz");
     expect(c.hyperEvmRpc).toBe("https://rpc.hyperliquid.xyz/evm");
     expect(c.hlInfoUrl).toBe("https://api.hyperliquid.xyz/info");
-    expect(c.registryAddress).toBe("0x0Eb4A8eB47364Be9d18410AF2f850db92b807290");
+    expect(c.registryAddress).toBeUndefined();
     expect(c.hlWeightPerMin).toBe(800);
     expect(c.evmReqPerMin).toBe(60);
     expect(c.port).toBe(8787);
