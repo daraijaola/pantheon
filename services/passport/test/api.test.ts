@@ -148,7 +148,7 @@ describe("POST /passport/verify", () => {
   it("answers tier 0 with reasons and creates no binding", async () => {
     const r = await link(HL_EMPTY, ELY);
     expect(r.statusCode).toBe(200);
-    expect(r.json()).toEqual({ tier: 0, reasons: ["SCORE_BELOW_10"] });
+    expect(r.json()).toEqual({ tier: 0, reasons: ["SCORE_BELOW_5"] });
     expect((await get("/passport/stats")).json().linked).toBe(0);
   });
 

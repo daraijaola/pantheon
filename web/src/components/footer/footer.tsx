@@ -21,8 +21,8 @@ const COLUMNS: { title: string; items: Item[] }[] = [
   {
     title: "PANTHEON",
     items: [
-      { label: "How it works", href: "/#how-it-works" },
-      { label: "The basket", href: "/#basket" },
+      { label: "How it works", href: "/?home=1#how-it-works" },
+      { label: "The basket", href: "/?home=1#basket" },
       { label: "Stake PNTH", href: "/stake" },
       { label: "Terms of use", href: "/terms" },
     ],

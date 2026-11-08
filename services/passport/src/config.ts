@@ -145,7 +145,7 @@ export const WEIGHT_BPS = { STAKED: 10_000n, LIQUID: 5_000n, KHYPE: 5_000n } as 
 /** Minimum score (E8) and HL account age (days) per tier (§4.2). Index = tier. */
 export const TIERS = [
   { tier: 0, name: "none", minScoreE8: 0n, minAgeDays: 0 },
-  { tier: 1, name: "Holder", minScoreE8: 10n * E8, minAgeDays: 0 },
+  { tier: 1, name: "Holder", minScoreE8: 5n * E8, minAgeDays: 0 },
   { tier: 2, name: "Staker", minScoreE8: 100n * E8, minAgeDays: 30 },
   { tier: 3, name: "Pillar", minScoreE8: 1_000n * E8, minAgeDays: 90 },
 ] as const;

@@ -108,7 +108,7 @@ export function SiteHeader({ code }: { code: string }) {
   return (
     <header ref={headerRef} className={`${m.header} ${open ? m.isOpen : ""}`}>
       <div className={m.bar}>
-        <A href="/" aria-label="PANTHEON home" className={m.logo} onClick={close}>
+        <A href="/?home=1" aria-label="PANTHEON home" className={m.logo} onClick={close}>
           <CodeWordmark text="PANTHEON" module={2.2} />
         </A>
         <button
@@ -152,7 +152,7 @@ export function SiteHeader({ code }: { code: string }) {
             </section>
             <section className={`${m.col} ${m.featuredCol}`}>
               <p className={m.colHead}>Featured</p>
-              <A href="/#basket" className={m.featured} onClick={close}>
+              <A href="/?home=1#basket" className={m.featured} onClick={close}>
                 <span className={m.featuredTop}>
                   <span className={m.tag}>The basket</span>
                   <span className={m.ext}>↗</span>

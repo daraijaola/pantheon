@@ -468,13 +468,13 @@ export function UploadOrb({
     >
       <canvas ref={canvas} className={s.canvas} aria-hidden="true" />
       {still && <div className={s.still} style={{ left: still.x - still.d / 2, top: still.y - still.d / 2, width: still.d, height: still.d }} aria-hidden="true" />}
-      <Link href="/" aria-label="PANTHEON home" className={s.logo}>
+      <Link href="/?home=1" aria-label="PANTHEON home" className={s.logo}>
         <CodeWordmark text="PANTHEON" module={2.2} />
       </Link>
       {address ? (
         <Chip address={address} />
       ) : (
-        <Link href="/" className={s.back}>
+        <Link href="/?home=1" className={s.back}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
             <path d="M8.5 3.5 5 7l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>

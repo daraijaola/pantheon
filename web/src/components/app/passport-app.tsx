@@ -28,13 +28,13 @@ const PORTRAITS = [
 const portraitFor = (a: string) => PORTRAITS[parseInt(keccak256(a.toLowerCase() as Hex).slice(2, 10), 16) % PORTRAITS.length];
 
 const TIERS = [
-  { tier: 1, need: "10 HYPE", boost: "1.10×", votes: 1 },
+  { tier: 1, need: "5 HYPE", boost: "1.10×", votes: 1 },
   { tier: 2, need: "100 HYPE and a 30-day-old account", boost: "1.20×", votes: 2 },
   { tier: 3, need: "1,000 HYPE and a 90-day-old account", boost: "1.25×", votes: 3 },
 ];
 
 const SAY: Record<string, string> = {
-  SCORE_BELOW_10: "Less than 10 HYPE counted. Staked HYPE counts in full; HYPE you hold but haven’t staked counts half.",
+  SCORE_BELOW_5: "Less than 5 HYPE counted. Staked HYPE counts in full; HYPE you hold but haven’t staked counts half.",
   SCORE_BELOW_100: "Under 100 HYPE: that’s the next tier.",
   SCORE_BELOW_1000: "Under 1,000 HYPE: that’s the top tier.",
   ACCOUNT_AGE_BELOW_30D: "Your Hyperliquid account is less than 30 days old.",

@@ -148,7 +148,7 @@ export function NotLive({ title, line }: { title: string; line: string }) {
         </div>
       </header>
       <p className={s.fine}>
-        <Link href="/">Back to the home page</Link>
+        <Link href="/?home=1">Back to the home page</Link>
       </p>
     </main>
   );

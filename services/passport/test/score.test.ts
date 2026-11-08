@@ -104,9 +104,21 @@ const pass = (s: Snapshot) => {
 };
 
 describe("tier boundaries (§13 P3)", () => {
+  it("starts Tier 1 at 5 counted HYPE without lowering the STAKER stamp", () => {
+    expect(pass(snap({ delegated: "4.99999999" })).reasons).toContain("SCORE_BELOW_5");
+    for (const delegated of ["5", "9.99999999", "10"]) {
+      const p = pass(snap({ delegated, ageDays: 0 }));
+      expect(p.tier).toBe(1);
+      expect(Boolean(p.stamps & STAMP.STAKER)).toBe(delegated === "10");
+    }
+    const liquid = pass(snap({ spotHype: "10", ageDays: 0 }));
+    expect(liquid.tier).toBe(1);
+    expect(liquid.stamps & STAMP.STAKER).toBe(0);
+  });
+
   it.each([
-    ["9.99999999", 400, 0],
-    ["10", 400, 1],
+    ["4.99999999", 400, 0],
+    ["5", 400, 1],
     ["99.99999999", 400, 1],
     ["100", 29.9, 1],
     ["100", 30, 2],
@@ -119,19 +131,19 @@ describe("tier boundaries (§13 P3)", () => {
   it("decides on exact fixed point, never floats (digits past 1e-8 are dropped, not rounded up)", () => {
     expect(toE8("9.999999999")).toBe(999_999_999n);
     expect(toE8("80796462.6899999976")).toBe(8_079_646_268_999_999n);
-    expect(pass(snap({ delegated: "9.999999999" })).tier).toBe(0);
+    expect(pass(snap({ delegated: "4.999999999" })).tier).toBe(0);
     expect(() => toE8("1e-8")).toThrow(RangeError);
   });
 
   it("weights liquid HYPE at 0.5: 20 liquid = 10 staked", () => {
     expect(pass(snap({ spotHype: "20" })).scoreE8).toBe(10n * E8);
-    expect(pass(snap({ spotHype: "19.99999999" })).tier).toBe(0);
+    expect(pass(snap({ spotHype: "9.99999999" })).tier).toBe(0);
   });
 
   it("counts undelegated as staked and pending withdrawals as liquid", () => {
     expect(pass(snap({ undelegated: "10" })).scoreE8).toBe(10n * E8);
     expect(pass(snap({ pending: "20" })).scoreE8).toBe(10n * E8);
-    expect(pass(snap({ pending: "19.99999999" })).tier).toBe(0);
+    expect(pass(snap({ pending: "9.99999999" })).tier).toBe(0);
   });
 
   it("nets borrowed HYPE out of spot, never below zero", () => {

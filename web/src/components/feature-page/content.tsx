@@ -29,13 +29,17 @@ export const PASSPORT: Feature = {
     sub: "Your tier is checked again every day, so it follows your HYPE up and down.",
     head: ["Tier", "You need", "Staking boost", "Extra votes"],
     rows: [
-      ["Tier 1", "10 HYPE", "1.10×", "+1"],
+      ["Tier 1", "5 HYPE", "1.10×", "+1"],
       ["Tier 2", "100 HYPE and an account at least 30 days old", "1.20×", "+2"],
       ["Tier 3", "1,000 HYPE and an account at least 90 days old", "1.25×", "+3"],
     ],
     note: "HYPE counted = your staked HYPE + half of the HYPE you hold but haven’t staked.",
   },
   faq: [
+    {
+      q: "What do I need for Tier 1?",
+      a: "5 HYPE counted: 5 staked HYPE or 10 unstaked HYPE. There is no minimum account age for Tier 1. The STAKER stamp still needs 10 staked HYPE.",
+    },
     {
       q: "Does anyone see my Hyperliquid address?",
       a: "We read it to work out your tier, but only the tier and a private code are written on-chain. Your address and balances are never published.",
