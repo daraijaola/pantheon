@@ -159,8 +159,8 @@ function Wallet() {
   if (chainId !== elysium.id)
     return (
       <div className={s.menu}>
-        <button className={s.chip} type="button" disabled={switchChain.isPending} onClick={() => switchChain.mutate({ chainId: elysium.id })}>
-          {switchChain.isPending ? "Switching…" : "Switch to Elysium"}
+        <button className={`${s.chip} ${s.switchChain}`} type="button" aria-label="Switch to Elysium" disabled={switchChain.isPending} onClick={() => switchChain.mutate({ chainId: elysium.id })}>
+          {switchChain.isPending ? "Switching…" : "Switch"}
         </button>
         {switchChain.error && (
           <p role="alert" className={s.error}>
