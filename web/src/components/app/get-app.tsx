@@ -174,7 +174,7 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
           <h1 className={s.h1}>Get test PNTH</h1>
           <p className={s.sub}>Try PANTHEON with free test money. These coins have no value: they’re only for trying it out.</p>
         </div>
-        <WalletBar />
+        {onChain && <WalletBar />}
       </header>
 
       <div className={s.grid}>
@@ -271,7 +271,7 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
             )}
           </section>
 
-          <section className={s.cell}>
+          {known && !soldOut && <section className={s.cell}>
             <details className={s.more}>
               <summary>Buy a different amount</summary>
               <label className={s.field}>
@@ -296,7 +296,7 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
                 </button>
               </div>
             </details>
-          </section>
+          </section>}
         </div>
 
         <aside className={s.side}>
