@@ -15,9 +15,22 @@ export type PassportView = {
   boost: string;
   /** True when there's no passport to show and this is the sample. */
   example: boolean;
+  status?: "Valid" | "Expired" | "Inactive";
 };
 
-export const TIER_NAMES = ["", "Holder", "Staker", "Pillar"] as const;
+export const TIER_NAMES = ["No tier", "Holder", "Staker", "Pillar"] as const;
+
+export function registryView(wallet: string, p: { tier: number; stamps: number; issuedAt: bigint | number; expiry: bigint | number; linkedAt: bigint | number }, valid: boolean, multiplier: bigint, now = Date.now()): PassportView | null {
+  if (!p.issuedAt || !p.linkedAt) return null;
+  return {
+    wallet: wallet.toLowerCase(), tier: p.tier,
+    issued: new Date(Number(p.issuedAt) * 1000), valid: new Date(Number(p.expiry) * 1000), linked: new Date(Number(p.linkedAt) * 1000),
+    stamps: stampNames(p.stamps), boost: `${(Number(multiplier) / 1e18).toFixed(2)}×`, example: false,
+    status: valid ? "Valid" : Number(p.expiry) * 1000 <= now ? "Expired" : "Inactive",
+  };
+}
+
+export const extraVotes = (v: PassportView) => v.example || v.status === "Valid" ? v.tier : 0;
 
 /** Bit order of the stamp bitmap (services/passport/src/config.ts → STAMP). */
 export const STAMP_BITS = ["STAKER", "KHYPE", "GENESIS", "VETERAN", "TRADER", "HYPURR", "KNTQ", "SEASONED"] as const;

@@ -8,7 +8,7 @@ import { dmy, passportNo, type PassportView } from "./view";
 
 export const STAMPS = [
   { key: "STAKER", have: "10+ HYPE staked", need: "Stake 10 HYPE", tilt: -7 },
-  { key: "KHYPE", have: "10+ kHYPE held", need: "Hold 10 kHYPE", tilt: 5 },
+  { key: "KHYPE", have: "10+ HYPE worth of kHYPE", need: "Hold 10+ HYPE worth of kHYPE", tilt: 5 },
   { key: "GENESIS", have: "In the genesis airdrop", need: "Genesis airdrop only", tilt: -3 },
   { key: "VETERAN", have: "A year on Hyperliquid", need: "A year on Hyperliquid", tilt: 6 },
   { key: "TRADER", have: "$1M+ traded", need: "Trade $1M in total", tilt: -4 },
@@ -293,7 +293,7 @@ uniform vec2 uSize;
 uniform vec4 uA[8];
 uniform vec4 uB[8];
 uniform vec4 uC[8];
-uniform vec2 uStampHalf;
+uniform vec2 uStampHalf[8];
 uniform vec3 uInk;
 uniform float uDark;
 uniform vec3 uPointer;
@@ -319,9 +319,9 @@ vec2 toLocal(vec2 p, vec2 c, float st, float ang){
 float bubble(vec2 p, vec4 A, vec4 B){ return pebble(toLocal(p, A.xy, B.x, B.y), A.zw); }
 
 // What lies under a bubble: the page, and the stamp pressed into it, inked or blind.
-vec3 under(vec2 p, float idx, vec4 C, float blind){
+vec3 under(vec2 p, float idx, vec4 C, float blind, vec2 stampHalf){
   vec3 col = texture2D(uPanel, p / uSize).rgb;
-  vec2 h = uStampHalf * C.z;
+  vec2 h = stampHalf * C.z;
   vec2 uv = (p - C.xy) / (2.0 * h) + 0.5;
   if (uv.x > 0.0 && uv.y > 0.0 && uv.x < 1.0 && uv.y < 1.0) {
     vec2 cell = vec2(mod(idx, 4.0), floor(idx / 4.0 + 0.001));
@@ -344,9 +344,10 @@ void main(){
   float px = 1.0 / uDpr;
   float d = 1e5, idx = 0.0;
   vec4 A = uA[0], B = uB[0], C = uC[0];
+  vec2 H = uStampHalf[0];
   for (int i = 0; i < 8; i++) {
     float di = bubble(f, uA[i], uB[i]);
-    if (di < d) { d = di; idx = float(i); A = uA[i]; B = uB[i]; C = uC[i]; }
+    if (di < d) { d = di; idx = float(i); A = uA[i]; B = uB[i]; C = uC[i]; H = uStampHalf[i]; }
   }
   float b = A.w;
   float ds = bubble(f - vec2(0.0, 0.12 * b), A, B);
@@ -364,9 +365,9 @@ void main(){
   vec2 off = n * b * 0.62 * rim;
   float k = 0.32;
   vec3 col;
-  col.r = under(base + off * (1.0 - k), idx, C, B.w).r;
-  col.g = under(base + off, idx, C, B.w).g;
-  col.b = under(base + off * (1.0 + k), idx, C, B.w).b;
+  col.r = under(base + off * (1.0 - k), idx, C, B.w, H).r;
+  col.g = under(base + off, idx, C, B.w, H).g;
+  col.b = under(base + off * (1.0 + k), idx, C, B.w, H).b;
 
   float v = clamp(toLocal(f, A.xy, B.x, B.y).y / b, -1.0, 1.0);
   col = mix(col, vec3(1.0), mix(0.01, 0.018, uDark) + 0.016 * (0.5 - 0.5 * v));
@@ -481,11 +482,12 @@ export function createStamps(els: StampsEls, fonts: Fonts, reduced: boolean) {
       }
       ctx.font = `400 ${SL.c3}px ${fonts.sans}`;
       ctx.fillStyle = rgba(F.fg, has ? 0.58 : 0.42);
-      ctx.fillText(has ? st.have : st.need, x + 2, y + h + SL.cy2);
+      const caption = has ? st.have : st.need;
+      ctx.fillText(caption, x + 2, y + h + SL.cy2, Math.min((SL.W - 2 * SL.pad) / (SL.W === WIDE.W ? 4 : 2) - 12, SL.W - SL.pad - x - 2));
     });
     ctx.font = `500 ${SL.t2}px ${fonts.mono}`;
     ctx.fillStyle = rgba(F.fg, 0.36);
-    spaced(ctx, `CHECKED ${dmy(v.issued)} · RENEWED DAILY`, pad, H - SL.fy, SL.t2 * 0.2);
+    spaced(ctx, `ISSUED ${dmy(v.issued)} · PUBLIC REGISTRY`, pad, H - SL.fy, SL.t2 * 0.2);
     spaced(ctx, "02", W - pad, H - SL.fy, SL.t2 * 0.2, "right");
     ctx.restore();
     ctx.save();
@@ -588,7 +590,7 @@ export function createStamps(els: StampsEls, fonts: Fonts, reduced: boolean) {
     });
     return busy;
   }
-  const UA = new Float32Array(32), UB = new Float32Array(32), UC = new Float32Array(32);
+  const UA = new Float32Array(32), UB = new Float32Array(32), UC = new Float32Array(32), UH = new Float32Array(16);
   function draw() {
     if (!prog) return;
     const { gl, U } = prog;
@@ -603,15 +605,15 @@ export function createStamps(els: StampsEls, fonts: Fonts, reduced: boolean) {
       UA.set([c.cx + b.lx + b.sh, c.cy + b.ly, c.hw * b.k, c.hh * b.k], k * 4);
       UB.set([b.st, b.ang, b.glow, got(k) ? 0 : 1], k * 4);
       UC.set([c.cx, c.cy, b.scale, b.ink], k * 4);
+      UH.set([c.hw * 0.94, c.hh * 0.94], k * 2);
     });
-    const [, , w0, h0] = SL.caps[0];
     gl.uniform2f(U.uRes, cw, ch);
     gl.uniform1f(U.uDpr, dpr);
     gl.uniform2f(U.uSize, SL.W * s, SL.H * s);
     gl.uniform4fv(U.uA, UA);
     gl.uniform4fv(U.uB, UB);
     gl.uniform4fv(U.uC, UC);
-    gl.uniform2f(U.uStampHalf, ((w0 * s) / 2) * 0.94, ((h0 * s) / 2) * 0.94);
+    gl.uniform2fv(U.uStampHalf, UH);
     const ink = INK[finish];
     gl.uniform3f(U.uInk, ink[0] / 255, ink[1] / 255, ink[2] / 255);
     gl.uniform1f(U.uDark, FINISH[finish].dark);
@@ -750,7 +752,14 @@ export function createStamps(els: StampsEls, fonts: Fonts, reduced: boolean) {
 
   return {
     layout(lay: Layout) {
-      SL = lay.tall ? TALL : WIDE;
+      const base = lay.tall ? TALL : WIDE;
+      const measure = face.getContext("2d");
+      if (measure) measure.font = `500 14px ${fonts.mono}`;
+      SL = { ...base, caps: base.caps.map(([x, y, w, h], k): Cap => {
+        const width = clamp((measure?.measureText(STAMPS[k].key).width ?? 60) + 44, 94, 132);
+        const height = width / 1.42;
+        return [x + (w - width) / 2, y + (h - height) / 2, width, height];
+      }) };
       s = lay.s;
       dpr = lay.dpr;
       root.style.setProperty("--w", `${lay.W}px`);
