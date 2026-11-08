@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type WalletRead = { wallet: string; readAt: number; complete?: boolean; stages: Array<{ stage: string; ok: boolean; data?: unknown }> };
-export type ReadState = { read: WalletRead | null; refreshAfter: number };
+export type ReadState = { read: WalletRead | null; refreshAfter: number; retry?: boolean };
 
 export async function walletRead(method = "GET"): Promise<ReadState> {
   const res = await fetch("/api/me/read", { method, cache: "no-store" });
@@ -29,7 +29,7 @@ export function useWalletRead(wallet: string | null | undefined, refreshStale = 
   const { mutate } = refresh;
   useEffect(() => {
     if (!refreshStale || !wallet || !query.data) return;
-    const next = Math.max(query.data.read && query.data.read.complete !== false ? query.data.read.readAt + 86_400_000 : 0, query.data.refreshAfter);
+    const next = Math.max(!query.data.retry && query.data.read && query.data.read.complete !== false ? query.data.read.readAt + 86_400_000 : 0, query.data.refreshAfter);
     const timer = setTimeout(() => mutate(wallet), Math.max(0, next - Date.now()));
     return () => clearTimeout(timer);
   }, [refreshStale, wallet, query.data, mutate]);

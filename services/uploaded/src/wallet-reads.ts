@@ -5,7 +5,8 @@ import type { StageEvent } from "./scan.ts";
 export const READ_MAX_AGE = 24 * 60 * 60_000;
 export const READ_COOLDOWN = 10 * 60_000;
 export type WalletRead = { wallet: string; readAt: number; complete?: boolean; stages: StageEvent[] };
-export type ReadState = { read: WalletRead | null; refreshAfter: number };
+export type ReadState = { read: WalletRead | null; refreshAfter: number; retry?: boolean };
+type Pending = { result: Promise<ReadState>; stages: StageEvent[]; waiters: Set<() => void>; done: boolean };
 
 const complete = (stages: StageEvent[]) => stages.every((stage) => stage.ok && (!(stage.stage === "wholeBag" || stage.stage === "standing") || stage.data.complete !== false));
 
@@ -13,7 +14,7 @@ export class WalletReads {
   readonly #dir: string;
   readonly #scan: (wallet: string) => AsyncIterable<StageEvent>;
   readonly #now: () => number;
-  readonly #pending = new Map<string, Promise<ReadState>>();
+  readonly #pending = new Map<string, Pending>();
 
   constructor(dir: string, scan: (wallet: string) => AsyncIterable<StageEvent>, now = Date.now) {
     this.#dir = dir;
@@ -49,27 +50,49 @@ export class WalletReads {
   refresh(wallet: string): Promise<ReadState> {
     const key = this.#key(wallet);
     const pending = this.#pending.get(key);
-    if (pending) return pending;
+    if (pending) return pending.result;
     const state = this.get(key);
     if (this.#now() < state.refreshAfter) return Promise.resolve(state);
+    const pendingRead: Pending = { result: Promise.resolve(state), stages: [], waiters: new Set(), done: false };
+    this.#pending.set(key, pendingRead);
+    const notify = () => { for (const wake of pendingRead.waiters) wake(); pendingRead.waiters.clear(); };
     const work = (async () => {
       const refreshAfter = this.#now() + READ_COOLDOWN;
-      this.#save(key, { ...state, refreshAfter });
+      this.#save(key, { ...state, refreshAfter, retry: true });
       const stages: StageEvent[] = [];
-      for await (const stage of this.#scan(key)) stages.push(stage);
+      for await (const stage of this.#scan(key)) {
+        stages.push(stage);
+        pendingRead.stages.push(stage);
+        notify();
+      }
       if (!stages.length || stages.some((stage) => !stage.ok) || !stages.some((stage) => stage.stage === "wholeBag") || !stages.some((stage) => stage.stage === "standing")) throw new Error("READ_INCOMPLETE");
       const full = complete(stages);
-      const next = { read: !full && state.read ? state.read : { wallet: key, readAt: this.#now(), complete: full, stages }, refreshAfter };
+      const next = { read: !full && state.read ? state.read : { wallet: key, readAt: this.#now(), complete: full, stages }, refreshAfter, retry: !full };
       this.#save(key, next);
       return next;
-    })().finally(() => this.#pending.delete(key));
-    this.#pending.set(key, work);
+    })().finally(() => { pendingRead.done = true; notify(); this.#pending.delete(key); });
+    pendingRead.result = work;
+    void work.catch(() => {});
     return work;
   }
 
   async *scan(wallet: string): AsyncGenerator<StageEvent> {
+    const key = this.#key(wallet);
     const state = this.get(wallet);
-    const next = state.read?.complete && this.#now() - state.read.readAt < READ_MAX_AGE ? state : await this.refresh(wallet);
+    if (!state.retry && state.read?.complete && this.#now() - state.read.readAt < READ_MAX_AGE) { yield* state.read.stages; return; }
+    const result = this.refresh(wallet);
+    const pending = this.#pending.get(key);
+    if (pending) {
+      let sent = 0;
+      while (true) {
+        while (sent < pending.stages.length) yield pending.stages[sent++]!;
+        if (pending.done) break;
+        await new Promise<void>(resolve => pending.waiters.add(resolve));
+      }
+      await result;
+      return;
+    }
+    const next = await result;
     if (!next.read) throw new Error("READ_UNAVAILABLE");
     yield* next.read.stages;
   }

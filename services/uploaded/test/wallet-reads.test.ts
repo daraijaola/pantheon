@@ -102,10 +102,51 @@ for (const stage of ["wholeBag", "standing"]) it(`preserves a complete snapshot 
   now += READ_COOLDOWN;
   expect((await reads.refresh(wallet)).read).toEqual(first.read);
   expect(reads.get(wallet).read?.readAt).toBe(first.read?.readAt);
+  expect(reads.get(wallet).retry).toBe(true);
+  const savedCalls = calls;
+  now += READ_COOLDOWN;
+  for await (const event of reads.scan(wallet)) expect(event.ok).toBe(true);
+  expect(calls).toBe(savedCalls + 1);
   const initial = new WalletReads(dir(), scan, () => now);
   expect((await initial.refresh(wallet)).read?.complete).toBe(false);
   const before = calls;
   now += READ_COOLDOWN;
   for await (const event of initial.scan(wallet)) expect(event.ok).toBe(true);
   expect(calls).toBe(before + 1);
+});
+
+it("streams stages before completion, shares in-flight work and retains sent failures", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let calls = 0;
+  const failed: StageEvent = { stage: "footprint", ok: false, error: "TIMEOUT" };
+  const reads = new WalletReads(dir(), async function* () {
+    calls++;
+    yield stages[0]!;
+    await gate;
+    yield failed;
+    yield stages[1]!;
+  });
+  const first = reads.scan(wallet);
+  expect((await first.next()).value).toEqual(stages[0]);
+  expect(reads.get(wallet).read).toBeNull();
+  const second = reads.scan(wallet);
+  expect((await second.next()).value).toEqual(stages[0]);
+  release();
+  for (const stream of [first, second]) {
+    expect((await stream.next()).value).toEqual(failed);
+    expect((await stream.next()).value).toEqual(stages[1]);
+    await expect(stream.next()).rejects.toThrow("READ_INCOMPLETE");
+  }
+  expect(calls).toBe(1);
+  expect(reads.get(wallet).read).toBeNull();
+});
+
+it("saves a completed streaming scan for subsequent cached requests", async () => {
+  let calls = 0;
+  const reads = new WalletReads(dir(), async function* () { calls++; yield* stages; });
+  for await (const event of reads.scan(wallet)) expect(event.ok).toBe(true);
+  expect(reads.get(wallet).read?.complete).toBe(true);
+  for await (const event of reads.scan(wallet)) expect(event.ok).toBe(true);
+  expect(calls).toBe(1);
 });
