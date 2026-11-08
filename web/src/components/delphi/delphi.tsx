@@ -1,6 +1,7 @@
 // DELPHI's screens: every coin's verdict, and each written report with its proof. Server-rendered
 // from DELPHI's published file; the only links out are to the explorer, so anyone can check a claim.
 
+import { networkLabel, networkText } from "@/lib/network-copy";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -43,7 +44,7 @@ function Head({ eyebrow, title, sub, right }: { eyebrow: string; title: ReactNod
 export function NotPublished() {
   return (
     <main className={s.page}>
-      <Head eyebrow="DELPHI · Elysium testnet" title="DELPHI" sub="DELPHI hasn’t published its first scan here yet. It will appear on this page as soon as it does." />
+      <Head eyebrow={`DELPHI · ${networkLabel}`} title="DELPHI" sub="DELPHI hasn’t published its first scan here yet. It will appear on this page as soon as it does." />
       <p className={s.fine}>
         <Link href="/?home=1">Back to the home page</Link>
       </p>
@@ -60,7 +61,7 @@ export function DelphiIndex({ data, current }: { data: Delphi; current: number |
   return (
     <main className={s.page}>
       <Head
-        eyebrow="DELPHI · Elysium testnet"
+        eyebrow={`DELPHI · ${networkLabel}`}
         title="Every Ascend coin, checked for cheating"
         sub="DELPHI reads the chain for bundled launches, wash trading and hidden whales. An AI explains each result in plain words, and every claim links to the transactions behind it, so you can check it yourself."
         right={
@@ -175,7 +176,7 @@ export function DelphiIndex({ data, current }: { data: Delphi; current: number |
         </aside>
       </div>
       <p className={s.fine}>
-        DELPHI reports patterns, not intent: on testnet, many of them are people trying the launchpad. Reports are written by Claude from DELPHI’s data and checked before they’re published: the verdict can’t change, and every transaction they cite must belong to that coin. Rules {rules.version}.
+        {networkText("DELPHI reports patterns, not intent: on testnet, many of them are people trying the launchpad.", "DELPHI reports patterns, not intent.")} Reports are written by Claude from DELPHI’s data and checked before they’re published: the verdict can’t change, and every transaction they cite must belong to that coin. Rules {rules.version}.
       </p>
     </main>
   );

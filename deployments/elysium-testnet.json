@@ -10,5 +10,23 @@
   "pnthPool": "0x301789b69e15b7fe9bbc0dbd39145b2fe78bba9bd0b9bb2d74de64e1d665f22d",
   "pnthRouter": "0xE0Fb49DBDC3406cF1f175EeCABDFb282a7a98b66",
   "staking": "0x30c88fce1fAD545Df0fC603287f93F0f94076224",
-  "usdc": "0x4b4fb5C5794F0c821464956374cC5872D5F0f140"
+  "usdc": "0x4b4fb5C5794F0c821464956374cC5872D5F0f140",
+  "swapper": "0x31A67d054D34Ec18cb23A43B0E3ad1F756aA1500",
+  "drip": "0x1c6856862AAc444B5EbFC65D2847E52b1C2b7176",
+  "network": {
+    "chainId": 99801,
+    "name": "Elysium Testnet",
+    "testnet": true,
+    "publicRpc": "https://testnet-rpc.elysium.kinetiq.xyz",
+    "explorerUrl": "https://elysium.kinetiq.xyz/testnet-explorer",
+    "deployedFrom": 9127000,
+    "external": {
+      "usdc": "0x4b4fb5C5794F0c821464956374cC5872D5F0f140",
+      "whype": "0xCD57F65c2B0e5881CFC2E609F7CD53b746E1F234",
+      "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "ascendLaunchpad": "0xE2f6254508DEB93Da081837F545e0bAF7b00d8E9",
+      "ascendRouter": "0x90332B0ECbb2c9517F405627b0Dd5D5265246563"
+    },
+    "acquireUrl": null
+  }
 }

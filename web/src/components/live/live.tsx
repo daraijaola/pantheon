@@ -1,3 +1,4 @@
+import { networkLabel, networkText } from "@/lib/network-copy";
 import Link from "next/link";
 import type { Live } from "@/lib/live";
 import s from "./live.module.css";
@@ -31,7 +32,7 @@ export function LiveNumbers({ live, pnth }: { live: Live; pnth: string | null })
   if (live.bought) {
     cells.push({
       value: n(live.bought.usdc),
-      label: "test USDC of Ascend coins bought",
+      label: networkText("test USDC of Ascend coins bought", "USDC of Ascend coins bought"),
       note: (
         <>
           in {n(live.bought.buys)} buys for stakers.{" "}
@@ -88,7 +89,7 @@ export function LiveNumbers({ live, pnth }: { live: Live; pnth: string | null })
       <div className={s.top}>
         <header className={s.head}>
           <p className={s.eyebrow}>
-            <i className={s.dot} aria-hidden="true" /> Live on Elysium testnet
+            <i className={s.dot} aria-hidden="true" /> Live on {networkLabel}
           </p>
           <h2 id="live-title" className={s.h2}>
             Already running.

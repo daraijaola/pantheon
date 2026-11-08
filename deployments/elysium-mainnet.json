@@ -1,0 +1,30 @@
+{
+  "chainId": 99901,
+  "burnSink": null,
+  "constituentRegistry": null,
+  "covenantFactory": null,
+  "indexVault": null,
+  "launchpad": null,
+  "passportRegistry": null,
+  "pnth": null,
+  "pnthPool": null,
+  "pnthRouter": null,
+  "staking": null,
+  "usdc": null,
+  "network": {
+    "chainId": 99901,
+    "name": "Elysium",
+    "testnet": false,
+    "publicRpc": null,
+    "explorerUrl": null,
+    "deployedFrom": null,
+    "external": {
+      "usdc": null,
+      "whype": null,
+      "multicall3": null,
+      "ascendLaunchpad": null,
+      "ascendRouter": null
+    },
+    "acquireUrl": null
+  }
+}

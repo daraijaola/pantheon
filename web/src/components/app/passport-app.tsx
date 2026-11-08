@@ -7,6 +7,7 @@
 
 /* eslint-disable @next/next/no-img-element -- small local portraits, already optimised */
 
+import { networkLabel } from "@/lib/network-copy";
 import Link from "next/link";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -111,7 +112,7 @@ function Passport({ d }: { d: Deployment }) {
     <main className={s.page}>
       <header className={s.head}>
         <div>
-          <p className={s.eyebrow}>App · Elysium testnet</p>
+          <p className={s.eyebrow}>App · {networkLabel}</p>
           <h1 className={s.h1}>HYPE Passport</h1>
           <p className={s.sub}>Prove you hold HYPE with one signature. Nothing leaves your wallet, and your address stays private.</p>
         </div>

@@ -2,6 +2,7 @@
 
 // Parts every app screen shares: the wallet bar, the transaction sender, small number/time helpers.
 
+import { networkLabel, networkText } from "@/lib/network-copy";
 import Link from "next/link";
 import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -119,7 +120,7 @@ export function WalletBar() {
     return (
       <div className={s.wallet}>
         <button type="button" className={s.primarySmall} onClick={() => switchChain.mutate({ chainId: elysium.id })}>
-          Switch to Elysium testnet
+          Switch to {networkLabel}
         </button>
       </div>
     );
@@ -142,7 +143,7 @@ export function NotLive({ title, line }: { title: string; line: string }) {
     <main className={s.page}>
       <header className={s.head}>
         <div>
-          <p className={s.eyebrow}>App · Elysium testnet</p>
+          <p className={s.eyebrow}>App · {networkLabel}</p>
           <h1 className={s.h1}>{title}</h1>
           <p className={s.sub}>{line}</p>
         </div>
@@ -232,12 +233,12 @@ export function reason(e: unknown): string {
   if (/Provider not found|No injected provider/i.test(msg)) return "No wallet found in this browser. Install MetaMask or Rabby, then reload this page.";
   if (/PriceLimitAlreadyExceeded|PriceLimitOutOfBounds/.test(msg)) return "There’s nothing left to buy in that pool right now.";
   if (/insufficient funds|exceeds the balance of the account|gas required exceeds/i.test(msg))
-    return "This wallet doesn’t have enough test HYPE for gas yet. If you just got some from the faucet, wait a few seconds and try again.";
+    return networkText("This wallet doesn’t have enough test HYPE for gas yet. If you just got some from the faucet, wait a few seconds and try again.", "This wallet doesn’t have enough HYPE for gas. Fund it on this network, then try again.");
   if (/nonce too low|replacement transaction underpriced|already known/i.test(msg))
     return "Your wallet is still sending an earlier transaction. Wait a few seconds and try again.";
   // Ascend switched new launches off on testnet ahead of mainnet (its own switch, not ours).
   if (/LaunchesArePaused|0x3a1455a0|HookNotAllowed|0xaf73e17a|ProtocolFeeCannotBeFetched/.test(msg))
-    return "Ascend has paused new launches on testnet while it gets ready for mainnet on Nov 9. Launches open again as soon as Ascend switches them back on.";
+    return networkText("Ascend has paused new launches on testnet while it gets ready for mainnet on Nov 9. Launches open again as soon as Ascend switches them back on.", "Ascend has paused new launches. Launches open again as soon as Ascend switches them back on.");
   const named = msg.match(/reverted with the following reason:\s*\n?(.+)|error\s+([A-Z][A-Za-z]+)\(/);
   if (named) return `The contract refused: ${(named[1] ?? named[2]).trim()}.`;
   return `${msg.split("\n")[0].slice(0, 160)} Try again in a few seconds, or refresh the page.`;

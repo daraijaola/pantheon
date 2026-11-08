@@ -3,6 +3,7 @@
 // The worked examples beside each feature page's title. Same card language as the landing page
 // (receipts, rows, a stamp); values decrypt in once, then the card stays still.
 
+import { networkText } from "@/lib/network-copy";
 import { useEffect, useState, type CSSProperties } from "react";
 import { decrypt, ease, fmt, HypeMark, span, useReducedMotion } from "@/components/showcase/kit";
 import s from "@/components/showcase/showcase.module.css";
@@ -195,7 +196,7 @@ export function CovenantCard() {
         </div>
         <div className={c.job} style={line(t, 1300)}>
           <span className={c.when}>Both</span>
-          <span>15% from mainnet, 0% on testnet</span>
+          <span>{networkText("15% from mainnet, 0% on testnet", "15% to the team")}</span>
         </div>
       </div>
       <div className={s.dash} style={line(t, 1400)} />

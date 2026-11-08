@@ -3,8 +3,8 @@ import { test, expect, ready } from './support';
 import { wallet } from './fixtures/data.mjs';
 
 const origin = 'https://127.0.0.1:4176';
-function session(expires = Date.now() + 60_000, boundOrigin = origin) {
-  const payload = Buffer.from(JSON.stringify({ wallet, origin: boundOrigin, expires })).toString('base64url');
+function session(expires = Date.now() + 60_000, boundOrigin = origin, chainId: number | undefined = 99801) {
+  const payload = Buffer.from(JSON.stringify({ wallet, origin: boundOrigin, expires, chainId })).toString('base64url');
   const mac = createHmac('sha256', 'e2e-only-session-secret-not-for-deployment').update(`session.${payload}`).digest('base64url');
   return `${payload}.${mac}`;
 }
@@ -17,7 +17,7 @@ test('Homepage redirects only a signed, live, origin-bound session and allows th
   expect(redirect.headers()['cache-control']).toContain('no-store');
   const bypass = await request.get(`${origin}/?home=1`, { headers: { cookie: `pantheon_session=${cookie}` }, maxRedirects: 0 });
   expect(bypass.status()).toBe(200);
-  for (const value of ['', 'invalid', `x${cookie}`, session(Date.now() - 1000), session(Date.now() + 60_000, 'https://other.example')]) {
+  for (const value of ['', 'invalid', `x${cookie}`, session(Date.now() - 1000), session(Date.now() + 60_000, 'https://other.example'), session(Date.now() + 60_000, origin, 99901)]) {
     const response = await request.get(`${origin}/`, { headers: { cookie: `pantheon_session=${value}` }, maxRedirects: 0 });
     expect(response.status()).toBe(200);
   }

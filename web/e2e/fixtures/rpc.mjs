@@ -1,6 +1,6 @@
 import { decodeAbiParameters, decodeFunctionData, encodeFunctionResult, erc20Abi, erc6492SignatureValidatorByteCode, parseAbi, recoverAddress, toFunctionSelector, zeroAddress } from 'viem';
 import * as contracts from '../../src/lib/chain/abi.ts';
-import deployment from '../../src/lib/chain/deployments/elysium-testnet.json' with { type: 'json' };
+import deployment from '../../../deployments/elysium-testnet.json' with { type: 'json' };
 import { emptyWallet } from './data.mjs';
 
 const extra = parseAbi([

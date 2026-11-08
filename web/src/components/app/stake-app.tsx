@@ -3,6 +3,7 @@
 // The stake screen: an inside screen, so it stays calm. Plain cells, numbers and two buttons.
 // Everything shown is read live from the contracts; every action is one or two wallet prompts.
 
+import { networkLabel } from "@/lib/network-copy";
 import Link from "next/link";
 import { useState } from "react";
 import { erc20Abi, formatUnits, zeroAddress } from "viem";
@@ -99,7 +100,7 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
     <main className={s.page}>
       <header className={s.head}>
         <div>
-          <p className={s.eyebrow}>App · Elysium testnet</p>
+          <p className={s.eyebrow}>App · {networkLabel}</p>
           <h1 className={s.h1}>Stake PNTH</h1>
           <p className={s.sub}>Every coin the basket buys streams to stakers over a day. Unstaking takes 3 days.</p>
         </div>

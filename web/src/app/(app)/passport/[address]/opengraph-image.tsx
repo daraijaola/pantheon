@@ -1,3 +1,4 @@
+import { networkLabel } from "@/lib/network-copy";
 import { ImageResponse } from "next/og";
 import { isAddress } from "viem";
 import { readPublicPassport } from "@/lib/passport-public";
@@ -26,7 +27,7 @@ export default async function Image({ params }: { params: Promise<{ address: str
         {view && <div style={{ display: "flex", fontSize: 30, marginTop: 18 }}>{view.boost} boost · {view.stamps.length}/8 stamps</div>}
         {view && <div style={{ display: "flex", fontSize: 21, marginTop: 24 }}>{view.stamps.join(" · ") || "No stamps recorded"}</div>}
       </div>
-      <div style={{ display: "flex", marginTop: 24, fontSize: 19 }}>Public on-chain facts · Elysium testnet · pantheonindex.com</div>
+      <div style={{ display: "flex", marginTop: 24, fontSize: 19 }}>Public on-chain facts · {networkLabel} · pantheonindex.com</div>
     </div>, { ...size, status: code, headers: { "Cache-Control": "no-store" } },
   );
 }

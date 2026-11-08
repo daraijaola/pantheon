@@ -3,12 +3,14 @@ import { createPublicClient, http } from "viem";
 import { verifySiweMessage } from "viem/siwe";
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, createAuth, NONCE_COOKIE, NONCE_SECONDS, SESSION_COOKIE, SESSION_SECONDS, sessionSecret, type ReplayState } from "./auth";
+import { network } from "./chain/deployments";
 
 const state = globalThis as typeof globalThis & { pantheonAuth?: { secret: string; used?: Map<string, number>; replay?: ReplayState } };
 const shared = state.pantheonAuth ??= { secret: randomBytes(32).toString("hex") };
 const replay = shared.replay ??= { used: shared.used ?? new Map(), cutoff: Date.now() };
-const client = createPublicClient({ transport: http(process.env.NEXT_PUBLIC_RPC_URL ?? "https://testnet-rpc.elysium.kinetiq.xyz", { timeout: 10_000, retryCount: 0 }) });
+const client = createPublicClient({ transport: http(process.env.ELYSIUM_RPC ?? (network.testnet ? process.env.NEXT_PUBLIC_RPC_URL : undefined) ?? network.publicRpc, { timeout: 10_000, retryCount: 0 }) });
 export const auth = createAuth({
+  chainId: network.chainId,
   secret: () => sessionSecret(process.env, shared.secret), replay,
   verify: ({ message, signature }) => verifySiweMessage(client, { message, signature }),
 });

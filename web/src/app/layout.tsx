@@ -1,3 +1,4 @@
+import { networkLabel } from "@/lib/network-copy";
 import type { Metadata } from "next";
 import { Big_Shoulders, Geist, Geist_Mono, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { SITE_ORIGIN } from "@/lib/meta";
@@ -40,13 +41,13 @@ export const metadata: Metadata = {
     siteName: "PANTHEON",
     url: "./",
     title: "PANTHEON · The best of Ascend, in one token.",
-    description: "One token that holds the best Ascend coins. Buys fill the basket, sells burn PNTH. Live on Elysium testnet.",
+    description: `One token that holds the best Ascend coins. Buys fill the basket, sells burn PNTH. Live on ${networkLabel}.`,
   },
   twitter: {
     card: "summary_large_image",
     site: "@pantheonindex",
     title: "PANTHEON · The best of Ascend, in one token.",
-    description: "One token that holds the best Ascend coins. Buys fill the basket, sells burn PNTH. Live on Elysium testnet.",
+    description: `One token that holds the best Ascend coins. Buys fill the basket, sells burn PNTH. Live on ${networkLabel}.`,
   },
 };
 
