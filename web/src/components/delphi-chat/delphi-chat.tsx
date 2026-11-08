@@ -336,7 +336,7 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
     if (!cv) return;
     const L = live.current;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const orb = ChatOrb.create(cv);
+    const orb = ChatOrb.create(cv, (available) => setNoGL(!available));
     if (!orb) setNoGL(true);
     const t0 = performance.now() / 1000;
     const sim = { x: 0, y: 0, r: 0, vx: 0, vy: 0, vr: 0, ready: false, last: 0, scroll: 0 };
@@ -479,7 +479,10 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
       }
     };
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      orb?.dispose();
+    };
   }, []);
 
   // ------------------------------------------------------------------ the page

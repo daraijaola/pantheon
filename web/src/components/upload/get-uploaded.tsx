@@ -17,7 +17,10 @@ function TileOrb({ pulseAt, hot }: { pulseAt: React.RefObject<number>; hot: Reac
   useEffect(() => {
     const cv = canvas.current;
     if (!cv) return;
-    const orb = ChatOrb.create(cv);
+    const orb = ChatOrb.create(cv, (available) => {
+      if (bead.current) bead.current.style.display = available ? "none" : "block";
+      if (available) start();
+    });
     if (!orb) {
       if (bead.current) bead.current.style.display = "block";
       return;
@@ -81,14 +84,12 @@ function TileOrb({ pulseAt, hot }: { pulseAt: React.RefObject<number>; hot: Reac
     io.observe(cv);
     const onVis = () => !document.hidden && start();
     document.addEventListener("visibilitychange", onVis);
-    const onLost = (e: Event) => e.preventDefault();
-    cv.addEventListener("webglcontextlost", onLost);
     start();
     return () => {
       if (raf) cancelAnimationFrame(raf);
       io.disconnect();
       document.removeEventListener("visibilitychange", onVis);
-      cv.removeEventListener("webglcontextlost", onLost);
+      orb.dispose();
     };
   }, [pulseAt, hot]);
 

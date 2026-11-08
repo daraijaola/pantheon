@@ -144,6 +144,7 @@ void main(){
 
 const NAMES = ["uRes", "uDpr", "uTime", "uFade", "uShadow", "uC", "uR", "uThink", "uEnergy", "uPulse", "uSq", "uTiny"] as const;
 type Name = (typeof NAMES)[number];
+type Resources = { u: Record<Name, WebGLUniformLocation | null>; program: WebGLProgram; buffer: WebGLBuffer };
 
 export type OrbState = {
   x: number;
@@ -164,11 +165,26 @@ export class ChatOrb {
   private constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly gl: WebGLRenderingContext,
-    private readonly u: Record<Name, WebGLUniformLocation | null>,
-  ) {}
+    private resources: Resources | null,
+    private readonly availability?: (ready: boolean) => void,
+  ) {
+    canvas.addEventListener("webglcontextlost", this.onLost);
+    canvas.addEventListener("webglcontextrestored", this.onRestored);
+  }
+
+  private onLost = (event: Event) => {
+    event.preventDefault();
+    this.resources = null;
+    this.availability?.(false);
+  };
+
+  private onRestored = () => {
+    this.resources = ChatOrb.resources(this.gl);
+    this.availability?.(!!this.resources);
+  };
 
   /** Null without WebGL: the page then shows a still bead instead. */
-  static create(canvas: HTMLCanvasElement): ChatOrb | null {
+  static create(canvas: HTMLCanvasElement, availability?: (ready: boolean) => void): ChatOrb | null {
     let gl: WebGLRenderingContext | null = null;
     try {
       gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false });
@@ -176,23 +192,45 @@ export class ChatOrb {
       gl = null;
     }
     if (!gl) return null;
+    const resources = ChatOrb.resources(gl);
+    return resources ? new ChatOrb(canvas, gl, resources, availability) : null;
+  }
+
+  private static resources(gl: WebGLRenderingContext): Resources | null {
     const compile = (type: number, src: string) => {
       const sh = gl.createShader(type);
       if (!sh) return null;
       gl.shaderSource(sh, src);
       gl.compileShader(sh);
-      return gl.getShaderParameter(sh, gl.COMPILE_STATUS) ? sh : null;
+      if (gl.getShaderParameter(sh, gl.COMPILE_STATUS)) return sh;
+      gl.deleteShader(sh);
+      return null;
     };
     const vs = compile(gl.VERTEX_SHADER, VERTEX);
     const fs = compile(gl.FRAGMENT_SHADER, FRAGMENT) ?? compile(gl.FRAGMENT_SHADER, FRAGMENT.replace("precision highp float;", "precision mediump float;"));
     const prog = gl.createProgram();
-    if (!vs || !fs || !prog) return null;
+    if (!vs || !fs || !prog) {
+      if (vs) gl.deleteShader(vs);
+      if (fs) gl.deleteShader(fs);
+      if (prog) gl.deleteProgram(prog);
+      return null;
+    }
     gl.attachShader(prog, vs);
     gl.attachShader(prog, fs);
     gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      gl.deleteProgram(prog);
+      return null;
+    }
     gl.useProgram(prog);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    const buffer = gl.createBuffer();
+    if (!buffer) {
+      gl.deleteProgram(prog);
+      return null;
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     const loc = gl.getAttribLocation(prog, "p");
     gl.enableVertexAttribArray(loc);
@@ -200,15 +238,27 @@ export class ChatOrb {
     const u = {} as Record<Name, WebGLUniformLocation | null>;
     for (const n of NAMES) u[n] = gl.getUniformLocation(prog, n);
     gl.clearColor(0, 0, 0, 0);
-    return new ChatOrb(canvas, gl, u);
+    return { u, program: prog, buffer };
   }
 
   get lost() {
-    return this.gl.isContextLost();
+    return !this.resources || this.gl.isContextLost();
+  }
+
+  dispose() {
+    this.canvas.removeEventListener("webglcontextlost", this.onLost);
+    this.canvas.removeEventListener("webglcontextrestored", this.onRestored);
+    if (this.resources) {
+      this.gl.deleteProgram(this.resources.program);
+      this.gl.deleteBuffer(this.resources.buffer);
+      this.resources = null;
+    }
   }
 
   draw(o: OrbState, w: number, h: number, dpr: number) {
-    const { gl, u, canvas } = this;
+    if (this.lost || !this.resources) return;
+    const { gl, canvas } = this;
+    const { u } = this.resources;
     const cw = Math.max(1, Math.round(w * dpr));
     const ch = Math.max(1, Math.round(h * dpr));
     if (canvas.width !== cw || canvas.height !== ch) {
