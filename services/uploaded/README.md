@@ -1,5 +1,16 @@
 # Get uploaded: the backend
 
+### Saved wallet reads
+
+`GET /wallets/:address/read` returns `{ read, refreshAfter }` without starting work. `POST` to the same
+path refreshes the read, with one in-flight scan per wallet and a persisted ten-minute cooldown.
+Successful complete scans are stored atomically as private files in `wallet-reads/` beside `GUARD_FILE`.
+Keep that directory on the existing persistent writable data volume across releases. The cached snapshot
+includes a millisecond `readAt` timestamp and the scan stages. Failed/partial scans retain the last good read.
+The SSE `/scan` route reuses fresh saved reads (24 hours), otherwise refreshing through the same cache.
+The web owner gateway exposes these only for the verified SIWE wallet; browsers cannot choose the owner.
+This feature requires deploying Uploaded as well as the web app. No new env setting is required.
+
 Read-only data for a wallet's space on PANTHEON. Micheal builds the screens; this service gives him clean
 answers to plug in. It holds no keys and sends no transactions. Brief:
 `/srv/hackathon/notes/BRIEF-techblaze-get-uploaded.md`.

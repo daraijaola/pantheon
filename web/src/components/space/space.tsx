@@ -109,6 +109,16 @@ function Top({ sp }: { sp: Space; now: number }) {
             {line}
           </p>
         )}
+        {sp.mode === "mine" && (
+          <div className={s.readStatus}>
+            <span>{sp.readAt ? `Read ${ago(new Date(sp.readAt).toISOString(), now)}` : "No stored read yet"}</span>
+            <button type="button" className={s.inkBtn} onClick={sp.refreshRead} disabled={sp.refreshing || !now || now * 1000 < (sp.refreshAfter ?? 0)}>
+              {sp.refreshing ? "Refreshing…" : "Refresh"}
+            </button>
+            {!sp.refreshing && now * 1000 < (sp.refreshAfter ?? 0) && <small>Refresh available in {Math.ceil(((sp.refreshAfter ?? 0) - now * 1000) / 60_000)} min</small>}
+            {sp.readError && <small role="status">{sp.readError}</small>}
+          </div>
+        )}
       </div>
       {sp.mode === "example" && (
         <p className={`${s.example} ${s.rise}`} style={at(2)}>

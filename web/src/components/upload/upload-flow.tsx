@@ -40,7 +40,7 @@ function Steps() {
   const config = useConfig();
   const client = useQueryClient();
   const session = useSession();
-  const lastRead = useWalletRead(session.data);
+  const lastRead = useWalletRead(session.data, true);
   const signedHere = useRef(false);
   const readingWallet = useRef<string | null>(null);
   useEffect(() => {
@@ -114,7 +114,7 @@ function Steps() {
   }, [viaApp, connector, address]);
 
   const connected = status === "connected" && address ? address : null;
-  const signed = !!connected && session.data?.toLowerCase() === connected.toLowerCase();
+  const signed = !!session.data && (!connected || session.data.toLowerCase() === connected.toLowerCase());
   // Closing the wallet's window is a choice, not a failure, but say what happens next.
   const signError = sign.error
     ? reason(sign.error).replace("You cancelled it in your wallet.", "You closed it in your wallet. Sign to go on.")
@@ -149,7 +149,7 @@ function Steps() {
   return (
     <UploadOrb
       // One orb for the whole visit. A different wallet starts over inside it: it has to sign for itself.
-      address={connected}
+      address={connected ?? session.data ?? null}
       connecting={wallet.busy}
       connectViaApp={wallet.viaApp}
       connectError={wallet.error}

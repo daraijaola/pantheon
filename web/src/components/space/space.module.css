@@ -4,6 +4,25 @@
    Details open in trays of liquid glass. Glass only on what floats or moves. The page's edges line up
    with the bar's. */
 
+.readStatus {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgb(23 23 23 / 0.55);
+}
+.readStatus button {
+  font: inherit;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+.readStatus button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 .page {
   --ink: var(--color-ink, #171717);
   --paper: var(--color-paper, #f9f9f9);

@@ -17,13 +17,14 @@ import type { StandingReader } from "./standing.ts";
 import { UnstakeError, type StakeReader } from "./stake.ts";
 import type { RoundReader } from "./trials.ts";
 import type { Verdicts } from "./verdicts.ts";
+import type { WalletReads } from "./wallet-reads.ts";
 
 /** Requests per minute per visitor. Answers come from memory, so this only stops floods. */
 export const PER_MINUTE = 120;
 
 const Address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 
-export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent>; stake?: Pick<StakeReader, "read" | "preview">; basket?: Pick<BasketReader, "read" | "basket">; standing?: Pick<StandingReader, "read">; guard?: Pick<GuardReader, "read">; round?: Pick<RoundReader, "read">; record?: Pick<RecordReader, "read" | "ballot">; campaigns?: Pick<CampaignReader, "all" | "one">; footprint?: Pick<FootprintReader, "read">; elsewhere?: Pick<ElsewhereReader, "read"> | undefined } = {}) {
+export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { logger?: boolean; now?: () => number; fresh?: Pick<FreshChecks, "ask">; holdings?: Pick<HoldingsReader, "read">; history?: Pick<HistoryReader, "read">; bag?: Pick<BagReader, "read">; scan?: (wallet: string) => AsyncIterable<StageEvent>; reads?: WalletReads; stake?: Pick<StakeReader, "read" | "preview">; basket?: Pick<BasketReader, "read" | "basket">; standing?: Pick<StandingReader, "read">; guard?: Pick<GuardReader, "read">; round?: Pick<RoundReader, "read">; record?: Pick<RecordReader, "read" | "ballot">; campaigns?: Pick<CampaignReader, "all" | "one">; footprint?: Pick<FootprintReader, "read">; elsewhere?: Pick<ElsewhereReader, "read"> | undefined } = {}) {
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: "127.0.0.1", bodyLimit: 1024 });
   const now = opts.now ?? Date.now;
   const hits = new Map<string, { n: number; since: number }>();
@@ -175,7 +176,24 @@ export function buildApp(verdicts: Pick<Verdicts, "health" | "get">, opts: { log
 
   // The wallet scan, sent as server-sent events: one `stage` event as each stage finishes, then `done`.
   // no-transform stops anything on the way from compressing the stream, which would hold events back.
-  const { scan } = opts;
+  if (opts.reads) {
+    const reads = opts.reads;
+    app.route<{ Params: { address: string } }>({
+      method: ["GET", "POST"], url: "/wallets/:address/read",
+      handler: async (req, reply) => {
+        const wallet = Address.safeParse(req.params.address);
+        if (!wallet.success) return reply.code(400).send({ error: "INVALID_ADDRESS" });
+        reply.header("cache-control", "no-store");
+        try {
+          return req.method === "POST" ? await reads.refresh(wallet.data) : reads.get(wallet.data);
+        } catch (err) {
+          req.log.warn({ err }, "wallet read unavailable");
+          return reply.code(503).send({ error: "READ_UNAVAILABLE" });
+        }
+      },
+    });
+  }
+  const scan = opts.reads ? (wallet: string) => opts.reads!.scan(wallet) : opts.scan;
   if (scan) {
     app.get<{ Params: { address: string } }>("/wallets/:address/scan", async (req, reply) => {
       const wallet = Address.safeParse(req.params.address);
