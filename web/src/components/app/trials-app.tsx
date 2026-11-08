@@ -11,7 +11,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSignTypedData } from "wagmi";
 import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { deployment, elysium } from "@/lib/chain/config";
-import { NotLive, until, useNow, type Hex } from "./shared";
+import { roundDate, type TrialRound as Current, type TrialBallot } from "@/lib/trials";
+import { NotLive, short, until, useNow, type Hex } from "./shared";
 import s from "./app.module.css";
 import t from "./trials.module.css";
 
@@ -22,21 +23,7 @@ export function TrialsApp() {
 
 // ------------------------------------------------------------------ what the service sends
 
-type Verdict = "CLEAN" | "WATCH" | "NOT_ENOUGH_DATA";
-type Coin = { token: Hex; symbol: string | null; verdict: Verdict; headline?: string; realUsdc: string; rank: number; votes: number; voters: number };
-type Ballot = { voter: Hex; coins: Hex[]; weight: number; tier: number; signedAt: number };
-type Current = {
-  round: number;
-  status: "upcoming" | "open" | "closed";
-  opensAt: number;
-  closesAt: number;
-  seats: number;
-  candidates: Coin[];
-  leaders: Hex[];
-  ballots: number;
-  // weight = votes on each coin picked: 1 for staking PNTH, plus the Passport tier. Null if the chain didn't answer.
-  you?: { voter: Hex; weight: number | null; tier: number | null; ballot: Ballot | null };
-};
+type Verdict = Current["candidates"][number]["verdict"];
 
 // The ballot's EIP-712 shape. It must match services/trials/src/ballot.ts exactly, or no vote will count.
 const DOMAIN = { name: "PANTHEON Trials", version: "1", chainId: elysium.id } as const;
@@ -92,6 +79,7 @@ function Trials() {
   if (q.isLoading) return <Shell sub="Reading the vote…" />;
   if (q.error) return <Shell sub="The vote service didn’t answer. Try again in a minute." />;
   if (!r) return <Shell sub="No vote is open right now. The next round opens here." />;
+  if (r.status === "closed") return <Results round={r} />;
 
   const weight = r.you?.weight ?? null;
   const tier = r.you?.tier ?? 0;
@@ -142,13 +130,11 @@ function Trials() {
   };
 
   const changed = picked !== null && (picked.length !== (mine?.coins.length ?? 0) || picked.some((c) => !mine?.coins.some((m) => m.toLowerCase() === c.toLowerCase())));
-  const button = !onChain
-    ? "Connect your wallet to vote"
-    : r.status === "upcoming"
-      ? "The vote hasn’t opened yet"
-      : r.status === "closed"
-        ? "This vote has closed"
-        : weight === null
+  const button = r.status === "upcoming"
+    ? "The vote hasn’t opened yet"
+    : !onChain
+      ? "Connect your wallet to vote"
+      : weight === null
           ? "Checking your stake…"
           : weight === 0
             ? "Stake PNTH to vote"
@@ -252,7 +238,7 @@ function Trials() {
 
         <aside className={s.side}>
           <div className={s.cell}>
-            <p className={s.label}>Leading now</p>
+            <p className={s.label}>{r.status === "open" ? "Leading now" : "Round tally"}</p>
             {r.leaders.length === 0 ? (
               <p className={s.empty}>No votes yet.</p>
             ) : (
@@ -271,7 +257,7 @@ function Trials() {
               </ol>
             )}
             <p className={s.hint}>
-              {r.ballots} {r.ballots === 1 ? "ballot" : "ballots"} so far.
+              {r.ballots} {r.ballots === 1 ? "ballot" : "ballots"}{r.status === "open" ? " so far." : "."}
             </p>
           </div>
           <div className={s.cell}>
@@ -284,13 +270,8 @@ function Trials() {
           </div>
           <div className={s.cell}>
             <p className={s.label}>Every ballot is public</p>
-            <p className={s.hint}>
-              Each vote is a signed message, published with its signature, so anyone can recount it.{" "}
-              <a href={`/api/trials/rounds/${r.round}`} target="_blank" rel="noreferrer">
-                See every ballot
-              </a>
-              .
-            </p>
+            <p className={s.hint}>Ballots are published here when the round closes.</p>
+            <p className={s.hint}><a href={`/api/trials/rounds/${r.round}`} target="_blank" rel="noreferrer">raw data</a></p>
           </div>
         </aside>
       </div>
@@ -303,13 +284,68 @@ function Trials() {
 
 const symOf = (r: Current, token: Hex) => r.candidates.find((c) => c.token.toLowerCase() === token.toLowerCase())?.symbol ?? `${token.slice(0, 6)}…`;
 
+function Results({ round: r }: { round: Current }) {
+  const tally = [...r.candidates].sort((a, b) => b.votes - a.votes || a.rank - b.rank);
+  return (
+    <main className={s.page}>
+      <header className={s.head}><div>
+        <p className={s.eyebrow}>The Trials · closed</p>
+        <h1 className={s.h1}>Round {r.round} results</h1>
+        <p className={s.sub}>Opened {roundDate(r.opensAt)}. Closed {roundDate(r.closesAt)}.</p>
+        <p className={s.hint}>{r.nextOpensAt ? `Next round opens ${roundDate(r.nextOpensAt)}` : "Next round opens soon"}</p>
+      </div></header>
+      <div className={s.grid}>
+        <div className={s.main}>
+          <section className={s.cell} aria-label="Round winners">
+            <h2 className={s.label}>Winners</h2>
+            {r.leaders.length ? <ol className={t.leaders}>{r.leaders.map((token) => (
+              <li key={token}><Link href={`/delphi/${token}`}>{symOf(r, token)}</Link><span>{r.candidates.find((c) => c.token.toLowerCase() === token.toLowerCase())?.votes ?? 0} votes</span></li>
+            ))}</ol> : <p className={s.empty}>No winners in this round.</p>}
+            <p className={s.hint}>{r.ballots} {r.ballots === 1 ? "ballot" : "ballots"} counted.</p>
+          </section>
+          <section className={s.cell}>
+            <details className={s.more}>
+              <summary>Candidates and final tally ({tally.length})</summary>
+              {tally.length ? <ol className={t.leaders}>{tally.map((c) => <li key={c.token}><Link href={`/delphi/${c.token}`}>{c.symbol ?? short(c.token)}</Link><span>{c.votes} votes</span></li>)}</ol> : <p className={s.empty}>No candidates in this round.</p>}
+            </details>
+          </section>
+        </div>
+        <aside className={s.side}><Ballots round={r} /></aside>
+      </div>
+      <p className={s.fine}><Link href="/trials">How the Trials work</Link></p>
+    </main>
+  );
+}
+
+function Ballots({ round: r }: { round: Current }) {
+  const q = useQuery({
+    queryKey: ["trials", "ballots", r.round],
+    queryFn: async (): Promise<TrialBallot[]> => {
+      const res = await fetch(`/api/trials/rounds/${r.round}`);
+      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      const body = await res.json() as { ballotList?: TrialBallot[] };
+      if (!Array.isArray(body.ballotList)) throw new Error("Ballots unavailable");
+      return body.ballotList;
+    },
+  });
+  return <section className={s.cell} aria-label="Public ballots">
+    <h2 className={s.label}>Every ballot</h2>
+    {q.isPending ? <p className={s.empty}>Reading ballots…</p> : q.isError ? <p className={s.empty}>Ballots couldn’t be read just now. Try again in a minute.</p> : q.data.length ? (
+      <ul className={t.rules}>{q.data.map((b) => <li key={b.voter}>
+        <span title={b.voter}>{short(b.voter)}</span> · {b.coins.map((coin) => symOf(r, coin)).join(", ")} · Weight {b.weight}
+      </li>)}</ul>
+    ) : <p className={s.empty}>No ballots in this round.</p>}
+    <p className={s.hint}><a href={`/api/trials/rounds/${r.round}`} target="_blank" rel="noreferrer">raw data</a></p>
+  </section>;
+}
+
 function Shell({ sub }: { sub: string }) {
   return (
     <main className={s.page}>
       <header className={s.head}>
         <div>
           <p className={s.eyebrow}>The Trials</p>
-          <h1 className={s.h1}>Vote on the next basket</h1>
+          <h1 className={s.h1}>The Trials</h1>
           <p className={s.sub}>{sub}</p>
         </div>
       </header>
