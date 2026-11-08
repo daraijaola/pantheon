@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type WalletRead = { wallet: string; readAt: number; stages: Array<{ stage: string; ok: boolean; data?: unknown }> };
@@ -15,18 +15,23 @@ export async function walletRead(method = "GET"): Promise<ReadState> {
 export function useWalletRead(wallet: string | null | undefined, refreshStale = false) {
   const client = useQueryClient();
   const key = ["me", "read", wallet];
-  const attempted = useRef<string | null>(null);
   const query = useQuery({ queryKey: key, queryFn: () => walletRead(), enabled: !!wallet, staleTime: 60_000, retry: false });
   const refresh = useMutation({
-    mutationFn: () => walletRead("POST"),
-    onSuccess: (state) => client.setQueryData(key, state),
+    mutationFn: (owner: string) => {
+      if (!owner) throw new Error("Sign in to refresh your read.");
+      return walletRead("POST");
+    },
+    onSuccess: (state, owner) => {
+      if (client.getQueryData(["me", "session"]) === owner && (!state.read || state.read.wallet === owner)) client.setQueryData(["me", "read", owner], state);
+    },
     onError: () => { void client.invalidateQueries({ queryKey: key }); },
   });
   const { mutate } = refresh;
   useEffect(() => {
-    if (!refreshStale || !wallet || !query.data || attempted.current === wallet) return;
-    attempted.current = wallet;
-    if ((!query.data.read || Date.now() - query.data.read.readAt > 86_400_000) && Date.now() >= query.data.refreshAfter) mutate();
+    if (!refreshStale || !wallet || !query.data) return;
+    const next = Math.max(query.data.read ? query.data.read.readAt + 86_400_000 : 0, query.data.refreshAfter);
+    const timer = setTimeout(() => mutate(wallet), Math.max(0, next - Date.now()));
+    return () => clearTimeout(timer);
   }, [refreshStale, wallet, query.data, mutate]);
-  return { ...query, refresh: () => mutate(), refreshing: refresh.isPending, refreshError: refresh.error?.message };
+  return { ...query, refresh: () => mutate(wallet ?? ""), refreshing: refresh.isPending, refreshError: refresh.error?.message ?? query.error?.message };
 }

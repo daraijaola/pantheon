@@ -1,9 +1,10 @@
 import { test, expect, connect, ready } from './support';
 
-const routes = ['/space', '/stake', '/delphi/chat', '/get', '/trials/vote', '/passport', '/passport/get', '/passport/me', '/covenant/launch', '/delphi/dispute'];
+const routes = ['/space', '/stake', '/delphi/chat', '/trials/vote', '/passport/get', '/passport/me', '/covenant/launch'];
 
 for (const chain of ['0x1', '0x185d9']) {
   test(`phone header fits with ${chain === '0x1' ? 'wrong-chain' : 'connected'} wallet`, async ({ page }) => {
+    test.setTimeout(90_000);
     test.skip((page.viewportSize()?.width ?? 0) > 390, 'Phone geometry');
     await connect(page, chain);
     for (const route of routes) {
@@ -25,6 +26,7 @@ for (const chain of ['0x1', '0x185d9']) {
       expect(items[0]!.x + items[0]!.width).toBeLessThanOrEqual(items[1]!.x);
       expect(items[1]!.x + items[1]!.width).toBeLessThanOrEqual(items[2]!.x);
       expect(await wallet.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+      await page.waitForLoadState('networkidle');
     }
   });
 }

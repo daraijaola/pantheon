@@ -1,5 +1,9 @@
 import { test, expect, connect, ready } from './support';
 
+test.beforeEach(async ({ context }, info) => {
+  await context.setExtraHTTPHeaders({ 'x-forwarded-for': `198.18.0.${info.workerIndex + 1}` });
+});
+
 test('Chat controls stay below the app header, including on reload and while chatting', async ({ page }) => {
   await connect(page, '0x1');
   await page.goto('/delphi/chat');

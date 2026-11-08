@@ -23,17 +23,18 @@ for (const stale of [false, true]) {
     });
     await page.goto('/space');
     await ready(page);
-    await expect(page.getByText(stale ? 'Read 1 day ago' : 'Read 1 h ago', { exact: true })).toBeVisible();
+    const top = page.getByRole('heading', { name: 'Your space', exact: true }).locator('..');
+    await expect(top.getByText(stale ? 'Read 1 day ago' : 'Read 1 h ago', { exact: true })).toBeVisible();
     await expect(page.getByText('PACT', { exact: true }).first()).toBeVisible();
     expect(expensive).toEqual([]);
     if (stale) await expect.poll(() => posts).toBe(1);
     else { expect(posts).toBe(0); await page.getByRole('button', { name: 'Refresh', exact: true }).click(); }
     release();
-    await expect(page.getByText('Read just now', { exact: true })).toBeVisible();
+    await expect(top.getByText('Read just now', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toBeDisabled();
     await page.reload();
     await ready(page);
-    await expect(page.getByText('Read just now', { exact: true })).toBeVisible();
+    await expect(top.getByText('Read just now', { exact: true })).toBeVisible();
     expect(posts).toBe(1);
   });
 }

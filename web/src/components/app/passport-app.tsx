@@ -15,6 +15,7 @@ import { useConnection, useReadContracts, useSignTypedData } from "wagmi";
 import { hypePassportRegistryAbi, pantheonStakingAbi } from "@/lib/chain/abi";
 import { deployment, elysium, explorer } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
+import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { NotLive, short, TxNote, until, useChainNow, useTx, type Hex } from "./shared";
 import s from "./app.module.css";
 import { ConnectWallet } from "./connect-wallet";
@@ -81,7 +82,7 @@ export function PassportApp() {
 }
 
 function Passport({ d }: { d: Deployment }) {
-  const { address, isConnected, chainId } = useConnection();
+  const { address, isConnected, chainId } = useHydratedConnection();
   const onChain = isConnected && chainId === elysium.id;
   const me = (address ?? zeroAddress) as Hex;
 
