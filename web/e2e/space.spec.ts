@@ -1,6 +1,26 @@
 import { test, expect, ready } from './support';
-import { wallet, emptyWallet } from './fixtures/data.mjs';
+import { wallet, emptyWallet, token } from './fixtures/data.mjs';
 import { uploaded } from './fixtures/uploaded.mjs';
+
+for (const urgent of ['alert', 'claim', 'vote', 'all']) {
+  test(`Zero PNTH keeps ${urgent} urgent actions ahead of onboarding`, async ({ page }) => {
+    const has = (kind: string) => urgent === kind || urgent === 'all';
+    const data = {
+      ...uploaded,
+      stake: { ...uploaded.stake, staked: { raw: '0', amount: '0' } },
+      guard: { ...uploaded.guard, alerts: has('alert') ? [{ id: 'flag', kind: 'verdict-drop', token, symbol: 'PACT', venue: 'ascend', at: uploaded.guard.readAt, from: 'CLEAN', to: 'FLAG', reason: 'Fixture flag', evidence: [], reportUrl: `/delphi/${token}`, disputeUrl: '/delphi/dispute' }] : [] },
+      rewards: { ...uploaded.rewards, coins: has('claim') ? [{ token, symbol: 'PNTH', claimable: { raw: '1000000000000000000', amount: '1' }, claimed: null, earned: null, verdict: null }] : [] },
+      ballot: { ...uploaded.ballot, round: 5, canVote: has('vote'), votes: 1, closesAt: '2099-01-01T00:00:00Z' },
+    };
+    await page.route('**/api/auth/me', route => route.fulfill({ json: { wallet: emptyWallet } }));
+    await page.route('**/api/me/**', route => route.fulfill({ json: data[new URL(route.request().url()).pathname.split('/').at(-1) as keyof typeof data] }));
+    await page.goto('/space');
+    await ready(page);
+    const titles = page.getByRole('region', { name: 'Now', exact: true }).getByRole('listitem').locator('strong');
+    const expected = [has('alert') && 'PACT was flagged', has('claim') && '1 PNTH to claim', has('vote') && 'Round 5 is open', 'Get PNTH', 'Earn from the basket', 'Get your passport'].filter((value): value is string => typeof value === 'string').slice(0, 3);
+    await expect(titles).toHaveText(expected);
+  });
+}
 
 test('Space title stays aligned when the verified session arrives', async ({ page }) => {
   let release!: () => void;
