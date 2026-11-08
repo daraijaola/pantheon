@@ -375,9 +375,6 @@
   opacity: 1;
   transform: none;
 }
-/* her window: clear glass, the same as the bar's, with her orb inside it. The orb is the only dark thing in
-   it, a sphere lit from above with her light inside and its own soft shadow, so it sits in the glass like a
-   bead in water instead of a dark disc pasted on the page. */
 .delphiWindow {
   position: relative;
   isolation: isolate;
@@ -386,39 +383,10 @@
   height: 58px;
   overflow: hidden;
   border-radius: 50%;
-  background: rgb(255 255 255 / 0.74);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
-  backdrop-filter: blur(20px) saturate(1.8);
-  box-shadow:
-    var(--rim),
-    0 2px 6px rgb(0 0 0 / 0.06),
-    0 14px 30px -12px rgb(0 0 0 / 0.3);
-  transition:
-    transform 0.35s var(--spring),
-    box-shadow 0.3s;
-}
-/* the rim catches the light, brightest at the top left, like the trays' */
-.delphiWindow::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(140deg, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0.1) 40%, rgb(255 255 255 / 0.05) 70%, rgb(255 255 255 / 0.6));
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+  transition: transform 0.35s var(--spring);
 }
 .delphi:hover .delphiWindow {
   transform: scale(1.06);
-  box-shadow:
-    var(--rim),
-    0 4px 10px rgb(0 0 0 / 0.07),
-    0 20px 40px -14px rgb(0 0 0 / 0.34);
 }
 .delphi:active .delphiWindow {
   transform: scale(0.96);

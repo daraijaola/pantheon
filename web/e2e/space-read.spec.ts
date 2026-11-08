@@ -25,6 +25,25 @@ for (const stale of [false, true]) {
     await ready(page);
     const top = page.getByRole('heading', { name: 'Your space', exact: true }).locator('..');
     await expect(top.getByText(stale ? 'Read 1 day ago' : 'Read 1 h ago', { exact: true })).toBeVisible();
+    await page.mouse.move(0, 0);
+    const refreshButton = page.getByRole('button', { name: 'Refresh', exact: true });
+    const readable = async () => {
+      await expect(refreshButton).toHaveCSS('color', 'rgb(255, 255, 255)');
+      await expect(refreshButton).toHaveCSS('background-image', /linear-gradient/);
+      expect(Number(await refreshButton.evaluate(el => getComputedStyle(el).opacity))).toBeGreaterThanOrEqual(0.7);
+    };
+    if (!stale) await readable();
+    const orb = page.getByRole('link', { name: 'Ask DELPHI', exact: true });
+    if ((page.viewportSize()?.width ?? 0) > 760) {
+      const window = orb.locator('span').last().locator('..');
+      await expect(window).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+      await expect(window).toHaveCSS('box-shadow', 'none');
+      await expect(window).toHaveCSS('backdrop-filter', 'none');
+      expect(await window.evaluate(el => getComputedStyle(el, '::after').content)).toBe('none');
+      await orb.hover();
+      await expect(window).toHaveCSS('box-shadow', 'none');
+      await page.mouse.move(0, 0);
+    } else await expect(orb).toBeHidden();
     await expect(page.getByText('PACT', { exact: true }).first()).toBeVisible();
     expect(expensive).toEqual([]);
     if (stale) await expect.poll(() => posts).toBe(1);
@@ -32,6 +51,7 @@ for (const stale of [false, true]) {
     release();
     await expect(top.getByText('Read just now', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toBeDisabled();
+    await readable();
     await page.reload();
     await ready(page);
     await expect(top.getByText('Read just now', { exact: true })).toBeVisible();
