@@ -305,8 +305,8 @@
   transform-origin: left center;
   pointer-events: none;
   transition:
-    opacity 0.6s var(--ease),
-    transform 0.6s var(--ease);
+    opacity 0.2s var(--ease),
+    transform 0.2s var(--ease);
 }
 .think[data-on] {
   opacity: 1;
@@ -335,7 +335,7 @@
   position: relative;
 }
 .answer[data-ready] {
-  animation: answerIn 0.32s var(--ease) both;
+  animation: answerIn 0.32s var(--ease) 0.2s both;
 }
 .word {
   display: inline-block;
