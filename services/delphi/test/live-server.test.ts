@@ -13,6 +13,7 @@ import { getAddress } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
+import { runDisputes } from "../scripts/disputes.ts";
 import { fakeRecord, fakeToken } from "../src/live/fake.ts";
 import { ENDPOINTS, RECORD_FIELDS } from "../src/live/format.ts";
 import { createFeedServer, expiresOf, ipKey, RateLimiter, type FeedLimits, type FeedLogEvent, type FeedServerOptions } from "../src/live/server.ts";
@@ -320,7 +321,7 @@ describe("GET /v1/health", () => {
     expect(a.status).toBe(200);
     expect(a.headers["cache-control"]).toBe("no-store");
     expect(a.headers.etag).toBeUndefined();
-    expect(a.json()).toEqual({ v: 1, ok: true, version: "1.0.0", newestUpdateMs: T0, servedAtMs: h.clock.t });
+    expect(a.json()).toEqual({ v: 1, ok: true, version: "1.0.0", newestUpdateMs: T0, newestUpdateAgeMs: h.clock.t - T0, recordCount: 3, empty: false, stale: false, servedAtMs: h.clock.t });
   });
 
   it("stays cheap however big the feed gets: the newest update comes from an index, never a scan", async () => {
@@ -331,11 +332,22 @@ describe("GET /v1/health", () => {
 
   it("says null for an empty feed, and 503 when the database is gone", async () => {
     const h = await start({ records: 0 });
-    expect((await get(h, "/v1/health")).json()).toMatchObject({ ok: true, newestUpdateMs: null });
+    expect((await get(h, "/v1/health")).json()).toMatchObject({ ok: true, newestUpdateMs: null, newestUpdateAgeMs: null, recordCount: 0, empty: true, stale: true });
     h.store.close();
     const a = await get(h, "/v1/health");
     expect(a.status).toBe(503);
     expect(a.json()).toMatchObject({ v: 1, ok: false });
+  });
+
+  it("marks the newest record stale only after its expiry, and clears on a fresh scan", async () => {
+    const h = await start({ records: 1 });
+    const r = h.store.get(fakeToken(0))!;
+    h.clock.t = r.expiresAtMs;
+    expect((await get(h, "/v1/health")).json()).toMatchObject({ stale: false });
+    h.clock.t++;
+    expect((await get(h, "/v1/health")).json()).toMatchObject({ ok: true, stale: true, empty: false, newestUpdateAgeMs: h.clock.t - T0 });
+    h.store.put({ ...r, checkedAtMs: h.clock.t, expiresAtMs: h.clock.t + 1000 });
+    expect((await get(h, "/v1/health")).json()).toMatchObject({ stale: false, newestUpdateAgeMs: 0 });
   });
 });
 
@@ -1036,7 +1048,12 @@ describe("scripts/disputes.ts", () => {
       const esc = String.fromCharCode(27);
       s.addDispute({ token: fakeToken(1), contact: `@me${esc}[31m`, message: `wrong\nflag${esc}]0;title${String.fromCharCode(7)}` }, T0);
       s.close();
-      const run = (...args: string[]) => spawnSync(process.execPath, ["scripts/disputes.ts", ...args], { env: { ...process.env, FEED_DB: db }, encoding: "utf8" });
+      const run = (...args: string[]) => {
+        const stdout: string[] = [];
+        const stderr: string[] = [];
+        const status = runDisputes(args, db, { log: (s: string) => stdout.push(s), error: (s: string) => stderr.push(s) });
+        return { status, stdout: stdout.join("\n"), stderr: stderr.join("\n") };
+      };
       const list = run();
       expect(list.status).toBe(0);
       expect(list.stdout).toContain("#1");
@@ -1052,6 +1069,9 @@ describe("scripts/disputes.ts", () => {
       const after = new FeedStore(db);
       expect(after.disputes()[0]).toMatchObject({ status: "upheld", answer: "The wallets share a funder: see the report." });
       after.close();
+      const cli = spawnSync(process.execPath, ["scripts/disputes.ts", "all"], { env: { ...process.env, FEED_DB: db }, encoding: "utf8" });
+      expect(cli.status).toBe(0);
+      expect(cli.stdout).toContain("The wallets share a funder");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

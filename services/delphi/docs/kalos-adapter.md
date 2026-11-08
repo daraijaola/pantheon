@@ -18,11 +18,59 @@ The same description, machine-readable (every endpoint, every field and the JSON
 | `GET /v1/token/{address}` | One token: `{v, stale, record, servedAtMs}`, or 404 `{v, error:"unknown", token}`. |
 | `GET /v1/new?venue=perpme&limit=50&before={block}` | The newest launches first: `{v, venue, items:[{stale, record}], next, servedAtMs}`. `venue` is optional (`perpme`, `kalos` or `ascend`); `limit` is 1 to 100 (default 50). Pass `next` back as `before` for the next page. |
 | `GET /v1/history/{address}` | Every verdict the coin has had, oldest first, with the reason it changed: `{v, token, items:[{atMs, verdict, rules, why}], servedAtMs}`. This is DELPHI's public record. |
-| `GET /v1/health` | `{v, ok, version, newestUpdateMs, servedAtMs}`. Never cached. |
+| `GET /v1/health` | `{v, ok, version, newestUpdateMs, newestUpdateAgeMs, recordCount, empty, stale, servedAtMs}`. Never cached. |
 | `GET /v1/format` | The machine-readable description. |
 | `POST /v1/dispute` | A dispute about a record (see the end). |
 
 Addresses can be sent in any case; answers are always lowercase.
+
+### Publishing scanner reports
+
+`npm run feed:publish` validates the canonical `OUT_DIR/scan.json` (default
+`out/scan.json`) and writes records through `FeedStore.put()` into `FEED_DB`
+(default `data/feed.db`). `FEED_SITE_URL` optionally sets report/dispute link
+origin; the default is `https://pantheonindex.com`. No RPC calls are made.
+Network and head come from scan metadata, not browser input. Unlisted old
+per-coin files are never imported. Missing/malformed reports are skipped, never
+treated as CLEAN; skipped reports make the command exit nonzero. Invalid scan
+metadata or unreadable input fails the command. Previous records are retained
+and expire normally; publishing does not delete disputes or history.
+
+`npm run refresh` runs scan, then explain, then publish, stopping on any failure.
+The deployed `delphi-refresh.service` is not tracked in this repository. Its
+operator must replace its existing scan/explain ExecStart with:
+
+```ini
+WorkingDirectory=/srv/hackathon/pantheon/services/delphi
+ExecStart=/usr/bin/npm run refresh
+Environment=FEED_DB=/srv/hackathon/pantheon/services/delphi/data/feed.db
+```
+
+This is a deployment instruction only; no unit is changed by these scripts.
+The producer and feed server must use the same FEED_DB. The scanner's RPC access
+problem must be fixed separately before this refresh can succeed.
+
+Publication preserves each report's generatedAt as checkedAtMs, with expiry
+15 hours later (the twice-daily schedule plus three hours of grace). Re-running
+old reports does not make them fresh. Unchanged records are skipped; older
+reports cannot replace newer records. The initial verdict is recorded once;
+later history entries are added only when the verdict actually changes.
+
+The adapter publishes only what the behavioral report contains. Holder rows,
+dev balances/sales, people counts, block hash and impersonation data remain
+null, not fabricated. The v1 launch creatorBuyShare is required numeric; this
+adapter uses the launch-ingestion convention of zero for unknown, accompanied
+by a `creator-buy` / `not-enough-data` check. Do not display that placeholder as
+a measured zero. Behavioral verdicts do not incorporate the separate safety
+report's honeypot/contract checks. Follow reportUrl for the full report.
+
+Health preserves `ok` and HTTP 200 for a readable database, including an empty
+or stale one. `recordCount` is the stored row count, `empty` means no rows, and
+`stale` means empty or the newest checked record is past its expiresAtMs.
+`newestUpdateAgeMs` is its nonnegative age, or null for an empty database.
+On database errors HTTP 503 / ok:false is retained; count/empty are null and
+stale is true. Consumers must check freshness as well as availability, and
+still honor each item's individual stale flag.
 
 ## The adapter
 

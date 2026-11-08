@@ -1,10 +1,56 @@
-// Batched JSON-RPC for the explorer's own node (archive state, call traces, eth_simulateV1), which
-// answers up to 100 calls in one request. The public RPC refuses batches, so heavy reads go here.
+// Batched JSON-RPC for archive reads and dry runs. Public endpoints meter individual calls,
+// including calls inside batches; keep requests small and pace them across readers.
 // Read-only: only read methods are ever sent.
 import { z } from "zod";
 
-/** The explorer's node. Checked live 2026-10-31: archive, batches of 100, debug_trace*, eth_simulateV1. */
+/** Explorer gateway; now denies eth_getLogs and debug_traceBlockByNumber (2026-11-06). */
 export const EXPLORER_RPC = "https://test-explorer.elysium.kinetiq.xyz/rpc";
+export const PUBLIC_RPC = "https://testnet-rpc.elysium.kinetiq.xyz";
+export const heavyRpcUrl = () => process.env.DELPHI_HEAVY_RPC || process.env.ELYSIUM_RPC || PUBLIC_RPC;
+
+export function rpcSetting(name: string, fallback: number, min = 1, max = 1_000): number {
+  const value = process.env[name];
+  if (!value) return fallback;
+  const n = Number(value);
+  if (!Number.isSafeInteger(n) || n < min || n > max) throw new RpcError(`invalid ${name}: expected an integer from ${min} to ${max}`);
+  return n;
+}
+
+export function redactRpcDetails(detail: string, url: string): string {
+  const secrets = [url];
+  try {
+    const u = new URL(url);
+    secrets.push(u.username, u.password, ...u.pathname.split("/"), ...u.searchParams.values());
+  } catch { /* An invalid endpoint is still redacted in full. */ }
+  let safe = detail;
+  for (const secret of secrets.filter(Boolean).sort((a, b) => b.length - a.length)) {
+    for (const value of new Set([secret, decodeURIComponentSafe(secret)])) safe = safe.replaceAll(value, "[REDACTED]");
+  }
+  return safe.replace(/https?:\/\/[^\s<>"']+/gi, "[REDACTED_RPC_URL]");
+}
+
+function decodeURIComponentSafe(value: string): string {
+  try { return decodeURIComponent(value); } catch { return value; }
+}
+
+/** Keep viem's error classes/codes (including revert detection), but remove endpoint credentials. */
+export function redactRpcError(error: unknown, url: string): Error {
+  const seen = new Set<object>();
+  const scrub = (value: object) => {
+    if (seen.has(value)) return;
+    seen.add(value);
+    for (const key of Object.getOwnPropertyNames(value)) {
+      const property = Object.getOwnPropertyDescriptor(value, key)!;
+      if (!("value" in property)) continue;
+      if (typeof property.value === "string") Object.defineProperty(value, key, { ...property, value: redactRpcDetails(property.value, url) });
+      else if (property.value && typeof property.value === "object") scrub(property.value);
+    }
+  };
+  try {
+    if (error instanceof Error) { scrub(error); return error; }
+  } catch { /* Non-writable provider errors cannot safely be exposed. */ }
+  return new RpcError(redactRpcDetails(String(error), url));
+}
 
 export type RpcCall = { method: string; params: unknown[] };
 export type RpcAnswer<T = unknown> = { result: T; error?: undefined } | { result?: undefined; error: { code: number; message: string } };
@@ -41,24 +87,58 @@ const READ_ONLY = /^(eth_(call|chainId|blockNumber|getBalance|getBlock\w*|getCod
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 export class BatchRpc {
+  private static readonly slots = new Map<string, number>();
+  private static readonly running = new Map<string, { active: number; waiting: Array<{ limit: number; ready: () => void }> }>();
   readonly url: string;
+  readonly concurrency: number;
   private readonly batchSize: number;
   private readonly gapMs: number;
   private readonly retries: number;
   private readonly fetch: Fetch;
   private readonly sleep: (ms: number) => Promise<void>;
-  private nextSlot = 0;
   private id = 0;
   /** Requests sent, for logs and tests. */
   requests = 0;
 
-  constructor(url = EXPLORER_RPC, opts: { batchSize?: number; gapMs?: number; retries?: number; fetch?: Fetch; sleep?: (ms: number) => Promise<void> } = {}) {
+  constructor(url = heavyRpcUrl(), opts: { batchSize?: number; gapMs?: number; concurrency?: number; retries?: number; fetch?: Fetch; sleep?: (ms: number) => Promise<void> } = {}) {
     this.url = url;
-    this.batchSize = opts.batchSize ?? 100;
-    this.gapMs = opts.gapMs ?? 150;
-    this.retries = opts.retries ?? 6;
+    this.batchSize = opts.batchSize ?? rpcSetting("DELPHI_RPC_BATCH_SIZE", 10);
+    this.gapMs = opts.gapMs ?? rpcSetting("DELPHI_RPC_GAP_MS", 1_000, 0, 60_000);
+    this.concurrency = opts.concurrency ?? rpcSetting("DELPHI_RPC_CONCURRENCY", 6, 1, 128);
+    this.retries = opts.retries ?? rpcSetting("DELPHI_RPC_RETRIES", 6, 0, 20);
+    if (!Number.isSafeInteger(this.batchSize) || this.batchSize < 1 || !Number.isSafeInteger(this.concurrency) || this.concurrency < 1 || !Number.isFinite(this.gapMs) || this.gapMs < 0) throw new RpcError("invalid RPC throughput options");
     this.fetch = opts.fetch ?? globalThis.fetch;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+  }
+
+  private async request(body: string): Promise<Response> {
+    let pool = BatchRpc.running.get(this.url);
+    if (!pool) { pool = { active: 0, waiting: [] }; BatchRpc.running.set(this.url, pool); }
+    if (pool.active >= this.concurrency || pool.waiting.length) await new Promise<void>((ready) => pool!.waiting.push({ limit: this.concurrency, ready }));
+    else pool.active++;
+    try {
+      const now = Date.now();
+      const slot = BatchRpc.slots.get(this.url) ?? 0;
+      const wait = Math.max(0, slot - now);
+      BatchRpc.slots.set(this.url, Math.max(now, slot) + this.gapMs);
+      if (wait > 0) await this.sleep(wait);
+      this.requests++;
+      const res = await this.fetch(this.url, {
+        method: "POST",
+        headers: { "content-type": "application/json", "user-agent": "delphi (read-only checks; pantheonindex.com)" },
+        body,
+        signal: AbortSignal.timeout(60_000),
+      });
+      const text = await res.text();
+      return new Response(res.status === 204 ? null : text, { status: res.status, statusText: res.statusText, headers: res.headers });
+    } finally {
+      pool.active--;
+      while (pool.waiting.length && pool.active < pool.waiting[0]!.limit) {
+        pool.active++;
+        pool.waiting.shift()!.ready();
+      }
+      if (!pool.active && !pool.waiting.length) BatchRpc.running.delete(this.url);
+    }
   }
 
   /** One call; throws on an error answer. */
@@ -73,7 +153,7 @@ export class BatchRpc {
    * retried after a wait; any other error is returned in its place, so one bad call never sinks the rest.
    */
   async many<T>(calls: readonly RpcCall[]): Promise<RpcAnswer<T>[]> {
-    for (const c of calls) if (!READ_ONLY.test(c.method)) throw new RpcError(`not a read method: ${c.method}`);
+    for (const c of calls) if (!READ_ONLY.test(c.method)) throw new RpcError(`not a read method: ${redactRpcDetails(c.method, this.url)}`);
     const out = new Array<RpcAnswer<T>>(calls.length);
     for (let start = 0; start < calls.length; start += this.batchSize) {
       let todo = calls.slice(start, start + this.batchSize).map((c, i) => ({ ...c, at: start + i }));
@@ -96,35 +176,39 @@ export class BatchRpc {
     const ids = calls.map(() => ++this.id);
     const body = JSON.stringify(calls.map((c, i) => ({ jsonrpc: "2.0", id: ids[i], method: c.method, params: c.params })));
     for (let attempt = 0; ; attempt++) {
-      const now = Date.now();
-      const wait = Math.max(0, this.nextSlot - now);
-      this.nextSlot = Math.max(now, this.nextSlot) + this.gapMs;
-      if (wait > 0) await this.sleep(wait);
-      this.requests++;
       let res: Response;
       try {
-        res = await this.fetch(this.url, {
-          method: "POST",
-          headers: { "content-type": "application/json", "user-agent": "delphi (read-only checks; pantheonindex.com)" },
-          body,
-          signal: AbortSignal.timeout(60_000),
-        });
+        res = await this.request(body);
       } catch (err) {
-        if (attempt >= this.retries) throw new RpcError(`node unreachable: ${(err as Error).message}`);
+        if (attempt >= this.retries) throw new RpcError(`node unreachable: ${redactRpcDetails((err as Error).message, this.url)}`);
         await this.sleep(1_000 * 2 ** attempt);
         continue;
       }
       if ((res.status === 429 || res.status >= 500) && attempt < this.retries) {
-        await this.sleep(Math.min(60_000, 2_000 * 2 ** attempt));
+        await res.text();
+        const retryAfter = res.headers.get("retry-after");
+        const seconds = retryAfter === null ? NaN : Number(retryAfter);
+        const delay = Number.isFinite(seconds) ? seconds * 1000 : retryAfter === null ? NaN : Date.parse(retryAfter) - Date.now();
+        await this.sleep(Math.min(60_000, Math.max(2_000 * 2 ** attempt, Number.isFinite(delay) ? delay : 0)));
         continue;
       }
-      if (!res.ok) throw new RpcError(`node answered HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.text();
+        let detail = body.slice(0, 1000);
+        let code: number | undefined;
+        try {
+          const parsed = z.object({ error: z.object({ code: z.number(), message: z.string() }) }).parse(JSON.parse(body));
+          code = parsed.error.code;
+          detail = JSON.stringify(parsed.error);
+        } catch { /* Non-JSON provider errors still carry useful diagnostics. */ }
+        throw new RpcError(`node answered HTTP ${res.status}: ${redactRpcDetails(detail, this.url).replace(/[\p{Cc}\p{Cf}]/gu, " ").slice(0, 1000)}`, code);
+      }
       let json: unknown;
       try {
         json = await res.json();
       } catch (err) {
         // The connection broke mid-answer (seen live: an HTTP/2 stream reset during a big answer), or it was cut short.
-        if (attempt >= this.retries) throw new RpcError(`node answer cut short: ${(err as Error).message}`);
+        if (attempt >= this.retries) throw new RpcError(`node answer cut short: ${redactRpcDetails((err as Error).message, this.url)}`);
         await this.sleep(1_000 * 2 ** attempt);
         continue;
       }
@@ -134,7 +218,7 @@ export class BatchRpc {
       return ids.map((id): RpcAnswer => {
         const a = byId.get(id);
         if (!a) return { error: { code: -1, message: "no answer for this call" } };
-        return a.error ? { error: a.error } : { result: a.result };
+        return a.error ? { error: { ...a.error, message: redactRpcDetails(a.error.message, this.url) } } : { result: a.result };
       });
     }
   }

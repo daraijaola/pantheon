@@ -13,7 +13,7 @@ import { ContractsApi, ExplorerApi } from "../src/conduit.ts";
 import type { Fetch } from "../src/http.ts";
 import { KalosApi } from "../src/kalos-api.ts";
 import { answerData, ethCall, short, wordUint } from "../src/pinned.ts";
-import { BatchRpc, EXPLORER_RPC } from "../src/rpc.ts";
+import { BatchRpc } from "../src/rpc.ts";
 import { checkSafety, defaultKnownTokens, type SafetyDeps, type SafetyReport } from "../src/safety.ts";
 import { emptyTape, recordingFetch } from "../src/tape.ts";
 
@@ -28,7 +28,7 @@ const log = (m: string) => console.error(`[delphi-safety] ${m}`);
 const recordTo = flag("--record");
 const tape = emptyTape(recordTo ? `recorded by scripts/safety.ts ${args.join(" ")}` : undefined);
 const fetch: Fetch = recordTo ? recordingFetch(globalThis.fetch, tape) : globalThis.fetch;
-const rpc = new BatchRpc(EXPLORER_RPC, { fetch });
+const rpc = new BatchRpc(undefined, { fetch });
 const deps: SafetyDeps = { rpc, fetch, contracts: new ContractsApi({ fetch }), explorer: new ExplorerApi({ fetch }), kalosApi: new KalosApi({ fetch }) };
 const block = flag("--block") ? BigInt(flag("--block")!) : undefined;
 

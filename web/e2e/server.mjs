@@ -9,10 +9,16 @@ import { basket, site, stats, trials } from './fixtures/data.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const service = 'http://127.0.0.1:4174';
 const unexpected = [];
+const denied = [];
 const server = createServer(async (req, res) => {
   res.setHeader('access-control-allow-origin', '*');
   res.setHeader('access-control-allow-headers', 'content-type');
   res.setHeader('content-type', 'application/json');
+  if (/^https?:\/\//.test(req.url)) {
+    denied.push(req.url);
+    res.statusCode = 403;
+    return res.end(JSON.stringify({ error: 'External browser requests are blocked' }));
+  }
   if (req.method === 'OPTIONS') return res.end();
   const url = new URL(req.url, service);
   try {
@@ -23,6 +29,7 @@ const server = createServer(async (req, res) => {
       const data = JSON.parse(text);
       body = Array.isArray(data) ? data.map(rpc) : rpc(data);
     } else if (url.pathname === '/__unexpected') body = unexpected;
+    else if (url.pathname === '/__denied') body = denied;
     else if (url.pathname === '/health') body = { ...stats, newestUpdateMs: 1794000000000 };
     else if (url.pathname === '/stats' || url.pathname === '/passport/stats') body = stats;
     else if (url.pathname === '/basket') body = basket;
@@ -36,6 +43,10 @@ const server = createServer(async (req, res) => {
     res.statusCode = 500;
     res.end(JSON.stringify({ error: error.message }));
   }
+});
+server.on('connect', (req, socket) => {
+  denied.push(req.url);
+  socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
 });
 await new Promise((resolve, reject) => { server.once('error', reject); server.listen(4174, '127.0.0.1', resolve); });
 const runtime = path.join(root, 'e2e/.runtime');

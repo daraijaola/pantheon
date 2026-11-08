@@ -1,4 +1,4 @@
-// Heavy reads over the explorer's own node (BatchRpc, up to 100 calls a request): many log streams at
+// Heavy reads over BatchRpc: many log streams at
 // once, each with its own resume point, plus who sent each transaction, block times, what kind of thing
 // an address is, view calls at one block, and who deployed a contract. Answers are remembered in the
 // Store under the same names chain.ts uses ("txfrom", "blocktime", "kind"), so both readers share one
@@ -9,6 +9,7 @@ import type { AddressKind } from "./chain.ts";
 import { mapLimit } from "./chain.ts";
 import { asksTooMuch, RpcError, type BatchRpc, type RpcAnswer } from "./rpc.ts";
 import type { RawLog, Store } from "./store.ts";
+import { multicallPolicy, multicallViews, type MulticallPolicy } from "./multicall.ts";
 
 const lc = (a: string) => a.toLowerCase();
 
@@ -46,12 +47,10 @@ const TARGET_LOGS = 3_000;
 /** A quiet stream's whole life fits in one call. */
 const MAX_STEP = 1n << 26n;
 /**
- * At most this many calls, and about this many expected logs, in one request. The node answers the calls
- * of a batch side by side (measured live: 4 busy calls in one batch took 4.5 s, one alone up to 12 s), so a
- * busy stream sends several consecutive ranges at once. 16 calls over the whole chain took 8 s; a request
- * times out at 60 s.
+ * Bound both call count and expected response size. Busy streams send consecutive ranges; oversized
+ * ranges shrink independently on the provider's 10,000-result error.
  */
-const PER_REQUEST = { calls: 20, logs: 24_000 };
+const PER_REQUEST = { calls: 10, logs: 6_000 };
 
 const minB = (a: bigint, b: bigint) => (a < b ? a : b);
 const maxB = (a: bigint, b: bigint) => (a > b ? a : b);
@@ -135,37 +134,74 @@ export async function scanStreams(
 }
 
 /**
- * Calls in requests of 100, six requests at a time. The node answers requests side by side: measured
- * live, one request of 100 transaction lookups took 2.8 s, and twelve at once 2.5 s. Six stays polite
- * (BatchRpc still spaces requests 150 ms apart).
+ * Queue lookup chunks concurrently. BatchRpc splits and paces their requests against one endpoint's
+ * shared budget, including funding and simulation readers.
  */
 async function manyCalls<T>(rpc: BatchRpc, calls: Array<{ method: string; params: unknown[] }>): Promise<RpcAnswer<T>[]> {
   const parts: Array<typeof calls> = [];
   for (let i = 0; i < calls.length; i += 100) parts.push(calls.slice(i, i + 100));
-  return (await mapLimit(parts, 6, (p) => rpc.many<T>(p))).flat();
+  return (await mapLimit(parts, rpc.concurrency, (p) => rpc.many<T>(p))).flat();
 }
 
 const fail = (what: string, a: RpcAnswer) => new RpcError(`${what}: ${a.error?.message ?? "empty answer"}`, a.error?.code);
 
 /** tx hash → the wallet that sent it (the real trader; a swap's own `sender` is a router). */
-export async function sendersOf(rpc: BatchRpc, store: Store, txs: Iterable<string>, onProgress?: (done: number, total: number) => void): Promise<Map<string, Address>> {
+export async function sendersOf(rpc: BatchRpc, store: Store, txs: Iterable<string>, onProgress?: (done: number, total: number) => void, blocks?: ReadonlyMap<string, bigint>): Promise<Map<string, Address>> {
   const want = [...new Set([...txs].map(lc))];
   const out = store.recallMany<Address>("txfrom", want);
   const todo = want.filter((t) => !out.has(t));
+  const positions = new Map([...(blocks ?? [])].map(([tx, block]) => [lc(tx), block]));
   for (let i = 0; i < todo.length; i += 5_000) {
     const part = todo.slice(i, i + 5_000);
-    const answers = await manyCalls<{ from?: string } | null>(rpc, part.map((h) => ({ method: "eth_getTransactionByHash", params: [h] })));
-    const got = part.map((h, j): [string, Address] => {
+    const groups = new Map<bigint, string[]>();
+    for (const hash of part) {
+      const block = positions.get(hash);
+      if (block === undefined || block < 0n) continue;
+      if (!groups.has(block)) groups.set(block, []);
+      groups.get(block)!.push(hash);
+    }
+    const dense = [...groups].filter(([, hashes]) => hashes.length >= 2);
+    const found = new Map<string, Address>();
+    try {
+      const answers = await manyCalls<unknown>(rpc, dense.map(([block]) => ({ method: "eth_getBlockByNumber", params: [numberToHex(block), true] })));
+      for (const [j, [block, hashes]] of dense.entries()) {
+        const parsed = SenderBlock.safeParse(answers[j]!.result);
+        if (!parsed.success || BigInt(parsed.data.number) !== block) continue;
+        const needed = new Set(hashes);
+        const duplicates = new Set<string>();
+        const candidates = new Map<string, Address>();
+        for (const raw of parsed.data.transactions) {
+          const tx = SenderTransaction.safeParse(raw);
+          if (!tx.success || !needed.has(lc(tx.data.hash))) continue;
+          const hash = lc(tx.data.hash);
+          if (candidates.has(hash)) duplicates.add(hash);
+          if (tx.data.blockNumber !== undefined && BigInt(tx.data.blockNumber) !== block) continue;
+          candidates.set(hash, getAddress(tx.data.from));
+        }
+        for (const [hash, from] of candidates) if (!duplicates.has(hash)) found.set(hash, from);
+      }
+    } catch { /* Unsupported or unavailable full blocks fall back to individual transactions. */ }
+    const individual = part.filter((h) => !found.has(h));
+    const answers = await manyCalls<{ from?: string } | null>(rpc, individual.map((h) => ({ method: "eth_getTransactionByHash", params: [h] })));
+    individual.forEach((h, j) => {
       const from = answers[j]!.result?.from;
       if (!from || !isAddress(from, { strict: false })) throw fail(`eth_getTransactionByHash ${h}`, answers[j]!);
-      return [h, getAddress(from)];
+      found.set(h, getAddress(from));
     });
+    const got = part.map((h): [string, Address] => [h, found.get(h)!]);
     store.rememberMany("txfrom", got);
     for (const [h, f] of got) out.set(h, f);
     onProgress?.(i + part.length, todo.length);
   }
   return out;
 }
+
+const SenderBlock = z.object({ number: z.string().regex(/^0x[\da-f]+$/i), transactions: z.array(z.unknown()) });
+const SenderTransaction = z.object({
+  hash: z.string().regex(/^0x[\da-f]{64}$/i),
+  from: z.string().refine((a) => isAddress(a, { strict: false })),
+  blockNumber: z.string().regex(/^0x[\da-f]+$/i).optional(),
+});
 
 /** block number (decimal string) → unix time, for blocks whose time no log carried. */
 export async function blockTimesOf(rpc: BatchRpc, store: Store, blocks: Iterable<string>): Promise<Map<string, number>> {
@@ -190,14 +226,19 @@ const reverted = (a: RpcAnswer) => !!a.error && (a.error.code === 3 || /revert/i
 export type View = { to: Address; data: Hex; block?: bigint };
 
 /** Raw answers to view calls at one block; `null` when the call reverted or returned nothing. */
-export async function viewsAt(rpc: BatchRpc, calls: readonly View[], block: bigint | "latest"): Promise<Array<Hex | null>> {
+export async function viewsAt(rpc: BatchRpc, calls: readonly View[], block: bigint | "latest", policy: MulticallPolicy | false = multicallPolicy()): Promise<Array<Hex | null>> {
   const tag = (b: bigint | "latest") => (b === "latest" ? b : numberToHex(b));
-  const answers = await manyCalls<Hex>(rpc, calls.map((c) => ({ method: "eth_call", params: [{ to: c.to, data: c.data }, tag(c.block ?? block)] })));
-  return answers.map((a, i) => {
+  const batched = policy ? await multicallViews(rpc, calls, block, policy) : new Map<number, Hex>();
+  const pending = calls.map((c, i) => ({ c, i })).filter(({ i }) => !batched.has(i));
+  const answers = await manyCalls<Hex>(rpc, pending.map(({ c }) => ({ method: "eth_call", params: [{ to: c.to, data: c.data }, tag(c.block ?? block)] })));
+  const out: Array<Hex | null> = calls.map((_, i) => batched.get(i) ?? null);
+  answers.forEach((a, j) => {
+    const i = pending[j]!.i;
     if (reverted(a)) return null;
     if (a.error || typeof a.result !== "string") throw fail(`eth_call to ${calls[i]!.to}`, a);
-    return a.result === "0x" ? null : a.result;
+    out[i] = a.result === "0x" ? null : a.result;
   });
+  return out;
 }
 
 const TOKEN0 = "0x0dfe1681"; // token0()
