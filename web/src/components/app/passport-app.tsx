@@ -118,12 +118,11 @@ function Passport({ d }: { d: Deployment }) {
 
       <div className={s.grid}>
         <section className={s.main}>
-          {!onChain ? (
-            <div className={s.cell}>
+            <div className={s.cell} hidden={onChain}>
               <p className={s.empty}>Connect your Elysium wallet to see or get your Passport.</p>
               <ConnectWallet />
             </div>
-          ) : valid && passport ? (
+          {onChain && (valid && passport ? (
             <PassportCard
               d={d}
               me={me}
@@ -136,7 +135,7 @@ function Passport({ d }: { d: Deployment }) {
             />
           ) : (
             <LinkFlow me={me} />
-          )}
+          ))}
         </section>
 
         <aside className={s.side}>

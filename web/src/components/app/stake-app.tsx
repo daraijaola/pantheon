@@ -272,7 +272,7 @@ function Actions(p: {
 
   return (
     <div className={s.cell}>
-      {!p.enabled && <ConnectWallet />}
+      <ConnectWallet />
       <div className={s.tabs} role="tablist">
         {(["stake", "unstake"] as const).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? s.tabOn : s.tab} onClick={() => setTab(t)}>

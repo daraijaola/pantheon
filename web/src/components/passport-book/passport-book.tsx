@@ -164,7 +164,6 @@ function Book({ view, note, getOne = false }: { view: PassportView | null; note:
 
   return (
     <main className={a.page}>
-      <ConnectWallet />
       <header className={a.head}>
         <div>
           <p className={a.eyebrow}>App · Elysium testnet</p>
@@ -185,6 +184,7 @@ function Book({ view, note, getOne = false }: { view: PassportView | null; note:
             )}
           </p>
         )}
+        <ConnectWallet />
         <p className={s.eyebrow}>PANTHEON · {shown.example ? "Example passport" : "Your passport"}</p>
         <div ref={scene} className={s.scene}>
           <div ref={floor} className={s.floor} />

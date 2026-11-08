@@ -35,9 +35,10 @@ test('Security facts are not labelled as examples; Passport examples still are',
   await page.goto('/security');
   await ready(page);
   await expect(page.getByText('EXAMPLE', { exact: true })).toHaveCount(0);
-  await page.goto('/passport');
-  await ready(page);
-  await expect(page.getByText('EXAMPLE', { exact: true })).toBeVisible();
+  const passport = await page.context().newPage();
+  await passport.goto('/passport');
+  await ready(passport);
+  await expect(passport.getByText('EXAMPLE', { exact: true })).toBeVisible();
 });
 
 test('Homepage explains the three-day unstake', async ({ page }) => {

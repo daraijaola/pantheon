@@ -14,6 +14,7 @@ import { deployedFrom, deployment, elysium, explorer } from "@/lib/chain/config"
 import type { Deployment } from "@/lib/chain/deployments";
 import { NotLive, Row, short, TxNote, useTx, type Hex } from "./shared";
 import s from "./app.module.css";
+import { ConnectWallet } from "./connect-wallet";
 import c from "./covenant.module.css";
 
 export function CovenantLaunchApp() {
@@ -161,6 +162,7 @@ function Launch({ d }: { d: Deployment }) {
       <div className={s.grid}>
         <fieldset className={`${s.main} ${c.form}`} disabled={switchQ.data !== false}>
           <section className={s.cell}>
+            {switchQ.data === false && <ConnectWallet />}
             <p className={s.label}>Your coin</p>
             <div className={c.pair}>
               <label className={s.field}>

@@ -246,7 +246,22 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
   // The thinking line moves on while she reads.
   useEffect(() => {
     if (!busy) return;
-    const id = setInterval(() => setClock(performance.now()), 250);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const id = setInterval(() => {
+      const now = performance.now();
+      setClock(now);
+      const L = live.current;
+      const cur = L.turns.at(-1);
+      if (cur?.status !== "thinking" || !L.ended.has(cur.id)) return;
+      const full = L.full.get(cur.id) ?? "";
+      if (full.trim() && now - cur.at < (reduced ? 200 : THINK_MIN * 1000)) return;
+      const error = L.errors.get(cur.id);
+      setTurns((ts) => ts.map((x) => x.id !== cur.id ? x : error
+        ? { ...x, text: "", status: "error", error }
+        : full.trim()
+          ? { ...x, text: full.trimEnd(), status: "done" }
+          : { ...x, status: "error", error: ERRORS.FAILED }));
+    }, 250);
     return () => clearInterval(id);
   }, [busy]);
 
@@ -367,23 +382,6 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
       const H = cv.clientHeight || window.innerHeight;
       const top = cv.getBoundingClientRect().top;
       const phone = W < 640;
-
-      // ---- reveal the complete answer once its stream ends
-      if (cur?.status === "thinking") {
-        const full = L.full.get(cur.id) ?? "";
-        const ended = L.ended.has(cur.id);
-        const thoughtEnough = (ended && !full.trim()) || now - cur.at / 1000 >= (reduced ? 0.2 : THINK_MIN);
-        if (ended && thoughtEnough) {
-          const error = L.errors.get(cur.id);
-          if (error) {
-            setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, text: "", status: "error", error } : x)));
-          } else if (full.trim()) {
-            setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, text: full.trimEnd(), status: "done" } : x)));
-          } else {
-            setTurns((ts) => ts.map((x) => (x.id === cur.id ? { ...x, status: "error", error: ERRORS.FAILED } : x)));
-          }
-        }
-      }
 
       // ---- where the orb wants to be
       let tx = W / 2;

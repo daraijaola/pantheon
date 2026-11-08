@@ -38,10 +38,11 @@ test('App navigation keeps four available destinations and stable phone widths',
   test.setTimeout(90_000);
   let widths: number[] | undefined;
   for (const path of ['/space', '/delphi/chat', '/stake', '/trials/vote', '/passport/get', '/passport/me', '/covenant/launch']) {
-    await page.goto(path);
-    await ready(page);
-    await page.waitForLoadState('networkidle');
-    const nav = page.locator('nav[aria-label="App"]:visible');
+    const destination = path === '/space' ? page : await page.context().newPage();
+    await destination.goto(path);
+    await ready(destination);
+    await destination.waitForLoadState('networkidle');
+    const nav = destination.locator('nav[aria-label="App"]:visible');
     await expect(nav.getByRole('link')).toHaveText(['Space', 'DELPHI', 'Stake', 'Trials']);
     await expect(nav.getByText('Basket')).toHaveCount(0);
     if (page.viewportSize()!.width <= 760) {

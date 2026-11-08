@@ -1,4 +1,4 @@
-import { test, expect } from './support';
+import { test, expect, ready } from './support';
 import { token } from './fixtures/data.mjs';
 
 test('Every missing or invalid dispute field explains why Send is disabled', async ({ page }) => {
@@ -7,6 +7,7 @@ test('Every missing or invalid dispute field explains why Send is disabled', asy
     await route.fulfill({ json: { ok: true } });
   });
   await page.goto('/delphi/dispute');
+  await ready(page);
   const send = page.getByRole('button', { name: 'Send dispute' });
   await expect(send).toBeDisabled();
   await expect(page.getByText('Enter the coin address.', { exact: true })).toBeVisible();
@@ -31,9 +32,10 @@ test('Dispute network failure is readable and leaves a retry available', async (
     window.fetch = (input, init) => String(input).includes('/api/delphi/v1/dispute') ? Promise.reject(new Error('Fixture offline')) : original(input, init);
   });
   await page.goto(`/delphi/dispute?token=${token}`);
+  await ready(page);
   await page.getByPlaceholder('@you').fill('@me');
   await page.locator('textarea').fill('Evidence in the chain.');
   await page.getByRole('button', { name: 'Send dispute' }).click();
-  await expect(page.getByRole('alert')).toHaveText("We couldn't reach DELPHI. Try again in a minute.");
+  await expect(page.locator('main').getByRole('alert')).toHaveText("We couldn't reach DELPHI. Try again in a minute.");
   await expect(page.getByRole('button', { name: 'Send dispute' })).toBeEnabled();
 });

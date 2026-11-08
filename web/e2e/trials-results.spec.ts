@@ -14,7 +14,7 @@ test('Closed Trials leads with results and readable ballots, never selection con
   await expect(page.getByRole('heading', { name: 'Round 5 results' })).toBeVisible();
   await expect(page.getByText('Next round opens soon', { exact: true })).toBeVisible();
   await expect(page.getByText(/Opened .* UTC. Closed .* UTC/)).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Round winners' })).toContainText('PACT');
+  await expect(page.getByRole('region', { name: 'Round winners' })).toContainText('1. PACT');
   await expect(page.getByRole('region', { name: 'Public ballots' })).toContainText('Weight 2');
   await expect(page.getByRole('region', { name: 'Public ballots' })).toContainText('0x0000…0042');
   await expect(page.locator('input[type="checkbox"]')).toHaveCount(0);
@@ -28,11 +28,12 @@ test('Closed Trials leads with results and readable ballots, never selection con
 });
 
 test('Closed Trials has honest empty results and ballots', async ({ page }) => {
-  await page.route('**/api/trials/current*', route => route.fulfill({ json: { ...closed, leaders: [], candidates: [], ballots: 0 } }));
+  await page.route('**/api/trials/current*', route => route.fulfill({ json: { ...closed, leaders: [], candidates: [], ballots: 0, nextOpensAt: 1794172800 } }));
   await page.route('**/api/trials/rounds/5', route => route.fulfill({ json: { ballotList: [] } }));
   await page.goto('/trials/vote');
   await expect(page.getByText('No winners in this round.')).toBeVisible();
   await expect(page.getByText('No ballots in this round.')).toBeVisible();
+  await expect(page.getByText(/^Next round opens .* UTC$/)).toBeVisible();
 });
 
 test('Unreadable ballots do not hide the results or pretend to be empty', async ({ page }) => {

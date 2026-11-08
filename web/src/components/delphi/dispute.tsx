@@ -3,13 +3,17 @@
 // answers within 24 hours with the evidence. It posts to the feed's dispute endpoint; nothing else.
 
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import s from "@/components/app/app.module.css";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+const subscribe = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;
 type Sent = { state: "idle" } | { state: "sending" } | { state: "sent" } | { state: "error"; message: string };
 
 export function DisputeForm({ token: initial }: { token: string }) {
+  const hydrated = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
   const [token, setToken] = useState(initial);
   const [contact, setContact] = useState("");
   const [message, setMessage] = useState("");
@@ -20,7 +24,7 @@ export function DisputeForm({ token: initial }: { token: string }) {
   const ready = !tokenError && !contactError && !messageError;
 
   async function send() {
-    if (!ready || sent.state === "sending") return;
+    if (!hydrated || !ready || sent.state === "sending") return;
     setSent({ state: "sending" });
     try {
       const res = await fetch("/api/delphi/v1/dispute", {
@@ -48,14 +52,14 @@ export function DisputeForm({ token: initial }: { token: string }) {
       <label className={s.field}>
         <span className={s.fieldTop}>Coin address</span>
         <span className={s.inputRow}>
-          <input value={token} aria-invalid={!!tokenError} aria-describedby={tokenError ? "dispute-token-error" : undefined} onChange={(e) => setToken(e.target.value)} placeholder="0x…" spellCheck={false} style={{ font: "14px var(--mono)" }} />
+          <input disabled={!hydrated} value={token} aria-invalid={!!tokenError} aria-describedby={tokenError ? "dispute-token-error" : undefined} onChange={(e) => setToken(e.target.value)} placeholder="0x…" spellCheck={false} style={{ font: "14px var(--mono)" }} />
         </span>
       </label>
       {tokenError && <p id="dispute-token-error" className={s.hint}>{tokenError}</p>}
       <label className={s.field} style={{ marginTop: 10 }}>
         <span className={s.fieldTop}>How we reach you (X handle, Telegram or email)</span>
         <span className={s.inputRow}>
-          <input value={contact} aria-invalid={!!contactError} aria-describedby={contactError ? "dispute-contact-error" : undefined} onChange={(e) => setContact(e.target.value)} maxLength={120} placeholder="@you" style={{ fontSize: 15, fontFamily: "inherit" }} />
+          <input disabled={!hydrated} value={contact} aria-invalid={!!contactError} aria-describedby={contactError ? "dispute-contact-error" : undefined} onChange={(e) => setContact(e.target.value)} maxLength={120} placeholder="@you" style={{ fontSize: 15, fontFamily: "inherit" }} />
         </span>
       </label>
       {contactError && <p id="dispute-contact-error" className={s.hint}>{contactError}</p>}
@@ -63,6 +67,7 @@ export function DisputeForm({ token: initial }: { token: string }) {
         <span className={s.fieldTop}>What DELPHI got wrong, and how you know</span>
         <span className={s.inputRow}>
           <textarea
+            disabled={!hydrated}
             value={message}
             aria-invalid={!!messageError}
             aria-describedby={messageError ? "dispute-message-error" : undefined}
@@ -75,7 +80,7 @@ export function DisputeForm({ token: initial }: { token: string }) {
         </span>
       </label>
       {messageError && <p id="dispute-message-error" className={s.hint}>{messageError}</p>}
-      <button className={s.primary} disabled={!ready || sent.state === "sending"} onClick={send}>
+      <button className={s.primary} disabled={!hydrated || !ready || sent.state === "sending"} onClick={send}>
         {sent.state === "sending" ? "Sending…" : "Send dispute"}
       </button>
       {sent.state === "error" && <p className={s.error} role="alert">{sent.message}</p>}

@@ -9,4 +9,7 @@ test('Trials landing uses the current server round, with truthful CTA and collap
   await expect(page.locator('#details > details')).not.toHaveAttribute('open');
   await page.getByText('Rules', { exact: true }).click();
   await expect(page.getByRole('table')).toBeVisible();
+  const section = await page.locator('#details').boundingBox();
+  const disclosure = await page.locator('#details > details').boundingBox();
+  expect(disclosure!.width).toBeGreaterThanOrEqual(section!.width - 1);
 });

@@ -9,7 +9,7 @@ for (const [address, title] of [['not-an-address', 'Not a valid address'], ['0x1
     await expect(page.getByRole('link', { name: 'Back to DELPHI', exact: true })).toHaveAttribute('href', '/delphi');
     await expect(page.getByRole('link', { name: 'Ask DELPHI', exact: true })).toHaveAttribute('href', '/delphi/chat');
     await expect(page.getByRole('link', { name: 'PANTHEON home', exact: true })).toBeVisible();
-    await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(1);
+    await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute('content', /noindex/);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(overflow).toBe(false);
   });

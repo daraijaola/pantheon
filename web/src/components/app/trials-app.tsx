@@ -167,7 +167,7 @@ function Trials() {
           <section className={s.cell}>
             <p className={s.label}>Your vote</p>
             {!onChain ? (
-              <><p className={s.empty}>Connect the wallet you stake PNTH with.</p>{r.status === "open" && <ConnectWallet />}</>
+              <p className={s.empty}>Connect the wallet you stake PNTH with.</p>
             ) : weight === 0 ? (
               <p className={s.empty}>
                 This wallet has no PNTH staked, so it can’t vote yet. <Link href="/stake">Stake any amount of PNTH</Link> and come back. No PNTH?{" "}
@@ -190,6 +190,7 @@ function Trials() {
                 {mine && !changed && ` You voted for ${mine.coins.map((c) => symOf(r, c)).join(", ")}. You can change it until the vote closes.`}
               </p>
             )}
+            {r.status === "open" && <ConnectWallet />}
           </section>
 
           <section className={s.cell}>
@@ -298,15 +299,15 @@ function Results({ round: r }: { round: Current }) {
         <div className={s.main}>
           <section className={s.cell} aria-label="Round winners">
             <h2 className={s.label}>Winners</h2>
-            {r.leaders.length ? <ol className={t.leaders}>{r.leaders.map((token) => (
-              <li key={token}><Link href={`/delphi/${token}`}>{symOf(r, token)}</Link><span>{r.candidates.find((c) => c.token.toLowerCase() === token.toLowerCase())?.votes ?? 0} votes</span></li>
+            {r.leaders.length ? <ol className={t.leaders}>{r.leaders.map((token, i) => (
+              <li key={token}><span>{i + 1}. <Link href={`/delphi/${token}`}>{symOf(r, token)}</Link></span><span>{r.candidates.find((c) => c.token.toLowerCase() === token.toLowerCase())?.votes ?? 0} votes</span></li>
             ))}</ol> : <p className={s.empty}>No winners in this round.</p>}
             <p className={s.hint}>{r.ballots} {r.ballots === 1 ? "ballot" : "ballots"} counted.</p>
           </section>
           <section className={s.cell}>
             <details className={s.more}>
               <summary>Candidates and final tally ({tally.length})</summary>
-              {tally.length ? <ol className={t.leaders}>{tally.map((c) => <li key={c.token}><Link href={`/delphi/${c.token}`}>{c.symbol ?? short(c.token)}</Link><span>{c.votes} votes</span></li>)}</ol> : <p className={s.empty}>No candidates in this round.</p>}
+              {tally.length ? <ol className={t.leaders}>{tally.map((c, i) => <li key={c.token}><span>{i + 1}. <Link href={`/delphi/${c.token}`}>{c.symbol ?? short(c.token)}</Link></span><span>{c.votes} votes</span></li>)}</ol> : <p className={s.empty}>No candidates in this round.</p>}
             </details>
           </section>
         </div>

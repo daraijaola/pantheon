@@ -13,7 +13,7 @@ export function ConnectWallet() {
   const change = useSwitchChain();
   if (isConnected && chainId === elysium.id) return null;
   return (
-    <div className={s.wallet}>
+    <div className={`${s.wallet} ${s.localWallet}`}>
       {isConnected ? (
         <button type="button" className={s.primarySmall} disabled={change.isPending} onClick={() => change.mutate({ chainId: elysium.id })}>
           {change.isPending ? "Switching…" : "Switch to Elysium"}

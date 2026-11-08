@@ -204,7 +204,7 @@ function Get({ d }: { d: Deployment & { swapper: Hex } }) {
           </section>
 
           <section className={s.cell}>
-            {!onChain && <ConnectWallet />}
+            <ConnectWallet />
             {mode === "claim" ? (
               <>
                 <button

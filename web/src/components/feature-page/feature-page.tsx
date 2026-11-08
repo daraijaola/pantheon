@@ -59,8 +59,7 @@ export function FeaturePage({ page }: { page: Feature }) {
       </section>
 
       <section id="details" className={f.details}>
-        <details open={!page.discloseDetails}>
-          {page.discloseDetails && <summary className={f.h2}>Rules</summary>}
+        <Fold closed={page.discloseDetails} label="Rules" split>
         <header className={f.detailsHead}>
           <h2 className={f.h2}>{page.details.title}</h2>
           <p className={f.detailsSub}>{page.details.sub}</p>
@@ -86,13 +85,12 @@ export function FeaturePage({ page }: { page: Feature }) {
           </table>
           {page.details.note && <p className={f.note}>{page.details.note}</p>}
         </div>
-        </details>
+        </Fold>
       </section>
 
       <section className={f.faq}>
-        <details open={!page.discloseDetails}>
-          {page.discloseDetails && <summary className={f.h2}>Questions</summary>}
-        <h2 className={f.h2}>Questions</h2>
+        <Fold closed={page.discloseDetails} label="Questions">
+        {!page.discloseDetails && <h2 className={f.h2}>Questions</h2>}
         <div className={f.qs}>
           {page.faq.map((item) => (
             <details key={item.q} className={f.q}>
@@ -104,8 +102,12 @@ export function FeaturePage({ page }: { page: Feature }) {
             </details>
           ))}
         </div>
-        </details>
+        </Fold>
       </section>
     </main>
   );
+}
+
+function Fold({ closed, label, split, children }: { closed?: boolean; label: string; split?: boolean; children: ReactNode }) {
+  return closed ? <details className={f.fold}><summary className={`${f.h2} ${f.foldTitle}`}>{label}</summary><div className={split ? f.ruleBody : undefined}>{children}</div></details> : children;
 }
