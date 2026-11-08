@@ -456,7 +456,7 @@
   }
 }
 
-/* ------------------------------------------------------------------ phones: the places float at the bottom, DELPHI at the end */
+/* ------------------------------------------------------------------ phones: the places float at the bottom */
 @media (max-width: 760px) {
   .barIn {
     grid-template-columns: 1fr auto;
@@ -467,6 +467,9 @@
     width: 104px;
   }
   .topPlaces {
+    display: none;
+  }
+  .delphi {
     display: none;
   }
   .getUploaded {
