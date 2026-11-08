@@ -1,6 +1,24 @@
 import { test, expect, connect, ready } from './support';
+import { wallet } from './fixtures/data.mjs';
+import { uploaded } from './fixtures/uploaded.mjs';
 
 test.use({ ignoreHTTPSErrors: true });
+
+for (const entry of ['upload', 'home']) {
+  test(`Returning SIWE session skips the upload reading from ${entry}`, async ({ page }) => {
+    await page.route('**/api/auth/me', route => route.fulfill({ json: { wallet } }));
+    await page.route('**/api/me/**', route => {
+      const key = new URL(route.request().url()).pathname.split('/').at(-1) as keyof typeof uploaded;
+      return route.fulfill({ json: key === 'read' ? { read: { wallet, readAt: Date.now(), stages: [] }, refreshAfter: Date.now() + 600_000 } : uploaded[key] });
+    });
+    await page.goto(entry === 'home' ? '/' : '/upload');
+    await ready(page);
+    if (entry === 'home') await page.locator('main').getByRole('button', { name: /^Get uploaded/ }).first().click();
+    await expect(page).toHaveURL('http://127.0.0.1:4173/space');
+    await expect(page.getByRole('heading', { name: 'Your space', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Continue \(bubble/ })).toHaveCount(0);
+  });
+}
 
 test('Audit F01: homepage Get uploaded opens onboarding', async ({ page }) => {
   await page.goto('/');

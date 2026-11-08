@@ -18,6 +18,7 @@ import { signMessage } from "wagmi/actions";
 import { reason } from "@/components/app/shared";
 import { useSession } from "@/components/app/auth-session";
 import { logoutSession, prepareSignIn, verifySignIn } from "@/lib/auth-client";
+import { useWalletRead } from "@/lib/use-wallet-read";
 import { UploadOrb } from "./upload-orb";
 import { isRejected } from "./elysium-switch";
 import { useConnectWallet } from "./use-connect-wallet";
@@ -39,6 +40,14 @@ function Steps() {
   const config = useConfig();
   const client = useQueryClient();
   const session = useSession();
+  const lastRead = useWalletRead(session.data);
+  const signedHere = useRef(false);
+  const readingWallet = useRef<string | null>(null);
+  useEffect(() => {
+    if (!session.data || !lastRead.isFetched) return;
+    if (!lastRead.data?.read) readingWallet.current = session.data;
+    else if (!signedHere.current && readingWallet.current !== session.data) router.replace("/space");
+  }, [session.data, lastRead.data, lastRead.isFetched, router]);
   const attempt = useRef(0);
   useEffect(() => {
     attempt.current++;
@@ -77,6 +86,7 @@ function Steps() {
         throw new Error("Wallet changed. Sign again to go on.");
       }
       client.setQueryData(["me", "session"], verified.wallet);
+      signedHere.current = true;
       await client.invalidateQueries({ queryKey: ["me"] });
     },
     onSettled: () => client.removeQueries({ queryKey: ["auth", "nonce"] }),
@@ -151,7 +161,7 @@ function Steps() {
       wallets={wallet.choices}
       onPickWallet={wallet.pick}
       onCancelPick={wallet.cancelPick}
-      signed={signed}
+      signed={signed && lastRead.isFetched && (!lastRead.data?.read || signedHere.current || readingWallet.current === session.data)}
       signing={sign.isPending}
       reopen={viaApp && sign.isPending}
       signError={signError}

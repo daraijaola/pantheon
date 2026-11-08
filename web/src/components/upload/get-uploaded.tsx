@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { uploadDestination } from "@/lib/upload-destination";
 import { ChatOrb } from "@/components/delphi-chat/orb";
 import s from "./get-uploaded.module.css";
 
@@ -116,7 +117,7 @@ export function GetUploaded({ className }: { className?: string }) {
       onBlur={() => (hot.current = false)}
       onClick={() => {
         pulseAt.current = performance.now();
-        router.push("/upload");
+        void uploadDestination().then((href) => router.push(href));
       }}
     >
       <span className={s.tile} aria-hidden="true">
@@ -138,7 +139,7 @@ export function GetUploaded({ className }: { className?: string }) {
 export function GetUploadedText({ className }: { className?: string }) {
   const router = useRouter();
   return (
-    <button type="button" className={className} onClick={() => router.push("/upload")} style={{ cursor: "pointer" }}>
+    <button type="button" className={className} onClick={() => void uploadDestination().then((href) => router.push(href))} style={{ cursor: "pointer" }}>
       <span aria-live="polite">Get uploaded</span>
     </button>
   );
