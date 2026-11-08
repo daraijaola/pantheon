@@ -14,9 +14,13 @@ export function DisputeForm({ token: initial }: { token: string }) {
   const [contact, setContact] = useState("");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState<Sent>({ state: "idle" });
-  const ready = ADDRESS.test(token.trim()) && contact.trim().length >= 2 && message.trim().length >= 10;
+  const tokenError = ADDRESS.test(token.trim()) ? null : token.trim() ? "Enter a valid coin address: 0x followed by 40 hex characters." : "Enter the coin address.";
+  const contactError = contact.trim().length >= 2 ? null : "Add a contact with at least 2 characters so we can reply.";
+  const messageError = message.trim().length >= 10 ? null : "Add at least 10 characters explaining what DELPHI got wrong.";
+  const ready = !tokenError && !contactError && !messageError;
 
   async function send() {
+    if (!ready || sent.state === "sending") return;
     setSent({ state: "sending" });
     try {
       const res = await fetch("/api/delphi/v1/dispute", {
@@ -44,20 +48,24 @@ export function DisputeForm({ token: initial }: { token: string }) {
       <label className={s.field}>
         <span className={s.fieldTop}>Coin address</span>
         <span className={s.inputRow}>
-          <input value={token} onChange={(e) => setToken(e.target.value)} placeholder="0x…" spellCheck={false} style={{ font: "14px var(--mono)" }} />
+          <input value={token} aria-invalid={!!tokenError} aria-describedby={tokenError ? "dispute-token-error" : undefined} onChange={(e) => setToken(e.target.value)} placeholder="0x…" spellCheck={false} style={{ font: "14px var(--mono)" }} />
         </span>
       </label>
+      {tokenError && <p id="dispute-token-error" className={s.hint}>{tokenError}</p>}
       <label className={s.field} style={{ marginTop: 10 }}>
         <span className={s.fieldTop}>How we reach you (X handle, Telegram or email)</span>
         <span className={s.inputRow}>
-          <input value={contact} onChange={(e) => setContact(e.target.value)} maxLength={120} placeholder="@you" style={{ fontSize: 15, fontFamily: "inherit" }} />
+          <input value={contact} aria-invalid={!!contactError} aria-describedby={contactError ? "dispute-contact-error" : undefined} onChange={(e) => setContact(e.target.value)} maxLength={120} placeholder="@you" style={{ fontSize: 15, fontFamily: "inherit" }} />
         </span>
       </label>
+      {contactError && <p id="dispute-contact-error" className={s.hint}>{contactError}</p>}
       <label className={s.field} style={{ marginTop: 10 }}>
         <span className={s.fieldTop}>What DELPHI got wrong, and how you know</span>
         <span className={s.inputRow}>
           <textarea
             value={message}
+            aria-invalid={!!messageError}
+            aria-describedby={messageError ? "dispute-message-error" : undefined}
             onChange={(e) => setMessage(e.target.value)}
             maxLength={1200}
             rows={6}
@@ -66,10 +74,11 @@ export function DisputeForm({ token: initial }: { token: string }) {
           />
         </span>
       </label>
+      {messageError && <p id="dispute-message-error" className={s.hint}>{messageError}</p>}
       <button className={s.primary} disabled={!ready || sent.state === "sending"} onClick={send}>
         {sent.state === "sending" ? "Sending…" : "Send dispute"}
       </button>
-      {sent.state === "error" && <p className={s.error}>{sent.message}</p>}
+      {sent.state === "error" && <p className={s.error} role="alert">{sent.message}</p>}
       <p className={s.hint}>Free, and answered by a person within 24 hours. Evidence helps: transactions or addresses that show who a wallet really is.</p>
     </section>
   );
@@ -78,5 +87,5 @@ export function DisputeForm({ token: initial }: { token: string }) {
 /** The form, with the coin taken from the link (?token=0x…) every DELPHI flag carries. */
 export function DisputeFromLink() {
   const token = useSearchParams().get("token") ?? "";
-  return <DisputeForm token={ADDRESS.test(token) ? token : ""} />;
+  return <DisputeForm token={token} />;
 }
