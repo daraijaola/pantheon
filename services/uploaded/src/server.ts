@@ -1,6 +1,8 @@
 // Entry point: node --env-file-if-exists=.env src/server.ts   (npm start)
 // Loads DELPHI's latest verdicts, then looks for a new scan every REFRESH_SEC.
 import { buildApp } from "./api.ts";
+import { dirname, join } from "node:path";
+import { WalletReads } from "./wallet-reads.ts";
 import { BagReader } from "./bag.ts";
 import { BasketReader, chainRewards, indexerCalls } from "./basket.ts";
 import { CampaignReader } from "./campaign.ts";
@@ -47,7 +49,8 @@ const scan = (wallet: string) => scanStages(wallet, { history, holdings, standin
 const basket = new BasketReader({ verdicts, stake, indexer, rewards: chainRewards(chain, cfg.deployment.staking), usdc: cfg.deployment.usdc });
 const round = new RoundReader(verdicts, trialsCalls(cfg.trialsUrl));
 const record = new RecordReader(verdicts, rounds, async () => new Set((await basket.basket()).coins.map((c) => c.token)));
-const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, stake, basket, standing, guard: new GuardReader(guard, holdings), round, record, campaigns: new CampaignReader(round), footprint, elsewhere, ...(fresh ? { fresh } : {}) });
+const reads = new WalletReads(join(dirname(cfg.guardFile), "wallet-reads"), scan);
+const app = buildApp(verdicts, { logger: true, holdings, history, bag, scan, reads, stake, basket, standing, guard: new GuardReader(guard, holdings), round, record, campaigns: new CampaignReader(round), footprint, elsewhere, ...(fresh ? { fresh } : {}) });
 
 let lastSaid: string | null = null;
 function refresh() {

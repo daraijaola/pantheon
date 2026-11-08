@@ -4,6 +4,7 @@ const readAt = '2026-11-07T00:00:00Z';
 const amount = value => ({ raw: '0', amount: value });
 
 export const uploaded = {
+  read: { read: null, refreshAfter: 0 },
   bag: {
     readAt, coins: [{ token, symbol: 'PACT', name: 'Fixture PACT', venue: 'ascend', amount: '1250', verdict: 'CLEAN', reason: 'Fixture checks passed.', reportUrl: `/delphi/${token}`, disputeUrl: null, scannedAt: readAt, stale: false }],
     counts: { CLEAN: 1 }, sentIn: [], wholeWallet: true, unread: [], complete: true, checking: false,

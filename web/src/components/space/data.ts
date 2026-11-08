@@ -10,6 +10,7 @@ import { erc20Abi, type Address } from "viem";
 import { useReadContract } from "wagmi";
 import { deployment } from "@/lib/chain/config";
 import { useSession } from "@/lib/use-session";
+import { useWalletRead } from "@/lib/use-wallet-read";
 
 export type Verdict = "FLAG" | "WATCH" | "CLEAN" | "NOT_ENOUGH_DATA" | "UNKNOWN";
 export type Venue = "ascend" | "kalos" | "perpme";
@@ -132,6 +133,11 @@ export type Space = {
   guard: Part<Guard>;
   record: Part<VotingRecord>;
   ballot: Part<Ballot>;
+  readAt?: number;
+  refreshAfter?: number;
+  refreshing?: boolean;
+  refreshRead?: () => void;
+  readError?: string;
 };
 
 const PATHS = { bag: "bag", rewards: "rewards", stake: "stake", standing: "standing", guard: "guard", record: "trials/record", ballot: "trials/ballot" } as const;
@@ -148,6 +154,11 @@ async function json<T>(url: string): Promise<T> {
 export function useSpace(): Space {
   const session = useSession();
   const wallet = session.data ?? null;
+  const read = useWalletRead(wallet, true);
+  const saved = <T,>(stage: string): Part<T> | null => {
+    const value = read.data?.read?.stages.find((s) => s.stage === stage && s.ok);
+    return value ? { state: "ok", data: value.data as T } : null;
+  };
   const balance = useReadContract({
     address: deployment?.pnth,
     abi: erc20Abi,
@@ -159,7 +170,7 @@ export function useSpace(): Space {
     queries: KEYS.map((k) => ({
       queryKey: ["me", k, wallet],
       queryFn: () => json(`/api/me/${PATHS[k]}`),
-      enabled: !!wallet,
+      enabled: !!wallet && (!(k === "bag" || k === "standing") || (read.isFetched && !read.data?.read)),
       retry: 1,
       staleTime: 30_000,
       // Guard and the bag are what changes while you're here.
@@ -177,13 +188,18 @@ export function useSpace(): Space {
     mode: "mine",
     wallet,
     pnth: balance.data !== undefined ? { state: "ok", data: balance.data.toString() } : { state: balance.isError ? "unread" : "loading" },
-    bag: part<Bag>(0),
+    bag: saved<Bag>("wholeBag") ?? part<Bag>(0),
     rewards: part<Rewards>(1),
     stake: part<Stake>(2),
-    standing: part<Standing>(3),
+    standing: saved<Standing>("standing") ?? part<Standing>(3),
     guard: part<Guard>(4),
     record: part<VotingRecord>(5),
     ballot: part<Ballot>(6),
+    readAt: read.data?.read?.readAt,
+    refreshAfter: read.data?.refreshAfter,
+    refreshing: read.refreshing,
+    refreshRead: read.refresh,
+    readError: read.refreshError,
   };
 }
 

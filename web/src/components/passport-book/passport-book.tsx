@@ -8,10 +8,11 @@ import Link from "next/link";
 import { ConnectWallet } from "@/components/app/connect-wallet";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { zeroAddress } from "viem";
-import { useConnection, useReadContracts } from "wagmi";
+import { useReadContracts } from "wagmi";
 import { hypePassportRegistryAbi } from "@/lib/chain/abi";
 import { deployment, elysium } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
+import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { type Hex } from "@/components/app/shared";
 import a from "@/components/app/app.module.css";
 import { createCard, type Layout } from "./card";
@@ -25,7 +26,7 @@ export function PassportBook() {
 }
 
 function Live({ d }: { d: Deployment }) {
-  const { address, isConnected, chainId } = useConnection();
+  const { address, isConnected, chainId } = useHydratedConnection();
   const onChain = isConnected && chainId === elysium.id;
   const me = (address ?? zeroAddress) as Hex;
   const chain = useReadContracts({

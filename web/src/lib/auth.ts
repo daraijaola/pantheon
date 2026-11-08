@@ -8,7 +8,7 @@ export const SESSION_COOKIE = "pantheon_session";
 export const NONCE_COOKIE = "pantheon_nonce";
 export const ME_PATHS = new Map([
   ["bag", "bag"], ["rewards", "rewards"], ["stake", "stake"], ["standing", "standing"],
-  ["guard", "guard"], ["trials/record", "record"], ["trials/ballot", "ballot"], ["scan", "scan"],
+  ["guard", "guard"], ["trials/record", "record"], ["trials/ballot", "ballot"], ["scan", "scan"], ["read", "read"],
 ]);
 type Challenge = { nonce: string; origin: string; issued: number; expires: number };
 type Session = { wallet: string; origin: string; expires: number };

@@ -18,6 +18,7 @@ import { signMessage } from "wagmi/actions";
 import { reason } from "@/components/app/shared";
 import { useSession } from "@/components/app/auth-session";
 import { logoutSession, prepareSignIn, verifySignIn } from "@/lib/auth-client";
+import { useWalletRead } from "@/lib/use-wallet-read";
 import { UploadOrb } from "./upload-orb";
 import { isRejected } from "./elysium-switch";
 import { useConnectWallet } from "./use-connect-wallet";
@@ -39,6 +40,13 @@ function Steps() {
   const config = useConfig();
   const client = useQueryClient();
   const session = useSession();
+  const lastRead = useWalletRead(session.data, true);
+  const readingWallet = useRef<string | null>(null);
+  useEffect(() => {
+    if (!session.data || !lastRead.isFetched) return;
+    if (!lastRead.data?.read) readingWallet.current = session.data;
+    else if (readingWallet.current !== session.data) router.replace("/space");
+  }, [session.data, lastRead.data, lastRead.isFetched, router]);
   const attempt = useRef(0);
   useEffect(() => {
     attempt.current++;
@@ -104,7 +112,7 @@ function Steps() {
   }, [viaApp, connector, address]);
 
   const connected = status === "connected" && address ? address : null;
-  const signed = !!connected && session.data?.toLowerCase() === connected.toLowerCase();
+  const signed = !!session.data && (!connected || session.data.toLowerCase() === connected.toLowerCase());
   // Closing the wallet's window is a choice, not a failure, but say what happens next.
   const signError = sign.error
     ? reason(sign.error).replace("You cancelled it in your wallet.", "You closed it in your wallet. Sign to go on.")
@@ -139,7 +147,7 @@ function Steps() {
   return (
     <UploadOrb
       // One orb for the whole visit. A different wallet starts over inside it: it has to sign for itself.
-      address={connected}
+      address={connected ?? session.data ?? null}
       connecting={wallet.busy}
       connectViaApp={wallet.viaApp}
       connectError={wallet.error}
@@ -151,7 +159,7 @@ function Steps() {
       wallets={wallet.choices}
       onPickWallet={wallet.pick}
       onCancelPick={wallet.cancelPick}
-      signed={signed}
+      signed={signed && lastRead.isFetched && !lastRead.data?.read}
       signing={sign.isPending}
       reopen={viaApp && sign.isPending}
       signError={signError}
@@ -163,7 +171,7 @@ function Steps() {
         attempt.current++;
         disconnect.mutate();
       }}
-      onContinue={() => connected && signed && router.push("/space")}
+      onContinue={() => signed && router.push("/space")}
     />
   );
 }

@@ -175,7 +175,7 @@ test("a cutoff raised while the signature verifier awaits is checked again", asy
   assert.equal(replay.used.size, 0);
 });
 test("gateway exposes only the dashboard reads and scan, never arbitrary wallet paths", () => {
-  assert.deepEqual([...ME_PATHS.keys()], ["bag", "rewards", "stake", "standing", "guard", "trials/record", "trials/ballot", "scan"]);
+  assert.deepEqual([...ME_PATHS.keys()], ["bag", "rewards", "stake", "standing", "guard", "trials/record", "trials/ballot", "scan", "read"]);
   assert.equal(ME_PATHS.get("trials/record"), "record");
   assert.equal(ME_PATHS.get("trials/ballot"), "ballot");
   for (const path of ["", "../bag", "/bag", "wallets/0x123/bag", "footprint", "elsewhere", "stake/unstake-preview", "bag/extra"]) assert.equal(ME_PATHS.has(path), false);

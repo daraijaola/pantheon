@@ -11,6 +11,7 @@ import { CodeWordmark } from "@/components/code-type/code-wordmark";
 import { blocks, LABEL, plain, shortHash, type Block, type Piece, type Verdict } from "./format";
 import { AGAIN, CHECK, COPY, DOWN, Pixels } from "./glyphs";
 import { ChatOrb } from "./orb";
+import { CHAT_HISTORY_KEY, loadChats, saveChat, deleteChat, type ChatHistory, type SavedChat } from "@/lib/chat-history";
 import s from "./delphi-chat.module.css";
 
 type Coin = { symbol: string | null; token: string; verdict: Verdict; market: "ascend" | "kalos" | "perpme" };
@@ -64,6 +65,15 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
   const [noGL, setNoGL] = useState(false);
   const [lift, setLift] = useState(0);
   const [clock, setClock] = useState(0);
+  const [history, setHistory] = useState<ChatHistory>({ active: null, chats: [] });
+  const [historyReady, setHistoryReady] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState<"recent" | "all" | null>(null);
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const saved = useRef<ChatHistory>({ active: null, chats: [] });
+  const activeChat = useRef<string | null>(null);
+  const historyButton = useRef<HTMLButtonElement>(null);
+  const historyPanel = useRef<HTMLDivElement>(null);
+  const generation = useRef(0);
   const started = turns.length > 0;
   const busy = turns.some((t) => t.status === "thinking");
 
@@ -100,6 +110,67 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
     busyRef.current = busy;
   }, [busy]);
 
+  const persist = (next: ChatHistory) => {
+    saved.current = next;
+    setHistory(next);
+    try { localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(next)); }
+    catch { setStorageError("Chat history can’t be saved in this browser."); }
+  };
+
+  const restore = (chat: SavedChat) => {
+    activeChat.current = chat.id;
+    nextId.current = Math.max(nextId.current, ...chat.turns.map((turn) => turn.id));
+    for (const turn of chat.turns) {
+      live.current.full.set(turn.id, turn.text);
+      if (turn.sig) live.current.sigs.set(turn.id, turn.sig);
+    }
+    setTurns(chat.turns.map((turn) => ({ ...turn, text: turn.text.trimEnd(), proofs: new Set(turn.proofs), at: 0 })));
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    queueMicrotask(() => {
+      if (!mounted) return;
+      try {
+        const next = loadChats(localStorage.getItem(CHAT_HISTORY_KEY));
+        saved.current = next;
+        setHistory(next);
+        const chat = next.chats.find((item) => item.id === next.active);
+        if (chat) restore(chat);
+      } catch { setStorageError("Chat history can’t be saved in this browser."); }
+      setHistoryReady(true);
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!historyReady || !turns.length) return;
+    const id = activeChat.current ??= crypto.randomUUID();
+    const next = saveChat(saved.current, id, turns.map((turn) => ({
+      id: turn.id, question: turn.question, text: turn.status === "done" ? live.current.full.get(turn.id) ?? turn.text : "", coins: turn.coins,
+      proofs: [...turn.proofs], sig: live.current.sigs.get(turn.id),
+      status: turn.status === "thinking" ? "error" : turn.status,
+      error: turn.status === "thinking" ? "Stopped before the answer finished." : turn.error,
+    })));
+    queueMicrotask(() => persist(next));
+  }, [turns, historyReady]);
+
+  useEffect(() => {
+    if (!historyOpen) return;
+    historyPanel.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    const key = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") { setHistoryOpen(null); historyButton.current?.focus(); }
+      if (event.key !== "Tab") return;
+      const buttons = [...(historyPanel.current?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
+      const first = buttons[0];
+      const last = buttons.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [historyOpen]);
+
   const setTurn = (id: number, f: (t: Turn) => Turn) => setTurns((ts) => ts.map((t) => (t.id === id ? f(t) : t)));
 
   // ------------------------------------------------------------------ asking
@@ -108,6 +179,7 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
     if (!q || busyRef.current) return;
     busyRef.current = true;
     const id = ++nextId.current;
+    const epoch = generation.current;
     const L = live.current;
     // Her earlier answers go back exactly as they came, with her signature: the server ignores any
     // answer without one, so nobody can put words in her mouth.
@@ -153,18 +225,20 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
           buf = buf.slice(nl + 1);
           if (!line) continue;
           const ev = JSON.parse(line) as { type: string; text?: string; coins?: Coin[]; proofs?: string[]; sig?: string; error?: string };
-          if (ctrl.signal.aborted) break;
+          if (ctrl.signal.aborted || generation.current !== epoch) break;
           if (ev.type === "coins") setTurn(id, (t) => ({ ...t, coins: ev.coins ?? [], proofs: new Set(ev.proofs ?? []) }));
           else if (ev.type === "text" && ev.text) L.full.set(id, (L.full.get(id) ?? "") + ev.text);
           else if (ev.type === "done" && ev.sig) L.sigs.set(id, ev.sig);
           else if (ev.type === "error") throw new Error("FAILED");
         }
       }
-      L.ended.add(id);
+      if (generation.current === epoch) L.ended.add(id);
     } catch (err) {
       // Stopped: the complete answer stays hidden. Failed: the loop below says so.
-      L.errors.set(id, ctrl.signal.aborted ? ERRORS.STOPPED : (ERRORS[(err as Error).message] ?? ERRORS.FAILED));
-      L.ended.add(id);
+      if (generation.current === epoch) {
+        L.errors.set(id, ctrl.signal.aborted ? ERRORS.STOPPED : (ERRORS[(err as Error).message] ?? ERRORS.FAILED));
+        L.ended.add(id);
+      }
     } finally {
       if (abort.current === ctrl) abort.current = null;
     }
@@ -188,7 +262,8 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
   // Leaving the page stops the answer in flight, so the server stops the model, and its cost, too.
   useEffect(() => () => abort.current?.abort(), []);
 
-  const newChat = () => {
+  const resetChat = () => {
+    generation.current++;
     abort.current?.abort();
     const L = live.current;
     L.full.clear();
@@ -199,7 +274,27 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
     setTurns([]);
     setDraft("");
     scroller.current?.scrollTo({ top: 0 });
+  };
+
+  const newChat = () => {
+    resetChat();
+    activeChat.current = null;
+    persist({ ...saved.current, active: null });
+    setHistoryOpen(null);
     field.current?.focus();
+  };
+
+  const openChat = (chat: SavedChat) => {
+    resetChat();
+    restore(chat);
+    persist({ ...saved.current, active: chat.id });
+    setHistoryOpen(null);
+    historyButton.current?.focus();
+  };
+
+  const removeChat = (id: string) => {
+    if (activeChat.current === id) { resetChat(); activeChat.current = null; }
+    persist(deleteChat(saved.current, id));
   };
 
   const copy = async (t: Turn) => {
@@ -502,11 +597,39 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
         <Link href="/" aria-label="PANTHEON home" className={s.logo}>
           <CodeWordmark text="PANTHEON" module={2.2} />
         </Link>
-        <button type="button" className={s.newChat} onClick={newChat} tabIndex={started ? 0 : -1} aria-hidden={!started}>
+        <button type="button" className={s.newChat} onClick={newChat}>
           <span className={s.plusMark} aria-hidden="true" />
           <span className={s.newChatLabel}>New chat</span>
         </button>
+        <button ref={historyButton} type="button" className={s.newChat} aria-expanded={!!historyOpen} aria-controls="delphi-history" onClick={() => setHistoryOpen(historyOpen ? null : "recent")}>History</button>
       </header>
+
+      {historyOpen && (
+        <>
+          <button type="button" className={s.historyBackdrop} aria-label="Close history" tabIndex={-1} onClick={() => { setHistoryOpen(null); historyButton.current?.focus(); }} />
+          <div ref={historyPanel} id="delphi-history" className={s.historyPanel} role="dialog" aria-modal="true" aria-labelledby="chat-history-title">
+            <div className={s.historyHeading}>
+              <h2 id="chat-history-title">{historyOpen === "all" ? "All chats" : "Recent chats"}</h2>
+              <button type="button" onClick={() => { setHistoryOpen(null); historyButton.current?.focus(); }}>Close</button>
+            </div>
+            <p className={s.historyNote}>Saved only in this browser.</p>
+            {history.chats.length ? (
+              <ol className={s.historyList}>
+                {(historyOpen === "all" ? history.chats : history.chats.slice(0, 10)).map((chat) => (
+                  <li key={chat.id}>
+                    <button type="button" className={s.historyEntry} aria-current={chat.id === history.active ? "true" : undefined} onClick={() => openChat(chat)}>
+                      <span>{chat.title}</span><time dateTime={new Date(chat.updatedAt).toISOString()}>{new Date(chat.updatedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</time>
+                    </button>
+                    {historyOpen === "all" && <button type="button" className={s.historyDelete} aria-label={`Delete chat: ${chat.title}`} onClick={() => removeChat(chat.id)}>Delete</button>}
+                  </li>
+                ))}
+              </ol>
+            ) : <p className={s.historyNote}>No chats yet.</p>}
+            {historyOpen === "recent" && <button type="button" className={s.historyAll} onClick={() => setHistoryOpen("all")}>See all chats</button>}
+            {storageError && <p role="status" className={s.historyNote}>{storageError}</p>}
+          </div>
+        </>
+      )}
 
       <div ref={scroller} className={s.scroller}>
       <main className={s.main}>
