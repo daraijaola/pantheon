@@ -17,3 +17,5 @@ export type TrialRound = {
 
 export const roundDate = (seconds: number) => new Date(seconds * 1000).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }) + " UTC";
 export const trialsAction = (round: TrialRound | null) => !round ? "See the latest round" : round.status === "open" ? "Vote now" : round.status === "closed" ? `See round ${round.round} results` : `Round ${round.round} opens soon`;
+
+export const trialRoundAt = (round: TrialRound | null, now: number): TrialRound | null => round ? { ...round, status: now < round.opensAt ? "upcoming" : now < round.closesAt ? "open" : "closed" } : null;

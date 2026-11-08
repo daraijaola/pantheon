@@ -1,7 +1,9 @@
 import { cacheLife } from "next/cache";
+import { connection } from "next/server";
+import { trialRoundAt } from "./trials";
 import type { TrialRound } from "./trials";
 
-export async function readTrialRound(): Promise<TrialRound | null> {
+async function cachedTrialRound(): Promise<TrialRound | null> {
   "use cache";
   cacheLife("minutes");
   try {
@@ -12,4 +14,9 @@ export async function readTrialRound(): Promise<TrialRound | null> {
   } catch {
     return null;
   }
+}
+
+export async function readTrialRound(): Promise<TrialRound | null> {
+  await connection();
+  return trialRoundAt(await cachedTrialRound(), Date.now() / 1000);
 }
