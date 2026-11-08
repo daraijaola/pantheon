@@ -598,26 +598,3 @@ export function UploadOrb({
     </div>
   );
 }
-
-/** Where a picked bubble leads. Your space isn't built yet, so for now this page says so. */
-export function UploadNext({ address }: { address: string }) {
-  // This page takes the orb's place, and the bubble that was picked goes with it: focus starts here.
-  const title = useRef<HTMLHeadingElement>(null);
-  useEffect(() => {
-    title.current?.focus({ preventScroll: true });
-  }, []);
-  return (
-    <div className={s.root}>
-      <Chip address={address} />
-      <div className={s.next}>
-        <h1 ref={title} tabIndex={-1} className={s.nextTitle}>
-          Your space opens here soon.
-        </h1>
-        <p className={s.nextSub}>Signed. DELPHI reads this wallet when your space opens. There’s nothing more to sign.</p>
-        <Link href="/" className={s.ghost}>
-          Back to site
-        </Link>
-      </div>
-    </div>
-  );
-}

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { ChatOrb } from "@/components/delphi-chat/orb";
-import { useSoon } from "./use-soon";
 import s from "./get-uploaded.module.css";
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -100,23 +100,22 @@ function TileOrb({ pulseAt, hot }: { pulseAt: React.RefObject<number>; hot: Reac
   );
 }
 
-/** The hero's main call to action: DELPHI's orb, moving beside the label. Not open yet: a click
- * says so in place instead of leading anywhere, and the orb answers with one soft pulse. */
+/** The hero's main call to action: DELPHI's orb, moving beside the label. */
 export function GetUploaded({ className }: { className?: string }) {
-  const { soon, show } = useSoon();
+  const router = useRouter();
   const pulseAt = useRef(-1e9);
   const hot = useRef(false);
   return (
     <button
       type="button"
-      className={`${s.action} ${soon ? s.isSoon : ""} ${className ?? ""}`}
+      className={`${s.action} ${className ?? ""}`}
       onPointerEnter={() => (hot.current = true)}
       onPointerLeave={() => (hot.current = false)}
       onFocus={() => (hot.current = true)}
       onBlur={() => (hot.current = false)}
       onClick={() => {
         pulseAt.current = performance.now();
-        show();
+        router.push("/upload");
       }}
     >
       <span className={s.tile} aria-hidden="true">
@@ -124,10 +123,10 @@ export function GetUploaded({ className }: { className?: string }) {
       </span>
       <span className={s.btn}>
         <span className={s.label} aria-live="polite">
-          {soon ? "Opening soon" : "Get uploaded"}
+          Get uploaded
         </span>
         <span className={s.arrow} aria-hidden="true">
-          {soon ? "·" : "→"}
+          →
         </span>
       </span>
     </button>
@@ -136,10 +135,10 @@ export function GetUploaded({ className }: { className?: string }) {
 
 /** The same call to action as a plain text button (header bar, phone menu). */
 export function GetUploadedText({ className }: { className?: string }) {
-  const { soon, show } = useSoon();
+  const router = useRouter();
   return (
-    <button type="button" className={className} onClick={show} style={{ cursor: "pointer" }}>
-      <span aria-live="polite">{soon ? "Opening soon" : "Get uploaded"}</span>
+    <button type="button" className={className} onClick={() => router.push("/upload")} style={{ cursor: "pointer" }}>
+      <span aria-live="polite">Get uploaded</span>
     </button>
   );
 }

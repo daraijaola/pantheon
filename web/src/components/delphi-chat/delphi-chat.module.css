@@ -27,6 +27,39 @@
     height: 100dvh;
   }
 }
+/* Inside the app frame: under its bar (64px; 56px on a phone) and, on a phone, above its tab bar. The
+   frame's mark stands in for this page's own, so only New chat stays in this header. */
+.framed {
+  top: 64px;
+  height: calc(100% - 64px);
+}
+@supports (height: 100dvh) {
+  .framed {
+    height: calc(100dvh - 64px);
+  }
+}
+.framed .logo {
+  display: none;
+}
+.framed .header {
+  justify-content: flex-end;
+  height: 56px;
+}
+@media (max-width: 760px) {
+  .framed {
+    top: 56px;
+    height: calc(100% - 56px - 82px - env(safe-area-inset-bottom, 0px));
+  }
+  @supports (height: 100dvh) {
+    .framed {
+      height: calc(100dvh - 56px - 82px - env(safe-area-inset-bottom, 0px));
+    }
+  }
+  .framed .dock {
+    padding-bottom: 12px;
+  }
+}
+
 .scroller {
   position: absolute;
   inset: 0;

@@ -1,5 +1,7 @@
 import { test as base, expect, type Page } from '@playwright/test';
 import { wallet } from './fixtures/data.mjs';
+import { privateKeyToAccount } from 'viem/accounts';
+import type { Hex } from 'viem';
 
 export const test = base.extend<{ browserGuards: void }>({
   browserGuards: [async ({ context, page, browserName, request }, use) => {
@@ -13,7 +15,7 @@ export const test = base.extend<{ browserGuards: void }>({
     });
     context.on('request', request => {
       const url = new URL(request.url());
-      if ((url.protocol === 'http:' || url.protocol === 'https:') && url.origin !== 'http://127.0.0.1:4173' && url.origin !== 'http://127.0.0.1:4174') external.push(url.href);
+      if ((url.protocol === 'http:' || url.protocol === 'https:') && url.origin !== 'http://127.0.0.1:4173' && url.origin !== 'http://127.0.0.1:4174' && url.origin !== 'https://127.0.0.1:4176') external.push(url.href);
     });
     await context.routeWebSocket('**/*', socket => { external.push(socket.url()); socket.close(); });
     await use();
@@ -40,7 +42,9 @@ export async function ready(page: Page) {
   });
 }
 
-export async function installWallet(page: Page, chain = '0x185d9') {
+export async function installWallet(page: Page, chain = '0x185d9', acceptSignatures = false) {
+  const account = privateKeyToAccount(`0x${'11'.repeat(32)}`);
+  if (acceptSignatures) await page.exposeFunction('e2eSignMessage', (message: Hex) => account.signMessage({ message: { raw: message } }));
   await page.addInitScript(({ address, initialChain }) => {
     let currentChain = initialChain;
     let connected = false;
@@ -51,25 +55,26 @@ export async function installWallet(page: Page, chain = '0x185d9') {
       isConnected: () => connected,
       on: (event: string, fn: (value: unknown) => void) => { (listeners[event] ??= []).push(fn); },
       removeListener: (event: string, fn: (value: unknown) => void) => { listeners[event] = (listeners[event] ?? []).filter(x => x !== fn); },
-      request: async ({ method, params }: { method: string; params?: Array<{ chainId: string }> }) => {
+      request: async ({ method, params }: { method: string; params?: unknown[] }) => {
         if (method === 'eth_requestAccounts') { connected = true; emit('accountsChanged', [address]); return [address]; }
         if (method === 'eth_accounts') return connected || localStorage.getItem('e2e-wallet') ? [address] : [];
         if (method === 'eth_chainId') return currentChain;
         if (method === 'net_version') return String(parseInt(currentChain, 16));
         if (method === 'wallet_getPermissions' || method === 'wallet_requestPermissions') { localStorage.setItem('e2e-wallet', 'connected'); return [{ parentCapability: 'eth_accounts' }]; }
-        if (method === 'wallet_switchEthereumChain') { currentChain = params![0].chainId; emit('chainChanged', currentChain); return null; }
+        if (method === 'wallet_switchEthereumChain') { currentChain = (params![0] as { chainId: string }).chainId; emit('chainChanged', currentChain); return null; }
+        if (method === 'personal_sign' && 'e2eSignMessage' in window) return (window as unknown as { e2eSignMessage: (message: unknown) => Promise<string> }).e2eSignMessage(params![0]);
         if (method === 'personal_sign' || method.startsWith('eth_signTypedData') || method === 'eth_sendTransaction') throw Object.assign(new Error('User rejected the request.'), { code: 4001 });
         throw Object.assign(new Error(`Unsupported mock wallet method: ${method}`), { code: 4200 });
       },
     };
     Object.defineProperty(window, 'ethereum', { value: ethereum, configurable: true });
     window.dispatchEvent(new Event('ethereum#initialized'));
-  }, { address: wallet, initialChain: chain });
+  }, { address: acceptSignatures ? account.address : wallet, initialChain: chain });
 }
 
-export async function connect(page: Page, chain?: string) {
-  await installWallet(page, chain);
-  await page.goto('/upload');
+export async function connect(page: Page, chain?: string, acceptSignatures = false, origin = '') {
+  await installWallet(page, chain, acceptSignatures);
+  await page.goto(`${origin}/upload`);
   await ready(page);
   const button = page.getByRole('button', { name: 'Connect wallet', exact: true });
   await expect(button).toBeEnabled();

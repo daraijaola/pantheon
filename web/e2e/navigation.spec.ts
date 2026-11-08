@@ -22,11 +22,13 @@ for (const href of destinations) {
   });
 }
 
-for (const href of ['/delphi/chat', '/stake', '/trials/vote']) {
+for (const href of ['/space', '/delphi/chat', '/stake', '/trials/vote']) {
   test(`Visible app navigation link ${href} resolves`, async ({ page }) => {
     await page.goto('/stake');
     await ready(page);
-    await page.locator('nav[aria-label="App"]:visible').locator(`a[href="${href}"]`).click();
+    const link = page.locator('nav[aria-label="App"]:visible').locator(`a[href="${href}"]`);
+    if (await link.count()) await link.click();
+    else await page.getByRole('link', { name: 'Ask DELPHI', exact: true }).click();
     await expect(page).toHaveURL(`http://127.0.0.1:4173${href}`);
     await ready(page);
   });
