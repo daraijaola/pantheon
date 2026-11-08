@@ -1,0 +1,2160 @@
+{
+  "rules": "delphi-v0.5",
+  "reason": "Initial offline detector-input approval; Nov 4 bounded cache reconstruction and existing recorded chain fixtures",
+  "inputHash": "42c91b6857cd00dc69b6a39a504847f7561a30d0d7afa5e03237f809a96e5835",
+  "coins": {
+    "cache:0x34cc866cc3a2afd5967334cb36d8e6629a6e5174": {
+      "token": "0x34Cc866cC3a2afD5967334CB36d8E6629a6e5174",
+      "symbol": "KITTIQ",
+      "venue": "ascend",
+      "verdict": "WATCH",
+      "checks": {
+        "bundle": "clear",
+        "wash": "found",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 37,
+        "outsideTrades": 12,
+        "traders": 9,
+        "holders": 13,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": "watch",
+          "metrics": {
+            "washVolumePct": 69.52,
+            "roundTripWallets": 1,
+            "trades": 37,
+            "roundTripTrades": 8
+          },
+          "notes": [
+            "On testnet, makers often test buying and selling their own coin: from mainnet this is a flag."
+          ]
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 10.33,
+        "maxHolderSupplyPct": 16.4,
+        "walletHeldSupplyPct": 20,
+        "roundTripTrades": 11,
+        "washVolumePct": 69.52,
+        "groups": 0
+      }
+    },
+    "cache:0x6e94b6acf383b160a4f36ef47b629f511e2eb92d": {
+      "token": "0x6e94B6AcF383b160A4f36ef47B629f511e2Eb92d",
+      "symbol": "FGK",
+      "venue": "ascend",
+      "verdict": "NOT_ENOUGH_DATA",
+      "checks": {
+        "bundle": "clear",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 1,
+        "outsideTrades": 0,
+        "traders": 1,
+        "holders": 2,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "The creator's wallet holds 67.05% of the total supply. It owns Kalos's factory: it is Kalos's own wallet. That is the project's own supply, not a hidden whale; it can still be sold."
+          ]
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 67.05,
+        "maxHolderSupplyPct": 67.05,
+        "walletHeldSupplyPct": 67.05,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 0
+      }
+    },
+    "cache:0x862714532ed4ef288aaf1eb6543f474fc7a7a225": {
+      "token": "0x862714532eD4Ef288aAf1EB6543F474fC7A7a225",
+      "symbol": "FGK",
+      "venue": "ascend",
+      "verdict": "NOT_ENOUGH_DATA",
+      "checks": {
+        "bundle": "clear",
+        "wash": "not-enough-data",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 17,
+        "outsideTrades": 0,
+        "traders": 6,
+        "holders": 7,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "The creator's wallet holds 98.9% of the total supply. It owns Kalos's factory: it is Kalos's own wallet. That is the project's own supply, not a hidden whale; it can still be sold."
+          ]
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 88.82,
+        "maxHolderSupplyPct": 98.9,
+        "walletHeldSupplyPct": 98.9,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 0
+      }
+    },
+    "cache:0x7856a274d83d2f367966b033c757acf453a19e20": {
+      "token": "0x7856a274D83d2F367966b033c757aCf453A19E20",
+      "symbol": "TROLOLO",
+      "venue": "ascend",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 553,
+        "outsideTrades": 0,
+        "traders": 5,
+        "holders": 113,
+        "links": 7,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "One wallet holds 20.85% of the total supply. It also holds 5% or more of 10 other coins, so it trades across the market. An outside trader, not this coin's team."
+          ]
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 1.23,
+        "maxHolderSupplyPct": 20.85,
+        "walletHeldSupplyPct": 46.71,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 6
+      }
+    },
+    "cache:0x4faa6142168c6a1126df68cf400839126b3664db": {
+      "token": "0x4FAA6142168c6A1126df68CF400839126b3664db",
+      "symbol": "PACT",
+      "venue": "ascend",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 863,
+        "outsideTrades": 146,
+        "traders": 13,
+        "holders": 119,
+        "links": 8,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 17.47,
+        "maxHolderSupplyPct": 16.62,
+        "walletHeldSupplyPct": 48.96,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 7
+      }
+    },
+    "cache:0x44fec778dc5e4872a24996ae6194c3d3c40b79ea": {
+      "token": "0x44FEc778Dc5E4872A24996ae6194c3d3C40B79EA",
+      "symbol": "REE",
+      "venue": "ascend",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 552,
+        "outsideTrades": 0,
+        "traders": 6,
+        "holders": 118,
+        "links": 7,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 0,
+        "earlySupplyPct": 0,
+        "maxHolderSupplyPct": 17.25,
+        "walletHeldSupplyPct": 48.2,
+        "roundTripTrades": 2,
+        "washVolumePct": 0.03,
+        "groups": 6
+      }
+    },
+    "cache:0x1c7ffc2f75891966bb9016887de3f649bc8c7ae3": {
+      "token": "0x1C7fFc2F75891966bb9016887de3F649bc8c7aE3",
+      "symbol": "AK",
+      "venue": "ascend",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 554,
+        "outsideTrades": 1,
+        "traders": 6,
+        "holders": 119,
+        "links": 7,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 1.23,
+        "maxHolderSupplyPct": 18.3,
+        "walletHeldSupplyPct": 47.77,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 6
+      }
+    },
+    "cache:0xd886e8750c8859bfa15b1f334d6bfd435f2779ab": {
+      "token": "0xd886e8750c8859bfa15B1f334D6bFD435f2779ab",
+      "symbol": "DAWN",
+      "venue": "ascend",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 571,
+        "outsideTrades": 0,
+        "traders": 6,
+        "holders": 118,
+        "links": 7,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 7.64,
+        "maxHolderSupplyPct": 17.25,
+        "walletHeldSupplyPct": 48.37,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 6
+      }
+    },
+    "cache:0x9de320e11e247d8251b3501b0e8565b6768eb494": {
+      "token": "0x9de320e11e247d8251b3501B0E8565B6768EB494",
+      "symbol": "HAZL",
+      "venue": "ascend",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 454,
+        "outsideTrades": 0,
+        "traders": 8,
+        "holders": 105,
+        "links": 7,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 6.62,
+        "maxHolderSupplyPct": 17.91,
+        "walletHeldSupplyPct": 45.63,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 6
+      }
+    },
+    "cache:0x28d59e3fb8170224173b5dfe447fb4f4c37f5df5": {
+      "token": "0x28D59E3FB8170224173B5DFe447Fb4F4C37f5dF5",
+      "symbol": "QNCE",
+      "venue": "ascend",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 448,
+        "outsideTrades": 0,
+        "traders": 5,
+        "holders": 103,
+        "links": 7,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "One wallet holds 20.92% of the total supply. It also holds 5% or more of 10 other coins, so it trades across the market. An outside trader, not this coin's team."
+          ]
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 6.62,
+        "maxHolderSupplyPct": 20.92,
+        "walletHeldSupplyPct": 44.3,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 6
+      }
+    },
+    "cache:0xa8f46b3b008d8ac206b707c6a7643b27d19d21b9": {
+      "token": "0xA8f46B3B008d8Ac206B707c6a7643B27d19D21b9",
+      "symbol": "SRRL",
+      "venue": "ascend",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 233,
+        "outsideTrades": 0,
+        "traders": 5,
+        "holders": 76,
+        "links": 3,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 6.62,
+        "maxHolderSupplyPct": 12.18,
+        "walletHeldSupplyPct": 34.03,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 3
+      }
+    },
+    "cache:0x7f1088cbc9eb4828298a997470538d0bd2a4ee92": {
+      "token": "0x7f1088cBC9EB4828298A997470538D0bD2a4EE92",
+      "symbol": "PRMR",
+      "venue": "ascend",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 238,
+        "outsideTrades": 0,
+        "traders": 4,
+        "holders": 79,
+        "links": 3,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 4.43,
+        "maxHolderSupplyPct": 13.16,
+        "walletHeldSupplyPct": 33.95,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 3
+      }
+    },
+    "cache:0x6c5cb15c5ba872676e7ee1ca00f8dd256f414235": {
+      "token": "0x6c5cb15C5BA872676E7ee1Ca00F8dd256F414235",
+      "symbol": "ANGL",
+      "venue": "ascend",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 250,
+        "outsideTrades": 0,
+        "traders": 6,
+        "holders": 85,
+        "links": 3,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 4.43,
+        "maxHolderSupplyPct": 13.21,
+        "walletHeldSupplyPct": 34.17,
+        "roundTripTrades": 2,
+        "washVolumePct": 0.24,
+        "groups": 3
+      }
+    },
+    "cache:0x048aceb334cb1835dc897a749c5985e169eab1c5": {
+      "token": "0x048aCeb334cb1835dc897a749C5985e169EAb1C5",
+      "symbol": "PNTH",
+      "venue": "ascend",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 651,
+        "outsideTrades": 0,
+        "traders": 130,
+        "holders": 2040,
+        "links": 7832,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "One wallet holds 39.09% of the total supply. It also holds 5% or more of 10 other coins, so it trades across the market. An outside trader, not this coin's team."
+          ]
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 0,
+        "earlySupplyPct": 0,
+        "maxHolderSupplyPct": 39.09,
+        "walletHeldSupplyPct": 47.97,
+        "roundTripTrades": 245,
+        "washVolumePct": 0,
+        "groups": 850
+      }
+    },
+    "cache:0xeefca930b2eed8a63fb88872c40d525fdf9aacc7": {
+      "token": "0xeEFCA930B2eED8a63fB88872C40d525fdF9aaCC7",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "WATCH",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 4,
+        "outsideTrades": 0,
+        "traders": 2,
+        "holders": 6,
+        "links": 1,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "watch",
+          "metrics": {
+            "linkedWallets": 2,
+            "supplyPct": 9.48,
+            "earlyBuyers": 2
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 2,
+        "earlySupplyPct": 9.48,
+        "maxHolderSupplyPct": 0.02,
+        "walletHeldSupplyPct": 0.04,
+        "roundTripTrades": 4,
+        "washVolumePct": 100,
+        "groups": 1
+      }
+    },
+    "cache:0x8444bf31e9648c97e3736560171dec3180d77645": {
+      "token": "0x8444bf31e9648C97e3736560171dEC3180D77645",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "FLAG",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 4,
+        "outsideTrades": 0,
+        "traders": 3,
+        "holders": 8,
+        "links": 2,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "flag",
+          "metrics": {
+            "linkedWallets": 3,
+            "supplyPct": 16.8,
+            "earlyBuyers": 3
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 3,
+        "earlySupplyPct": 16.8,
+        "maxHolderSupplyPct": 8.74,
+        "walletHeldSupplyPct": 12.12,
+        "roundTripTrades": 2,
+        "washVolumePct": 43.73,
+        "groups": 1
+      }
+    },
+    "cache:0xe4b9a90b634e3bd410b5d895c817f673969d993e": {
+      "token": "0xE4B9A90b634E3Bd410b5D895C817F673969D993E",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "FLAG",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 5,
+        "outsideTrades": 0,
+        "traders": 4,
+        "holders": 9,
+        "links": 3,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "flag",
+          "metrics": {
+            "linkedWallets": 4,
+            "supplyPct": 19.68,
+            "earlyBuyers": 4
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 4,
+        "earlySupplyPct": 19.68,
+        "maxHolderSupplyPct": 8.74,
+        "walletHeldSupplyPct": 15,
+        "roundTripTrades": 2,
+        "washVolumePct": 38.58,
+        "groups": 1
+      }
+    },
+    "cache:0xc9af15b4be67f9a6cc8fe5d9f3fc5e410df1765e": {
+      "token": "0xC9AF15B4Be67F9A6cC8FE5D9f3Fc5E410df1765e",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "FLAG",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 5,
+        "outsideTrades": 0,
+        "traders": 4,
+        "holders": 9,
+        "links": 3,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "flag",
+          "metrics": {
+            "linkedWallets": 4,
+            "supplyPct": 19.68,
+            "earlyBuyers": 4
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 4,
+        "earlySupplyPct": 19.68,
+        "maxHolderSupplyPct": 8.74,
+        "walletHeldSupplyPct": 15,
+        "roundTripTrades": 2,
+        "washVolumePct": 38.58,
+        "groups": 1
+      }
+    },
+    "cache:0xa4d2f1bcc3723357ee5a2965615d31d0837c203e": {
+      "token": "0xa4D2f1BCC3723357eE5a2965615D31d0837c203e",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "FLAG",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 3,
+        "outsideTrades": 0,
+        "traders": 3,
+        "holders": 4,
+        "links": 2,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "flag",
+          "metrics": {
+            "linkedWallets": 3,
+            "supplyPct": 19.19,
+            "earlyBuyers": 3
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 3,
+        "earlySupplyPct": 19.19,
+        "maxHolderSupplyPct": 8.68,
+        "walletHeldSupplyPct": 19.19,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 1
+      }
+    },
+    "cache:0x137cd93eb7fecbb440828a475829966d7482c6d2": {
+      "token": "0x137Cd93eb7fecbB440828a475829966d7482C6d2",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "FLAG",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 4,
+        "outsideTrades": 0,
+        "traders": 4,
+        "holders": 5,
+        "links": 3,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "flag",
+          "metrics": {
+            "linkedWallets": 4,
+            "supplyPct": 22.57,
+            "earlyBuyers": 4
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 4,
+        "earlySupplyPct": 22.57,
+        "maxHolderSupplyPct": 10.24,
+        "walletHeldSupplyPct": 22.57,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 1
+      }
+    },
+    "cache:0xfb0d3596d92d980a7bfd1bb965873f4597a57b8e": {
+      "token": "0xfb0d3596D92d980a7bfd1bB965873f4597a57B8E",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "FLAG",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 3,
+        "outsideTrades": 0,
+        "traders": 3,
+        "holders": 4,
+        "links": 2,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "flag",
+          "metrics": {
+            "linkedWallets": 3,
+            "supplyPct": 20.15,
+            "earlyBuyers": 3
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 3,
+        "earlySupplyPct": 20.15,
+        "maxHolderSupplyPct": 10.24,
+        "walletHeldSupplyPct": 20.15,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 1
+      }
+    },
+    "cache:0x20d75d866429928b7eb00dd8ea113056608d3774": {
+      "token": "0x20D75D866429928B7eb00dd8ea113056608D3774",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "FLAG",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 7,
+        "outsideTrades": 0,
+        "traders": 5,
+        "holders": 9,
+        "links": 4,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "flag",
+          "metrics": {
+            "linkedWallets": 5,
+            "supplyPct": 19.91,
+            "earlyBuyers": 5
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 5,
+        "earlySupplyPct": 19.91,
+        "maxHolderSupplyPct": 9.45,
+        "walletHeldSupplyPct": 15.61,
+        "roundTripTrades": 4,
+        "washVolumePct": 35.67,
+        "groups": 1
+      }
+    },
+    "cache:0x67afb5fc16219a232d5fda1c4f0457c9118d8e9d": {
+      "token": "0x67afB5fc16219a232d5Fda1c4f0457C9118d8e9D",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "FLAG",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 8,
+        "outsideTrades": 0,
+        "traders": 6,
+        "holders": 10,
+        "links": 5,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "flag",
+          "metrics": {
+            "linkedWallets": 6,
+            "supplyPct": 23.78,
+            "earlyBuyers": 6
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 6,
+        "earlySupplyPct": 23.78,
+        "maxHolderSupplyPct": 8,
+        "walletHeldSupplyPct": 19.9,
+        "roundTripTrades": 4,
+        "washVolumePct": 28.13,
+        "groups": 1
+      }
+    },
+    "cache:0x0cb1068d0948a3f2d824194dd8b97d95195b6043": {
+      "token": "0x0Cb1068D0948a3f2D824194dd8B97D95195B6043",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "FLAG",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 9,
+        "outsideTrades": 0,
+        "traders": 7,
+        "holders": 11,
+        "links": 5,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "flag",
+          "metrics": {
+            "linkedWallets": 6,
+            "supplyPct": 23.78,
+            "earlyBuyers": 6
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 6,
+        "earlySupplyPct": 23.78,
+        "maxHolderSupplyPct": 8,
+        "walletHeldSupplyPct": 19.96,
+        "roundTripTrades": 4,
+        "washVolumePct": 28.08,
+        "groups": 1
+      }
+    },
+    "cache:0x37e58da9a6fbeefed7b554514f59796b91ac179a": {
+      "token": "0x37e58da9a6FBeeFed7B554514F59796B91ac179a",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "FLAG",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 8,
+        "outsideTrades": 0,
+        "traders": 6,
+        "holders": 10,
+        "links": 5,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "flag",
+          "metrics": {
+            "linkedWallets": 6,
+            "supplyPct": 22.4,
+            "earlyBuyers": 6
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 6,
+        "earlySupplyPct": 22.4,
+        "maxHolderSupplyPct": 8.21,
+        "walletHeldSupplyPct": 20.7,
+        "roundTripTrades": 4,
+        "washVolumePct": 14.13,
+        "groups": 1
+      }
+    },
+    "cache:0x9716d4e4ebd1a4a50cf54fd077d531a0918299ef": {
+      "token": "0x9716D4E4ebd1a4A50Cf54Fd077d531A0918299Ef",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "FLAG",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 8,
+        "outsideTrades": 0,
+        "traders": 6,
+        "holders": 10,
+        "links": 5,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "flag",
+          "metrics": {
+            "linkedWallets": 6,
+            "supplyPct": 22.8,
+            "earlyBuyers": 6
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 6,
+        "earlySupplyPct": 22.8,
+        "maxHolderSupplyPct": 7.92,
+        "walletHeldSupplyPct": 20.07,
+        "roundTripTrades": 4,
+        "washVolumePct": 21.46,
+        "groups": 1
+      }
+    },
+    "cache:0x141332e2702d48b04321fd026bf5961ff1f3cdeb": {
+      "token": "0x141332e2702d48B04321Fd026Bf5961Ff1F3cDEb",
+      "symbol": "SNPTEST",
+      "venue": "ascend",
+      "verdict": "FLAG",
+      "checks": {
+        "bundle": "found",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 8,
+        "outsideTrades": 0,
+        "traders": 6,
+        "holders": 10,
+        "links": 5,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": "flag",
+          "metrics": {
+            "linkedWallets": 6,
+            "supplyPct": 23.2,
+            "earlyBuyers": 6
+          },
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 6,
+        "earlySupplyPct": 23.2,
+        "maxHolderSupplyPct": 9.69,
+        "walletHeldSupplyPct": 21.5,
+        "roundTripTrades": 4,
+        "washVolumePct": 13.68,
+        "groups": 1
+      }
+    },
+    "cache:0xf11c5e0c0bda785d86892d5f9a6fa8200fe09304": {
+      "token": "0xF11c5E0C0bDa785d86892D5f9A6fA8200fE09304",
+      "symbol": "BOREAS",
+      "venue": "kalos",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 923,
+        "outsideTrades": 0,
+        "traders": 158,
+        "holders": 159,
+        "links": 111,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "The creator's wallet holds 67.46% of the total supply. On testnet, makers often keep their test coins."
+          ]
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 0.39,
+        "maxHolderSupplyPct": 67.46,
+        "walletHeldSupplyPct": 97.74,
+        "roundTripTrades": 4,
+        "washVolumePct": 3.48,
+        "groups": 31
+      }
+    },
+    "cache:0xb4f6012f8303c19dc2cb9cf4ad9e6a17c4c9c470": {
+      "token": "0xb4f6012F8303C19dC2CB9Cf4aD9e6A17c4c9c470",
+      "symbol": "JOFF",
+      "venue": "kalos",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 910,
+        "outsideTrades": 0,
+        "traders": 454,
+        "holders": 232,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "The creator's wallet holds 95.38% of the total supply. On testnet, makers often keep their test coins."
+          ]
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 15.38,
+        "maxHolderSupplyPct": 95.38,
+        "walletHeldSupplyPct": 95.93,
+        "roundTripTrades": 902,
+        "washVolumePct": 16.5,
+        "groups": 0
+      }
+    },
+    "cache:0x97951493e8839d2afa7730ef3ba73437615c7705": {
+      "token": "0x97951493E8839D2aFa7730Ef3ba73437615c7705",
+      "symbol": "KPIX",
+      "venue": "kalos",
+      "verdict": "WATCH",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "found"
+      },
+      "stats": {
+        "trades": 6364,
+        "outsideTrades": 0,
+        "traders": 741,
+        "holders": 2950,
+        "links": 3595,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "28.25% of trading volume is fast round trips by 169 linked wallets tied to a wallet that owns Kalos's factory: it is Kalos's own wallet. On testnet, most likely the platform testing its own coin: from mainnet this is a flag."
+          ]
+        },
+        "concentration": {
+          "enough": true,
+          "severity": "watch",
+          "metrics": {
+            "linkedWallets": 212,
+            "circulatingPct": 32.34,
+            "holders": 2950
+          },
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 0,
+        "earlySupplyPct": 0,
+        "maxHolderSupplyPct": 2.37,
+        "walletHeldSupplyPct": 95.56,
+        "roundTripTrades": 713,
+        "washVolumePct": 32.02,
+        "groups": 431
+      }
+    },
+    "cache:0x0001fa25016bdad53fb585747a98148c00d9ab82": {
+      "token": "0x0001FA25016BDaD53FB585747A98148c00d9Ab82",
+      "symbol": "BASIS",
+      "venue": "kalos",
+      "verdict": "NOT_ENOUGH_DATA",
+      "checks": {
+        "bundle": "clear",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 0,
+        "outsideTrades": 0,
+        "traders": 0,
+        "holders": 1,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "The creator's wallet holds 96.89% of the total supply. On testnet, makers often keep their test coins."
+          ]
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 0,
+        "earlySupplyPct": 0,
+        "maxHolderSupplyPct": 96.89,
+        "walletHeldSupplyPct": 96.89,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 0
+      }
+    },
+    "cache:0x0b56c35d8ca0d323f1f871a7e6ea1b607c1f0e4c": {
+      "token": "0x0b56C35d8Ca0d323F1F871a7e6Ea1b607C1F0e4C",
+      "symbol": "HDRCHK",
+      "venue": "perpme",
+      "verdict": "NOT_ENOUGH_DATA",
+      "checks": {
+        "bundle": "clear",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 0,
+        "outsideTrades": 0,
+        "traders": 0,
+        "holders": 0,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 0,
+        "earlySupplyPct": 0,
+        "maxHolderSupplyPct": 0,
+        "walletHeldSupplyPct": 0,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 0
+      }
+    },
+    "cache:0x4ddd716f0627693d12f237e0c42692fe23da0999": {
+      "token": "0x4DDd716f0627693D12F237E0C42692FE23da0999",
+      "symbol": "$WHY",
+      "venue": "perpme",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 45,
+        "outsideTrades": 0,
+        "traders": 9,
+        "holders": 7,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "72.6% of trading volume is 3 unlinked wallets buying and selling the same tokens back within 5 minutes: that volume is not real demand. On testnet, most likely bots farming points or trading between pools."
+          ]
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 0,
+        "maxHolderSupplyPct": 0.26,
+        "walletHeldSupplyPct": 0.27,
+        "roundTripTrades": 6,
+        "washVolumePct": 72.6,
+        "groups": 0
+      }
+    },
+    "cache:0xd010e3412cc16c9cd0df4e14d2a23baee7e50999": {
+      "token": "0xd010e3412Cc16c9CD0DF4E14d2A23BAEe7E50999",
+      "symbol": "IK",
+      "venue": "perpme",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 74,
+        "outsideTrades": 0,
+        "traders": 10,
+        "holders": 10,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 0.01,
+        "maxHolderSupplyPct": 0.26,
+        "walletHeldSupplyPct": 0.31,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 0
+      }
+    },
+    "cache:0xdb2619b85957e976f939e5dc0972a49542180999": {
+      "token": "0xdb2619b85957e976F939e5DC0972A49542180999",
+      "symbol": "PITCY",
+      "venue": "perpme",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 35,
+        "outsideTrades": 0,
+        "traders": 35,
+        "holders": 35,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 0.53,
+        "maxHolderSupplyPct": 0.53,
+        "walletHeldSupplyPct": 0.67,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 0
+      }
+    },
+    "cache:0x4f79a19d4e344e0fb4306914a6bc049ff6f20999": {
+      "token": "0x4f79a19D4e344E0Fb4306914A6BC049fF6f20999",
+      "symbol": "SHRF",
+      "venue": "perpme",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 36,
+        "outsideTrades": 0,
+        "traders": 36,
+        "holders": 36,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 11.76,
+        "maxHolderSupplyPct": 11.76,
+        "walletHeldSupplyPct": 12.02,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 0
+      }
+    },
+    "cache:0x05500e607b8893ead6d544004f29c53c8aae0999": {
+      "token": "0x05500e607B8893Ead6D544004f29c53C8AaE0999",
+      "symbol": "DRRP",
+      "venue": "perpme",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 644,
+        "outsideTrades": 0,
+        "traders": 19,
+        "holders": 19,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 0,
+        "earlySupplyPct": 0,
+        "maxHolderSupplyPct": 0.01,
+        "walletHeldSupplyPct": 0.19,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 0
+      }
+    },
+    "cache:0xedc2a77b99dcb656604daec32c772fa4e95e0999": {
+      "token": "0xeDC2a77B99dcB656604daEc32C772fa4E95E0999",
+      "symbol": "MAGA",
+      "venue": "perpme",
+      "verdict": "CLEAN",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 41,
+        "outsideTrades": 0,
+        "traders": 40,
+        "holders": 40,
+        "links": 0,
+        "fundingMissing": 0
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 0.53,
+        "maxHolderSupplyPct": 0.53,
+        "walletHeldSupplyPct": 0.68,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 0
+      }
+    },
+    "raw:ascend-live": {
+      "token": "0x2E920CA9bAE146d4E3b75E70798E7FF85f913dC5",
+      "symbol": null,
+      "venue": "ascend",
+      "verdict": "NOT_ENOUGH_DATA",
+      "checks": {
+        "bundle": "clear",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 2,
+        "outsideTrades": 0,
+        "traders": 1,
+        "holders": 2,
+        "links": 0,
+        "fundingMissing": 2
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 1.23,
+        "maxHolderSupplyPct": 6.37,
+        "walletHeldSupplyPct": 6.37,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 0
+      }
+    },
+    "raw:kalos-ta": {
+      "token": "0x4bD433648bACDe1FBd1522bb7737CdeCbdf21da9",
+      "symbol": "TA",
+      "venue": "kalos",
+      "verdict": "NOT_ENOUGH_DATA",
+      "checks": {
+        "bundle": "clear",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 3,
+        "outsideTrades": 0,
+        "traders": 1,
+        "holders": 10,
+        "links": 11,
+        "fundingMissing": 11
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "One wallet holds 98.49% of the total supply."
+          ]
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 0,
+        "earlySupplyPct": 0,
+        "maxHolderSupplyPct": 98.49,
+        "walletHeldSupplyPct": 99.99,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 2
+      }
+    },
+    "raw:kalos-elant": {
+      "token": "0x02c47d1381b9D54B320e0Ab06c90954ff3CFc869",
+      "symbol": "ELANT",
+      "venue": "kalos",
+      "verdict": "NOT_ENOUGH_DATA",
+      "checks": {
+        "bundle": "clear",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 1,
+        "outsideTrades": 0,
+        "traders": 1,
+        "holders": 16,
+        "links": 21,
+        "fundingMissing": 17
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "One wallet holds 93.79% of the total supply."
+          ]
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 0,
+        "maxHolderSupplyPct": 93.79,
+        "walletHeldSupplyPct": 99.99,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 1
+      }
+    },
+    "raw:kalos-sign": {
+      "token": "0x8a2201953AF29e8BE7700bcB53dA3ce5caD18726",
+      "symbol": "KALOS",
+      "venue": "kalos",
+      "verdict": "NOT_ENOUGH_DATA",
+      "checks": {
+        "bundle": "clear",
+        "wash": "not-enough-data",
+        "concentration": "not-enough-data"
+      },
+      "stats": {
+        "trades": 2,
+        "outsideTrades": 0,
+        "traders": 2,
+        "holders": 1,
+        "links": 0,
+        "fundingMissing": 2
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "concentration": {
+          "enough": false,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 0,
+        "earlySupplyPct": 0,
+        "maxHolderSupplyPct": 0,
+        "walletHeldSupplyPct": 0,
+        "roundTripTrades": 0,
+        "washVolumePct": 0,
+        "groups": 0
+      }
+    },
+    "raw:perpme-doge": {
+      "token": "0x4DDd716f0627693D12F237E0C42692FE23da0999",
+      "symbol": "$WHY",
+      "venue": "perpme",
+      "verdict": "NOT_ENOUGH_DATA",
+      "checks": {
+        "bundle": "clear",
+        "wash": "clear",
+        "concentration": "clear"
+      },
+      "stats": {
+        "trades": 44,
+        "outsideTrades": 0,
+        "traders": 8,
+        "holders": 6,
+        "links": 0,
+        "fundingMissing": 9
+      },
+      "detectors": {
+        "bundle": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        },
+        "wash": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": [
+            "72.61% of trading volume is 3 unlinked wallets buying and selling the same tokens back within 5 minutes: that volume is not real demand. On testnet, most likely bots farming points or trading between pools."
+          ]
+        },
+        "concentration": {
+          "enough": true,
+          "severity": null,
+          "metrics": {},
+          "notes": []
+        }
+      },
+      "numbers": {
+        "earlyBuyers": 1,
+        "earlySupplyPct": 0,
+        "maxHolderSupplyPct": 0.26,
+        "walletHeldSupplyPct": 0.27,
+        "roundTripTrades": 6,
+        "washVolumePct": 72.61,
+        "groups": 0
+      }
+    }
+  }
+}

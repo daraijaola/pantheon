@@ -223,11 +223,15 @@ class RawFeed {
   private readonly inStmts = new Map<number, Statement>();
   private readonly recentStmts = new Map<string, Statement>();
   private readonly newestStmt: Statement;
+  private readonly countStmt: Statement;
+  private readonly newestRecordStmt: Statement;
 
   constructor(db: Database.Database) {
     this.db = db;
     this.oneStmt = db.prepare("SELECT record FROM feed WHERE token = ?").pluck(true);
     this.newestStmt = db.prepare("SELECT MAX(updated_ms) FROM feed").pluck(true);
+    this.countStmt = db.prepare("SELECT COUNT(*) FROM feed").pluck(true);
+    this.newestRecordStmt = db.prepare("SELECT record FROM feed ORDER BY updated_ms DESC LIMIT 1").pluck(true);
   }
 
   one(token: string): string | undefined {
@@ -262,6 +266,12 @@ class RawFeed {
 
   newest(): number | null {
     return (this.newestStmt.get() as number | null) ?? null;
+  }
+
+  freshness(t: number) {
+    const recordCount = this.countStmt.get() as number;
+    const newest = this.newestRecordStmt.get() as string | undefined;
+    return { recordCount, empty: recordCount === 0, stale: newest === undefined || t > expiresOf(newest) };
   }
 }
 
@@ -436,14 +446,16 @@ export function createFeedServer(opts: FeedServerOptions): Server {
 
   function health(req: IncomingMessage, res: ServerResponse, t: number): void {
     let newestUpdateMs: number | null = null;
+    let freshness: { recordCount: number | null; empty: boolean | null; stale: boolean } = { recordCount: null, empty: null, stale: true };
     let ok = true;
     try {
       newestUpdateMs = raw.newest();
+      freshness = raw.freshness(t);
     } catch (e) {
       ok = false;
       log({ kind: "error", route: "health", message: e instanceof Error ? e.message : String(e) });
     }
-    send(req, res, ok ? 200 : 503, JSON.stringify({ v: 1, ok, version: FEED_SERVER_VERSION, newestUpdateMs, servedAtMs: t }));
+    send(req, res, ok ? 200 : 503, JSON.stringify({ v: 1, ok, version: FEED_SERVER_VERSION, newestUpdateMs, newestUpdateAgeMs: newestUpdateMs === null ? null : Math.max(0, t - newestUpdateMs), ...freshness, servedAtMs: t }));
   }
 
   async function dispute(req: IncomingMessage, res: ServerResponse, t: number): Promise<void> {

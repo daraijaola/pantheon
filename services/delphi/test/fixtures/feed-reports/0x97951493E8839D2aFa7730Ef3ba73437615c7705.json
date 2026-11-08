@@ -1,0 +1,118 @@
+{
+  "rules": "delphi-v0.5",
+  "generatedAt": "2026-11-04T00:23:23.405Z",
+  "coin": {
+    "token": "0x97951493E8839D2aFa7730Ef3ba73437615c7705",
+    "name": "Kalos Pixels",
+    "symbol": "KPIX",
+    "poolId": "0xfcb8093c4f88576a2987509735a0b54156299369",
+    "creator": "0x9332e35e87eAc40a0810813a7a12C458E8043184",
+    "launchTx": "0x1a259ca4c53a76076bd4afa62a992a066321043d60ebe5b205782ef70a58ba9c",
+    "launchBlock": "22121753",
+    "launchTime": "2026-11-03T08:06:41.000Z",
+    "url": "https://elysium.kinetiq.xyz/testnet-explorer/token/0x97951493E8839D2aFa7730Ef3ba73437615c7705",
+    "launchUrl": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x1a259ca4c53a76076bd4afa62a992a066321043d60ebe5b205782ef70a58ba9c",
+    "market": "kalos"
+  },
+  "stats": {
+    "trades": 6364,
+    "outsideTrades": 0,
+    "traders": 741,
+    "holders": 2950,
+    "links": 3705,
+    "fundingMissing": 0
+  },
+  "verdict": "WATCH",
+  "notes": [
+    "28.64% of trading volume is fast round trips by 174 linked wallets tied to a wallet that owns Kalos's factory: it is Kalos's own wallet. On testnet, most likely the platform testing its own coin: from mainnet this is a flag."
+  ],
+  "checks": {
+    "bundle": "clear",
+    "wash": "clear",
+    "concentration": "found"
+  },
+  "findings": [
+    {
+      "detector": "concentration",
+      "severity": "watch",
+      "summary": "217 wallet(s) linked to the creator hold 33.86% of the tokens held by all 2950 holders, on top of what the creator holds.",
+      "metrics": {
+        "linkedWallets": 217,
+        "circulatingPct": 33.86,
+        "holders": 2950
+      },
+      "evidence": [
+        {
+          "what": "0x68f1…433c holds 2.48%",
+          "tx": "0xa3d873afd99e031d80b8ed9832a62528f75a3bb7e34da2b08f5c76a0dbeec372",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0xa3d873afd99e031d80b8ed9832a62528f75a3bb7e34da2b08f5c76a0dbeec372"
+        },
+        {
+          "what": "0x2c87…a3df holds 1.75%",
+          "tx": "0xf99acde5f6184c62ee1c38270ac96450df93f92dc082c17c53fb056f87777422",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0xf99acde5f6184c62ee1c38270ac96450df93f92dc082c17c53fb056f87777422"
+        },
+        {
+          "what": "0xd271…9492 holds 1.24%",
+          "tx": "0xaf1204708fb1be861555100587ebbc35f9a5cbd43fbe2f881e787df68849b5c1",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0xaf1204708fb1be861555100587ebbc35f9a5cbd43fbe2f881e787df68849b5c1"
+        },
+        {
+          "what": "0xdc00…af95 holds 1.19%",
+          "tx": "0x78c2a688407499716d8565c9da62fd4b4ae62f6fdcd20bde9a6d0e6700138b2e",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x78c2a688407499716d8565c9da62fd4b4ae62f6fdcd20bde9a6d0e6700138b2e"
+        },
+        {
+          "what": "0x903d…eef8 holds 1.19%",
+          "tx": "0x9ce476b7b24a14c36161ae65fe2ac844e1ab231924fd00ba4653265dfd09d86b",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x9ce476b7b24a14c36161ae65fe2ac844e1ab231924fd00ba4653265dfd09d86b"
+        },
+        {
+          "what": "0x820d…f467 holds 1.19%",
+          "tx": "0xb6ac0bb5dadc237e81e0a18be308b6b4e60b428285aea0d32811b44c0db0236b",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0xb6ac0bb5dadc237e81e0a18be308b6b4e60b428285aea0d32811b44c0db0236b"
+        },
+        {
+          "what": "0x02d2…603e holds 1.19%",
+          "tx": "0x1d3c2bf00ad78d2f18d41a9626d6c3d62374410e2400e75db59bc90b8d9fd31b",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x1d3c2bf00ad78d2f18d41a9626d6c3d62374410e2400e75db59bc90b8d9fd31b"
+        },
+        {
+          "what": "0xa0bc…353d holds 1.17%",
+          "tx": "0x27026062286a8a223ea8e4ebfbc6bcb5e15a7280a8cfa3f3d4e8f87df8c02346",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x27026062286a8a223ea8e4ebfbc6bcb5e15a7280a8cfa3f3d4e8f87df8c02346"
+        },
+        {
+          "what": "link: token pass 0xd271…9492 ↔ 0x5085…0106",
+          "tx": "0x47a85d1a61e86b924fe10764fa1be909f69f5aa377a94661e0b6836e2d8052b7",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x47a85d1a61e86b924fe10764fa1be909f69f5aa377a94661e0b6836e2d8052b7"
+        },
+        {
+          "what": "link: token pass 0x61B2…CCAD ↔ 0xFa6E…2021",
+          "tx": "0xc9948efe640424e7631dbdfa0bd49c36e8bfcc0b6812a313cd9306005fd2201a",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0xc9948efe640424e7631dbdfa0bd49c36e8bfcc0b6812a313cd9306005fd2201a"
+        },
+        {
+          "what": "link: token pass 0xFa6E…2021 ↔ 0xF0a0…D12e",
+          "tx": "0x486111935711bd8694a9a654c569eaa5cb4b1f08e9fc0f2764b4e6febb22506d",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x486111935711bd8694a9a654c569eaa5cb4b1f08e9fc0f2764b4e6febb22506d"
+        },
+        {
+          "what": "link: token pass 0x2e3f…e372 ↔ 0xaBc9…Ae14",
+          "tx": "0xc283b9a42e0c0dce0a9c6bb3fd3557782a0173c7e9061bd206040d71df9bb241",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0xc283b9a42e0c0dce0a9c6bb3fd3557782a0173c7e9061bd206040d71df9bb241"
+        },
+        {
+          "what": "link: token pass 0xF0a0…D12e ↔ 0xd81b…dD39",
+          "tx": "0x4f0b175b7259646d1b90a78047c95b80cebe05bd056255097084713795f878c6",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x4f0b175b7259646d1b90a78047c95b80cebe05bd056255097084713795f878c6"
+        },
+        {
+          "what": "link: token pass 0x24e3…F2Fb ↔ 0xa366…E06E",
+          "tx": "0x7b807114a0b1bf30ded37b379c23b8630ad722626e1b2de614b00200bf7d3a95",
+          "url": "https://elysium.kinetiq.xyz/testnet-explorer/tx/0x7b807114a0b1bf30ded37b379c23b8630ad722626e1b2de614b00200bf7d3a95"
+        }
+      ]
+    }
+  ]
+}

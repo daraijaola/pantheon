@@ -24,7 +24,7 @@ import { TOPIC } from "../src/kalos.ts";
 import { PerpmeApi } from "../src/perpme-api.ts";
 import { collectPerpme } from "../src/perpme-collect.ts";
 import { PERPME } from "../src/perpme.ts";
-import { BatchRpc, EXPLORER_RPC } from "../src/rpc.ts";
+import { BatchRpc } from "../src/rpc.ts";
 import { checkSafety } from "../src/safety.ts";
 import { Store } from "../src/store.ts";
 import { emptyTape, recordingFetch, type Tape } from "../src/tape.ts";
@@ -212,7 +212,7 @@ async function recordSafety(name: string, token: Address, holder: Address, block
   if (!wanted(name)) return;
   const tape: Tape = { ...emptyTape(note), block: block.toString() };
   const fetch = recordingFetch(globalThis.fetch, tape);
-  const brpc = new BatchRpc(EXPLORER_RPC, { fetch });
+  const brpc = new BatchRpc(undefined, { fetch });
   const r = await checkSafety({ rpc: brpc, fetch, contracts: new ContractsApi({ fetch }), explorer: new ExplorerApi({ fetch }), kalosApi: new KalosApi({ fetch }) }, token, { holder, block, now: new Date("2026-11-01T12:00:00Z") });
   // A launch block's full trace is big: keep only the calls down to the coin's creation (all DELPHI reads).
   type Frame = { from: string; to?: string; type?: string; calls?: Frame[] };
