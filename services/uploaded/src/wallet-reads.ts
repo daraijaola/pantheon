@@ -67,7 +67,7 @@ export class WalletReads {
       }
       if (!stages.length || stages.some((stage) => !stage.ok) || !stages.some((stage) => stage.stage === "wholeBag") || !stages.some((stage) => stage.stage === "standing")) throw new Error("READ_INCOMPLETE");
       const full = complete(stages);
-      const next = { read: !full && state.read ? state.read : { wallet: key, readAt: this.#now(), complete: full, stages }, refreshAfter, retry: !full };
+      const next = { read: !full && state.read?.complete ? state.read : { wallet: key, readAt: this.#now(), complete: full, stages }, refreshAfter, retry: !full };
       this.#save(key, next);
       return next;
     })().finally(() => { pendingRead.done = true; notify(); this.#pending.delete(key); });

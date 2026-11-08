@@ -150,3 +150,23 @@ it("saves a completed streaming scan for subsequent cached requests", async () =
   for await (const event of reads.scan(wallet)) expect(event.ok).toBe(true);
   expect(calls).toBe(1);
 });
+
+it("replaces an older partial snapshot with newer partial data but keeps retries scheduled", async () => {
+  let now = 1_000_000;
+  let partialStage = "wholeBag";
+  const reads = new WalletReads(dir(), async function* () {
+    yield* stages.map(event => event.ok ? { ...event, data: { ...event.data, complete: event.stage !== partialStage } } as StageEvent : event);
+  }, () => now);
+  const first = await reads.refresh(wallet);
+  expect(first.read?.complete).toBe(false);
+  partialStage = "standing";
+  now += READ_COOLDOWN;
+  const newer = await reads.refresh(wallet);
+  expect(newer.read?.readAt).toBe(now);
+  expect(newer.read?.readAt).toBeGreaterThan(first.read!.readAt);
+  expect(newer.read?.stages).not.toEqual(first.read?.stages);
+  expect(reads.get(wallet)).toEqual(newer);
+  expect(newer.read?.complete).toBe(false);
+  expect(newer.retry).toBe(true);
+  expect(newer.refreshAfter).toBe(now + READ_COOLDOWN);
+});
