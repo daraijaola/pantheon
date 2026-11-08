@@ -15,7 +15,6 @@ import { readFonts } from "@/components/passport-book/draw";
 import { pantheonStakingAbi } from "@/lib/chain/abi";
 import { deployment } from "@/lib/chain/config";
 import { short, TxNote, useNow, useTx, type Hex } from "@/components/app/shared";
-import { Mark } from "@/components/app-frame/app-frame";
 import { createBag, layoutTiles, MARGIN, type TileItem } from "./bag";
 import { useSpace, type Alert, type Bag, type BagCoin, type Part, type Space, type Verdict } from "./data";
 import { fromEl, Tray, useCloseTray, type From } from "./tray";
@@ -100,12 +99,6 @@ function Top({ sp }: { sp: Space; now: number }) {
   const line = sp.mode === "mine" ? since(sp) : null;
   return (
     <header className={s.top}>
-      {/* yours: your wallet's own mark, the one in the bar, as the seal on the page */}
-      {sp.mode === "mine" && (
-        <span className={`${s.seal} ${s.rise}`} style={at(0)} aria-hidden="true">
-          <Mark address={sp.wallet} size={50} />
-        </span>
-      )}
       <div className={s.topText}>
         <h1 className={`${s.title} ${s.rise}`} style={at(0)}>
           Your space
