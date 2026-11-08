@@ -1,6 +1,6 @@
 import { test, expect, ready } from './support';
 
-const destinations = ['/passport', '/trials', '/covenant', '/delphi', '/terms', '/#basket', '/get'];
+const destinations = ['/passport', '/trials', '/covenant', '/delphi', '/terms', '/?home=1#basket', '/get'];
 for (const href of destinations) {
   test(`Explore menu link ${href} resolves`, async ({ page }) => {
     await page.goto('/');

@@ -33,7 +33,7 @@ export type Tier = 0 | 1 | 2 | 3;
 
 /** Why the account is not one tier higher. Codes only: the API never reveals amounts (§8). */
 export type Reason =
-  | "SCORE_BELOW_10"
+  | "SCORE_BELOW_5"
   | "SCORE_BELOW_100"
   | "SCORE_BELOW_1000"
   | "ACCOUNT_AGE_BELOW_30D"

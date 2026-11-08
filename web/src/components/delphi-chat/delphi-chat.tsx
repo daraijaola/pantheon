@@ -594,7 +594,7 @@ export function DelphiChat({ explorer, suggestions, framed = false }: { explorer
       {noGL && <div ref={bead} className={s.bead} aria-hidden="true" />}
 
       <header className={s.header}>
-        <Link href="/" aria-label="PANTHEON home" className={s.logo}>
+        <Link href="/?home=1" aria-label="PANTHEON home" className={s.logo}>
           <CodeWordmark text="PANTHEON" module={2.2} />
         </Link>
         <button type="button" className={s.newChat} onClick={newChat}>

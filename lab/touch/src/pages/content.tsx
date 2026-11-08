@@ -29,7 +29,7 @@ export const PASSPORT: Feature = {
     sub: "Your tier is checked again every day, so it follows your HYPE up and down.",
     head: ["Tier", "You need", "Staking boost", "Votes"],
     rows: [
-      ["Tier 1", "10 HYPE", "1.10×", "1"],
+      ["Tier 1", "5 HYPE", "1.10×", "1"],
       ["Tier 2", "100 HYPE and an account at least 30 days old", "1.20×", "2"],
       ["Tier 3", "1,000 HYPE and an account at least 90 days old", "1.25×", "3"],
     ],

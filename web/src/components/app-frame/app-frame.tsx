@@ -232,7 +232,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
     <div className={s.frame}>
       <header className={s.bar}>
         <div className={s.barIn}>
-          <Link className={s.mark} href="/" aria-label="PANTHEON, back to the site">
+          <Link className={s.mark} href="/?home=1" aria-label="PANTHEON, back to the site">
             <CodeWordmark text="PANTHEON" module={2.2} />
           </Link>
           <Places pathname={pathname} places={PLACES} className={s.topPlaces} label="App" />

@@ -5,7 +5,7 @@ wallet that holds **real HYPE on Hyperliquid**, and he has none. About 5 minutes
 
 ## Before you start
 - **MetaMask** in Chrome. The site offers to add the Elysium testnet network; say yes.
-- **Your Hyperliquid wallet** in that MetaMask, holding HYPE: at least **10 staked or 20 held**. Staked HYPE
+- **Your Hyperliquid wallet** in that MetaMask, holding HYPE: at least **5 staked or 10 held**. Staked HYPE
   counts in full, HYPE you just hold counts half.
 - A **signature** is your wallet proving it's you. It's free and nothing is sent.
 - If you click **Connect wallet** and nothing pops up, click the **MetaMask fox** at the top right of Chrome:

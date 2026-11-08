@@ -45,7 +45,7 @@ export function NotPublished() {
     <main className={s.page}>
       <Head eyebrow="DELPHI · Elysium testnet" title="DELPHI" sub="DELPHI hasn’t published its first scan here yet. It will appear on this page as soon as it does." />
       <p className={s.fine}>
-        <Link href="/">Back to the home page</Link>
+        <Link href="/?home=1">Back to the home page</Link>
       </p>
     </main>
   );
