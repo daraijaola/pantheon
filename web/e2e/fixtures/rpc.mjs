@@ -1,6 +1,7 @@
 import { decodeAbiParameters, decodeFunctionData, encodeFunctionResult, erc20Abi, erc6492SignatureValidatorByteCode, parseAbi, recoverAddress, toFunctionSelector, zeroAddress } from 'viem';
 import * as contracts from '../../src/lib/chain/abi.ts';
 import deployment from '../../src/lib/chain/deployments/elysium-testnet.json' with { type: 'json' };
+import { emptyWallet } from './data.mjs';
 
 const extra = parseAbi([
   'function aggregate3((address target,bool allowFailure,bytes callData)[] calls) view returns ((bool success,bytes returnData)[])',
@@ -28,7 +29,7 @@ function call(to, data) {
   let result;
   switch (functionName) {
     case 'aggregate3': result = args[0].map(c => ({ success: true, returnData: call(c.target, c.callData) })); break;
-    case 'balanceOf': result = to.toLowerCase() === deployment.usdc.toLowerCase() ? 1_000n * 10n ** 6n : 10_000n * one; break;
+    case 'balanceOf': result = args[0].toLowerCase() === emptyWallet ? 0n : to.toLowerCase() === deployment.usdc.toLowerCase() ? 1_000n * 10n ** 6n : 10_000n * one; break;
     case 'accounts': result = [100n * one, 0n, 100n * one, 0n, 1794000000n]; break;
     case 'totalStaked': case 'totalWorking': case 'workingOf': result = 100n * one; break;
     case 'multiplierOf': result = one; break;

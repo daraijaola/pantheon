@@ -77,6 +77,12 @@ export type Todo = { key: string; glyph: Glyph; title: string; emph?: string; su
 export function todos(sp: Space, now: number): Todo[] {
   const out: Todo[] = [];
   const rewards = ok(sp.rewards), stake = ok(sp.stake), ballot = ok(sp.ballot), standing = ok(sp.standing);
+  if (sp.mode === "mine" && ok(sp.pnth) === "0" && stake && Number(stake.staked.amount) === 0 && Number(stake.cooling.amount) === 0) {
+    out.push({ key: "get", glyph: "stake", title: "Get PNTH", sub: "Start with test PNTH", action: "Get PNTH", href: "/get" });
+    out.push({ key: "stake", glyph: "stake", title: "Earn from the basket", sub: "Stake PNTH to share every buy", action: "Stake", href: "/stake" });
+    if ((standing?.passport.tier ?? stake.passportTier) === 0) out.push({ key: "passport", glyph: "passport", title: "Get your passport", sub: "Up to 1.25× and more votes", action: "Get one", href: "/passport/get" });
+    return out;
+  }
   for (const a of (ok(sp.guard)?.alerts ?? []).slice(0, 2)) {
     const name = a.symbol ?? "A coin";
     const when = now ? ago(a.at, now) : "this week";

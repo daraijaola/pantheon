@@ -223,6 +223,12 @@
 .side > :first-child {
   flex: 1 1 auto;
 }
+.grid[data-empty] {
+  align-items: start;
+}
+.grid[data-empty] .side > :first-child {
+  flex: 0 0 auto;
+}
 
 /* ------------------------------------------------------------------ the bag: a slab of dark glass */
 .card {
@@ -343,6 +349,17 @@
 }
 .mosaic[data-quiet] + .cardFill {
   display: none;
+}
+.card[data-empty] {
+  min-height: 0;
+}
+.card[data-empty] .mosaic {
+  flex: none;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
 }
 .ghosts {
   display: flex;

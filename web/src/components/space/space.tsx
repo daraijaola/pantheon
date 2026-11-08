@@ -55,7 +55,7 @@ export function YourSpace() {
     <div className={s.page} aria-busy={!ready}>
       <div className={s.inner}>
         <Top sp={sp} now={now} />
-        <div className={s.grid}>
+        <div className={s.grid} data-empty={bag?.coins.length === 0 || undefined}>
           <BagCard part={ready ? sp.bag : LOADING} ready={ready} now={now} lensAt={lensAt} onLens={setLensAt} onOpen={openCoin} onAll={(from) => setTray({ v: { view: "all" }, from })} onAbout={(from) => setTray({ v: { view: "about" }, from })} />
           <aside className={s.side}>
             {ready && (
@@ -240,7 +240,7 @@ function BagCard({
   const grade = bag ? integrity(bag) : null;
 
   return (
-    <section className={`${s.card} ${ready ? s.rise : ""}`} style={at(2)} aria-labelledby="bag-title">
+    <section className={`${s.card} ${ready ? s.rise : ""}`} data-empty={bag?.coins.length === 0 || undefined} style={at(2)} aria-labelledby="bag-title">
       <header className={s.cardHead}>
         <h2 id="bag-title" className={s.cardTitle}>
           Your bag {bag && bag.coins.length > 0 && <span className={s.cardCount}>{bag.coins.length}</span>}
@@ -306,17 +306,19 @@ function BagCard({
             })}
           </div>
         )}
-        {/* nothing to lay out yet: three ghost tiles and one line (they shimmer while she reads) */}
         {!bag?.coins.length && (
           <>
-            <div className={s.ghosts} data-reading={part.state === "loading" || undefined} aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </div>
+            {!bag && (
+              <div className={s.ghosts} data-reading={part.state === "loading" || undefined} aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </div>
+            )}
             <p className={s.cardQuiet}>
               {bag ? "Nothing here yet." : part.state === "unread" ? "DELPHI couldn’t read your bag just now. She’ll try again in a minute." : "DELPHI is reading your bag…"}
             </p>
+            {bag && <Link className={s.whiteBtn} href="/get">Get PNTH</Link>}
           </>
         )}
       </div>
