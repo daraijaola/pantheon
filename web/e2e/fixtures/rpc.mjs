@@ -1,4 +1,4 @@
-import { decodeFunctionData, encodeFunctionResult, erc20Abi, parseAbi, toFunctionSelector, zeroAddress } from 'viem';
+import { decodeAbiParameters, decodeFunctionData, encodeFunctionResult, erc20Abi, erc6492SignatureValidatorByteCode, parseAbi, recoverAddress, toFunctionSelector, zeroAddress } from 'viem';
 import * as contracts from '../../src/lib/chain/abi.ts';
 import deployment from '../../src/lib/chain/deployments/elysium-testnet.json' with { type: 'json' };
 
@@ -41,7 +41,7 @@ function call(to, data) {
   }
   return encodeFunctionResult({ abi: [item], functionName, result });
 }
-export function rpc(request) {
+export async function rpc(request) {
   const { id, method, params = [] } = request;
   try {
     let result;
@@ -52,7 +52,14 @@ export function rpc(request) {
       case 'eth_getBalance': result = `0x${(100n * one).toString(16)}`; break;
       case 'eth_getCode': result = '0x'; break;
       case 'eth_getLogs': result = []; break;
-      case 'eth_call': result = call(params[0].to, params[0].data); break;
+      case 'eth_call': {
+        const { to, data } = params[0];
+        if (!to && data.startsWith(erc6492SignatureValidatorByteCode)) {
+          const [address, hash, signature] = decodeAbiParameters([{ type: 'address' }, { type: 'bytes32' }, { type: 'bytes' }], `0x${data.slice(erc6492SignatureValidatorByteCode.length)}`);
+          result = (await recoverAddress({ hash, signature })).toLowerCase() === address.toLowerCase() ? '0x01' : '0x00';
+        } else result = call(to, data);
+        break;
+      }
       case 'eth_estimateGas': result = '0x30d40'; break;
       case 'eth_gasPrice': case 'eth_maxPriorityFeePerGas': result = '0x3b9aca00'; break;
       case 'eth_getTransactionCount': result = '0x0'; break;

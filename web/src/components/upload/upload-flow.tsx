@@ -9,6 +9,7 @@
 // signature asked for here is the one that sign-in will check.
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { stringToHex, UserRejectedRequestError } from "viem";
 import { useConfig, useDisconnect } from "wagmi";
@@ -17,7 +18,7 @@ import { signMessage } from "wagmi/actions";
 import { reason } from "@/components/app/shared";
 import { useSession } from "@/components/app/auth-session";
 import { logoutSession, prepareSignIn, verifySignIn } from "@/lib/auth-client";
-import { UploadNext, UploadOrb, type Picked } from "./upload-orb";
+import { UploadOrb } from "./upload-orb";
 import { isRejected } from "./elysium-switch";
 import { useConnectWallet } from "./use-connect-wallet";
 import { CHOICE_KEY, isIos, isMobile, openWallet, signOnSession, store, walletLink, type PeerRedirect, type PhoneProvider } from "./wallet-link";
@@ -31,6 +32,7 @@ const noSubscribe = () => () => {};
 const onPhone = () => isMobile(navigator.userAgent, navigator.maxTouchPoints);
 
 function Steps() {
+  const router = useRouter();
   const { address, status, connector } = useHydratedConnection();
   const disconnect = useDisconnect();
   const wallet = useConnectWallet();
@@ -79,7 +81,6 @@ function Steps() {
     },
     onSettled: () => client.removeQueries({ queryKey: ["auth", "nonce"] }),
   });
-  const [picked, setPicked] = useState<{ by: string; bubble: Picked } | null>(null);
   // A phone wallet over WalletConnect signs in its own app: the tap on Sign has to open it (wallet-link.ts).
   // Browser wallets, and wallets' in-app browsers, are injected and sign in place, as before.
   const phone = useSyncExternalStore(noSubscribe, onPhone, () => false);
@@ -104,7 +105,6 @@ function Steps() {
 
   const connected = status === "connected" && address ? address : null;
   const signed = !!connected && session.data?.toLowerCase() === connected.toLowerCase();
-  if (connected && signed && picked?.by === connected) return <UploadNext address={connected} />;
   // Closing the wallet's window is a choice, not a failure, but say what happens next.
   const signError = sign.error
     ? reason(sign.error).replace("You cancelled it in your wallet.", "You closed it in your wallet. Sign to go on.")
@@ -163,7 +163,7 @@ function Steps() {
         attempt.current++;
         disconnect.mutate();
       }}
-      onContinue={(bubble) => connected && setPicked({ by: connected, bubble })}
+      onContinue={() => connected && signed && router.push("/space")}
     />
   );
 }
