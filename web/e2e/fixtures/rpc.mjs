@@ -22,13 +22,14 @@ function empty(output) {
   if (output.type.startsWith('bytes')) return `0x${'00'.repeat(Number(output.type.slice(5)) || 0)}`;
   return 0n;
 }
-function call(to, data) {
+function call(to, data, overrides) {
   const item = functions.get(data.slice(0, 10));
   if (!item) throw new Error(`Unconfigured fixture contract selector ${data.slice(0, 10)}`);
   const { functionName, args } = decodeFunctionData({ abi: [item], data });
   let result;
-  switch (functionName) {
-    case 'aggregate3': result = args[0].map(c => ({ success: true, returnData: call(c.target, c.callData) })); break;
+  if (Object.hasOwn(overrides, functionName)) result = overrides[functionName];
+  else switch (functionName) {
+    case 'aggregate3': result = args[0].map(c => ({ success: true, returnData: call(c.target, c.callData, overrides) })); break;
     case 'balanceOf': result = args[0].toLowerCase() === emptyWallet ? 0n : to.toLowerCase() === deployment.usdc.toLowerCase() ? 1_000n * 10n ** 6n : 10_000n * one; break;
     case 'accounts': result = [100n * one, 0n, 100n * one, 0n, 1794000000n]; break;
     case 'totalStaked': case 'totalWorking': case 'workingOf': result = 100n * one; break;
@@ -42,7 +43,7 @@ function call(to, data) {
   }
   return encodeFunctionResult({ abi: [item], functionName, result });
 }
-export async function rpc(request) {
+export async function rpc(request, overrides = {}) {
   const { id, method, params = [] } = request;
   try {
     let result;
@@ -58,7 +59,7 @@ export async function rpc(request) {
         if (!to && data.startsWith(erc6492SignatureValidatorByteCode)) {
           const [address, hash, signature] = decodeAbiParameters([{ type: 'address' }, { type: 'bytes32' }, { type: 'bytes' }], `0x${data.slice(erc6492SignatureValidatorByteCode.length)}`);
           result = (await recoverAddress({ hash, signature })).toLowerCase() === address.toLowerCase() ? '0x01' : '0x00';
-        } else result = call(to, data);
+        } else result = call(to, data, overrides);
         break;
       }
       case 'eth_estimateGas': result = '0x30d40'; break;

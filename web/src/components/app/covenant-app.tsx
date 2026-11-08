@@ -104,6 +104,7 @@ function Launch({ d }: { d: Deployment }) {
             : null;
 
   const launch = async () => {
+    if (switchQ.data !== false) return;
     const receipts = await tx.run("Launching", [
       {
         address: d.covenantFactory,
@@ -137,6 +138,9 @@ function Launch({ d }: { d: Deployment }) {
         </div>
       </header>
 
+      {ascendPaused && <section className={s.cell} role="status"><h2 className={s.label}>Launches are paused by Ascend</h2><p className={s.hint}>{PAUSED_LINE}</p></section>}
+      {switchQ.data === undefined && <p className={s.hint} role="status">{switchQ.isError ? "Launch availability couldn’t be read. Try again in a minute." : "Checking whether launches are enabled…"}</p>}
+
       {done && (
         <section className={c.done}>
           <p className={c.doneTitle}>{done.symbol} is live on Ascend, with its rules locked.</p>
@@ -155,7 +159,7 @@ function Launch({ d }: { d: Deployment }) {
       )}
 
       <div className={s.grid}>
-        <div className={s.main}>
+        <fieldset className={`${s.main} ${c.form}`} disabled={switchQ.data !== false}>
           <section className={s.cell}>
             <p className={s.label}>Your coin</p>
             <div className={c.pair}>
@@ -219,13 +223,12 @@ function Launch({ d }: { d: Deployment }) {
               </li>
             </ul>
             <button type="button" className={s.primary} disabled={ascendPaused || !onChain || !!problem || !!tx.busy} onClick={launch}>
-              {tx.busy ?? (ascendPaused ? "Launches are paused by Ascend" : !onChain ? "Connect your wallet to launch" : (problem ?? "Launch on Ascend"))}
+              {tx.busy ?? (ascendPaused ? "Launches are paused by Ascend" : switchQ.data === undefined ? "Checking launch availability…" : !onChain ? "Connect your wallet to launch" : (problem ?? "Launch on Ascend"))}
             </button>
-            {ascendPaused && <p className={s.hint}>{PAUSED_LINE}</p>}
             <p className={s.hint}>One transaction. A Covenant launch can’t include a creator buy, but you can buy your coin right after, like anyone else.</p>
             <TxNote error={tx.error} lastTx={tx.lastTx} />
           </section>
-        </div>
+        </fieldset>
 
         <aside className={s.side}>
           <div className={s.cell}>
