@@ -4,6 +4,7 @@
 // second page, the stamps, each pressed in under a bubble of the same glass. Everything shown is read
 // from the registry on Elysium. Disconnected wallets get a labelled preview.
 
+import { networkLabel } from "@/lib/network-copy";
 import Link from "next/link";
 import { ConnectWallet } from "@/components/app/connect-wallet";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
@@ -47,7 +48,7 @@ function Live({ d, publicAddress }: { d: Deployment; publicAddress?: Hex }) {
     return registryView(me, p, valid, mult);
   }, [onChain, valid, p, me, mult]);
   if (!publicAddress && !isConnected) return <Book key="example" view={null} note="Connect your Elysium wallet to see your passport. This is a labelled example, not your data." />;
-  if (!onChain) return <State title="Switch to Elysium" note="Your Passport lives on Elysium testnet."><ConnectWallet /></State>;
+  if (!onChain) return <State title="Switch to Elysium" note={`Your Passport lives on ${networkLabel}.`}><ConnectWallet /></State>;
   if (chain.isPending) return <State title="Reading your passport…" note="Checking the public registry." />;
   if (chain.isError || chain.data?.some(r => r.status === "failure") || !p || valid === undefined || mult === undefined) return <State title="Couldn't read your passport" note="The registry is unavailable. This does not mean you have no passport."><button type="button" className={s.action} onClick={() => void chain.refetch()}>Retry</button></State>;
   if (!view) return <State title="No passport yet" note={`${me.slice(0, 6)}…${me.slice(-4)} has no Passport in the public registry.`}><Link className={s.action} href="/passport/get">Get your Passport</Link><PassportShare wallet={me} /></State>;
@@ -55,7 +56,7 @@ function Live({ d, publicAddress }: { d: Deployment; publicAddress?: Hex }) {
 }
 
 function State({ title, note, children }: { title: string; note: string; children?: React.ReactNode }) {
-  return <main className={a.page}><header className={a.head}><div><p className={a.eyebrow}>App · Elysium testnet</p><h1 className={a.h1}>HYPE Passport</h1></div></header><section className={s.state}><h2>{title}</h2><p>{note}</p><div className={s.actions}>{children}</div></section></main>;
+  return <main className={a.page}><header className={a.head}><div><p className={a.eyebrow}>App · {networkLabel}</p><h1 className={a.h1}>HYPE Passport</h1></div></header><section className={s.state}><h2>{title}</h2><p>{note}</p><div className={s.actions}>{children}</div></section></main>;
 }
 
 const FINISHES: FinishName[] = ["ink", "paper"];
@@ -160,7 +161,7 @@ function Book({ view, note, publicPage = false }: { view: PassportView | null; n
     <main className={a.page}>
       <header className={a.head}>
         <div>
-          <p className={a.eyebrow}>App · Elysium testnet</p>
+          <p className={a.eyebrow}>App · {networkLabel}</p>
           <h1 className={a.h1}>{publicPage ? "HYPE Passport" : "Your Passport"}</h1>
           <p className={a.sub}>Public Elysium registry facts. Never your Hyperliquid address or balances.</p>
         </div>

@@ -1,0 +1,71 @@
+{
+  "chainId": 99901,
+  "burnSink": null,
+  "constituentRegistry": null,
+  "covenantFactory": null,
+  "indexVault": null,
+  "launchpad": null,
+  "passportRegistry": null,
+  "pnth": null,
+  "pnthPool": null,
+  "pnthRouter": null,
+  "staking": null,
+  "usdc": null,
+  "network": {
+    "chainId": 99901,
+    "name": "Elysium",
+    "testnet": false,
+    "publicRpc": null,
+    "explorerUrl": null,
+    "deployedFrom": null,
+    "external": {
+      "usdc": null,
+      "whype": null,
+      "multicall3": null,
+      "ascendLaunchpad": null,
+      "ascendRouter": null,
+      "kalos": {
+        "api": null,
+        "factory": null,
+        "factoryBlock": null,
+        "positionManager": null,
+        "whype": null,
+        "contracts": null,
+        "pinned": {
+          "factory": null,
+          "positionManager": null,
+          "swapRouter": null,
+          "quoterV2": null,
+          "whype": null
+        }
+      },
+      "perpme": {
+        "launchFactory": null,
+        "poolFactory": null,
+        "positionManager": null,
+        "router": null,
+        "quoter": null,
+        "whype": null,
+        "fromBlock": null,
+        "locker": null,
+        "coinDeployer": null,
+        "multicall3": null,
+        "oldLaunchFactory": null,
+        "oldLocker": null,
+        "api": null,
+        "indexer": null
+      }
+    },
+    "acquireUrl": null,
+    "explorerApi": null,
+    "archiveRpc": null,
+    "creationExplorer": null,
+    "ascendFromBlock": null,
+    "knownHubs": null,
+    "baseTokens": null,
+    "perpmeQuotes": null,
+    "knownContracts": null,
+    "knownAddresses": null,
+    "genericAddresses": null
+  }
+}

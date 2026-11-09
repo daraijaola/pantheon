@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // Kalos, the Uniswap-V3-style DEX on Elysium: its contract addresses and its token list, read from
 // api.kalos.fun (checked live 2026-10-31: 22 tokens, 38 pools). The API sometimes answers
 // `{"error":"unavailable","detail":{"reason":"refreshing"}}` for a moment; that answer is retried.
@@ -5,16 +6,10 @@ import { getAddress, isAddress, type Address } from "viem";
 import { z } from "zod";
 import { getJson, type Fetch } from "./http.ts";
 
-export const KALOS_API = "https://api.kalos.fun";
+export const KALOS_API = profile(process.env, "delphi").network.external.kalos.api;
 
 /** Kalos's contracts on Elysium testnet, as /v2/dex/config listed them on 2026-10-31. */
-export const KALOS_CONTRACTS = {
-  factory: "0x520bF060F58ceE054f725877279328F5f73A7893",
-  positionManager: "0x28580f9baeDDBc88D3Daca542aF12271E52B5765",
-  swapRouter: "0x752f6816Bc514e1Eeff852b2eAdcd96f6c0F9f3f",
-  quoterV2: "0x2b555398ac8BAf5d4B541EF12E565eF312739149",
-  whype: "0xCD57F65c2B0e5881CFC2E609F7CD53b746E1F234",
-} as const satisfies Record<string, Address>;
+export const KALOS_CONTRACTS = profile(process.env, "delphi").network.external.kalos.pinned satisfies Record<string, Address>;
 export type KalosContracts = { readonly [K in keyof typeof KALOS_CONTRACTS]: Address };
 
 const address = z
@@ -58,7 +53,9 @@ export class KalosApi {
 
   /** Kalos's contract addresses and chain. */
   async config(): Promise<{ chainId: number; contracts: KalosContracts }> {
-    return getJson(this.fetch, `${this.base}/v2/dex/config`, Config, { retryIf: refreshing, retries: 5, sleep: this.sleep });
+    const config = await getJson(this.fetch, `${this.base}/v2/dex/config`, Config, { retryIf: refreshing, retries: 5, sleep: this.sleep });
+    if (config.chainId !== profile().chainId) throw new Error("Kalos API chainId does not match selected deployment");
+    return config;
   }
 
   /** Every token in Kalos's list, all pages. */

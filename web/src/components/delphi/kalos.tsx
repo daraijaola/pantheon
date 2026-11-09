@@ -3,6 +3,7 @@
 // controls it, what they can still do, can you sell). Server-rendered from DELPHI's published file;
 // links out go to the explorer only. Long lists open on request, so the page stays short.
 
+import { networkLabel, networkText } from "@/lib/network-copy";
 import Link from "next/link";
 import s from "@/components/app/app.module.css";
 import { shortHash, when, type Delphi, type KalosRow, type SafetyCheck } from "@/lib/delphi";
@@ -127,7 +128,7 @@ export function KalosIndex({ data }: { data: Delphi }) {
     <main className={s.page}>
       <header className={s.head}>
         <div>
-          <p className={s.eyebrow}>DELPHI · Kalos · Elysium testnet</p>
+          <p className={s.eyebrow}>DELPHI · Kalos · {networkLabel}</p>
           <h1 className={s.h1}>Every new coin on Kalos, checked</h1>
           <p className={s.sub}>
             Coins reach Kalos two ways: launches on PerpMe, and new Kalos pools. DELPHI checks each one: are the first buyers one person, is the volume real, who controls
@@ -228,7 +229,7 @@ export function KalosIndex({ data }: { data: Delphi }) {
               From the chain, not from any list: PerpMe’s launch factory and Kalos’s pool factory. A PerpMe coin’s creator is the wallet that launched it; a Kalos pool coin’s is
               the wallet that deployed it. The busiest coins are read at launch and over the last day.
             </p>
-            <p className={d.para}>On testnet, people farm with free test money, so many patterns here are farming, not cheating. DELPHI reports patterns, never intent.</p>
+            <p className={d.para}>{networkText("On testnet, people farm with free test money, so many patterns here are farming, not cheating. DELPHI reports patterns, never intent.", "DELPHI reports trading patterns, never intent. A pattern is not a claim about who controls a wallet.")}</p>
             <Link href="/delphi" className={d.more}>
               DELPHI on Ascend
             </Link>

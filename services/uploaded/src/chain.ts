@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // Reading Elysium politely. The public RPC rate-limits bursts, so this is the same client as the indexer's,
 // the keeper's and DELPHI's.
 import { createPublicClient, defineChain, http, type PublicClient } from "viem";
@@ -61,11 +62,11 @@ export function requestFailed(error: unknown): boolean {
 
 export function makeClient(rpc: string, opts: { batch?: boolean } = {}): PublicClient {
   const chain = defineChain({
-    id: 99_801,
-    name: "Elysium testnet",
+    id: profile().chainId,
+    name: profile().network.name,
     nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
-    contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
+    contracts: { multicall3: { address: profile().network.external.multicall3 as `0x${string}` } },
   });
   return createPublicClient({ chain, transport: http(rpc, { batch: opts.batch ? { batchSize: 100, wait: 5 } : false, retryCount: 3, timeout: 60_000, fetchFn: politeFetch(opts.batch ? { minGapMs: 0 } : {}) }) });
 }

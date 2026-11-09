@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createHmac } from "node:crypto";
 import { privateKeyToAccount } from "viem/accounts";
 import { createSiweMessage } from "viem/siwe";
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
@@ -13,7 +14,7 @@ const secret = "test-only-session-key-with-at-least-32-characters";
 function setup(used = new Map<string, number>()) {
   let time = Date.parse("2026-11-06T00:00:00Z");
   const replay = { used, cutoff: -Infinity };
-  const auth = createAuth({ secret: () => secret, now: () => time, replay });
+  const auth = createAuth({ chainId: 99801, secret: () => secret, now: () => time, replay });
   const challenge = auth.challenge(origin);
   const fields = { address: account.address, domain: challenge.domain, uri: challenge.uri, nonce: challenge.nonce, chainId: 99801, version: "1" as const, issuedAt: new Date(challenge.issuedAt), expirationTime: new Date(challenge.expirationTime) };
   return { auth, challenge, fields, replay, advance: (ms: number) => { time += ms; } };
@@ -30,6 +31,24 @@ test("SIWE signs in the signing wallet; session expires after seven days", async
   assert.equal(auth.session(origin, signed.cookie), signed.wallet);
   advance(1);
   assert.equal(auth.session(origin, signed.cookie), null);
+});
+test("sessions and outstanding nonces cannot cross chains", async () => {
+  const { auth, challenge, fields } = setup();
+  const message = createSiweMessage(fields);
+  const signature = await account.signMessage({ message });
+  const signed = await auth.verify(origin, challenge.cookie, message, signature);
+  const mainnet = createAuth({ chainId: 99901, secret: () => secret, now: () => fields.issuedAt.getTime(), replay: { used: new Map(), cutoff: -Infinity } });
+  assert.equal(mainnet.session(origin, signed.cookie), null);
+  await assert.rejects(mainnet.verify(origin, challenge.cookie, message, signature), /INVALID_NONCE/);
+  const mainChallenge = mainnet.challenge(origin);
+  assert.equal(mainChallenge.chainId, 99901);
+  const mainMessage = createSiweMessage({ ...fields, ...mainChallenge, issuedAt: new Date(mainChallenge.issuedAt), expirationTime: new Date(mainChallenge.expirationTime) });
+  const mainSigned = await mainnet.verify(origin, mainChallenge.cookie, mainMessage, await account.signMessage({ message: mainMessage }));
+  assert.equal(mainnet.session(origin, mainSigned.cookie), signed.wallet);
+  assert.equal(auth.session(origin, mainSigned.cookie), null);
+  const payload = Buffer.from(JSON.stringify({ wallet: signed.wallet, origin, expires: fields.issuedAt.getTime() + SESSION_SECONDS * 1000 })).toString("base64url");
+  const legacy = `${payload}.${createHmac("sha256", secret).update(`session.${payload}`).digest("base64url")}`;
+  assert.equal(auth.session(origin, legacy), null);
 });
 test("no cookie, malformed cookies and tampered sessions never authenticate", async () => {
   const { auth, challenge, fields } = setup();
@@ -79,7 +98,7 @@ test("production requires a strong server secret; development can use an ephemer
   assert.throws(() => sessionSecret({ NODE_ENV: "production", SESSION_SECRET: "short" }, secret), /AUTH_UNAVAILABLE/);
   assert.equal(sessionSecret({ NODE_ENV: "production", SESSION_SECRET: secret }, ""), secret);
   assert.equal(sessionSecret({ NODE_ENV: "development" }, secret), secret);
-  const auth = createAuth({ secret: () => sessionSecret({ NODE_ENV: "production" }, secret) });
+  const auth = createAuth({ chainId: 99801, secret: () => sessionSecret({ NODE_ENV: "production" }, secret) });
   assert.throws(() => auth.session(origin), /AUTH_UNAVAILABLE/);
   assert.throws(() => auth.challenge(origin), /AUTH_UNAVAILABLE/);
 });
@@ -107,10 +126,10 @@ test("the signed cookie proves issuance without a pending record", async () => {
   const used = new Map<string, number>();
   const replay = { used, cutoff: -Infinity };
   const { challenge, fields } = setup();
-  const verifier = createAuth({ secret: () => secret, replay, now: () => fields.issuedAt.getTime() });
+  const verifier = createAuth({ chainId: 99801, secret: () => secret, replay, now: () => fields.issuedAt.getTime() });
   const message = createSiweMessage(fields), signature = await account.signMessage({ message });
   assert.equal((await verifier.verify(origin, challenge.cookie, message, signature)).wallet, account.address.toLowerCase());
-  const second = createAuth({ secret: () => secret, replay, now: () => fields.issuedAt.getTime() });
+  const second = createAuth({ chainId: 99801, secret: () => secret, replay, now: () => fields.issuedAt.getTime() });
   await assert.rejects(second.verify(origin, challenge.cookie, message, signature), /INVALID_NONCE/);
 });
 test("a fresh auth instance rejects pre-start challenges but accepts newly issued ones", async () => {
@@ -118,7 +137,7 @@ test("a fresh auth instance rejects pre-start challenges but accepts newly issue
   const message = createSiweMessage(fields), signature = await account.signMessage({ message });
   await previous.verify(origin, challenge.cookie, message, signature);
   let time = fields.issuedAt.getTime() + 1000;
-  const fresh = createAuth({ secret: () => secret, now: () => time });
+  const fresh = createAuth({ chainId: 99801, secret: () => secret, now: () => time });
   await assert.rejects(fresh.verify(origin, challenge.cookie, message, signature), /INVALID_NONCE/);
   const next = fresh.challenge(origin);
   assert.ok(Date.parse(next.issuedAt) > time);
@@ -155,7 +174,7 @@ test("eviction rejects replay and old outstanding challenges, but fresh nonces r
   assert.equal(replay.cutoff, fields.issuedAt.getTime());
   await assert.rejects(auth.verify(origin, challenge.cookie, message, signature), /INVALID_NONCE/);
   await assert.rejects(auth.verify(origin, old.cookie, oldMessage, await account.signMessage({ message: oldMessage })), /INVALID_NONCE/);
-  const second = createAuth({ secret: () => secret, replay, now: () => fields.issuedAt.getTime() + 1 });
+  const second = createAuth({ chainId: 99801, secret: () => secret, replay, now: () => fields.issuedAt.getTime() + 1 });
   await assert.rejects(second.verify(origin, challenge.cookie, message, signature), /INVALID_NONCE/);
   advance(-1);
   const fresh = auth.challenge(origin);
@@ -166,7 +185,7 @@ test("eviction rejects replay and old outstanding challenges, but fresh nonces r
 });
 test("a cutoff raised while the signature verifier awaits is checked again", async () => {
   const { challenge, fields, replay } = setup();
-  const auth = createAuth({ secret: () => secret, replay, now: () => fields.issuedAt.getTime(), verify: async () => {
+  const auth = createAuth({ chainId: 99801, secret: () => secret, replay, now: () => fields.issuedAt.getTime(), verify: async () => {
     replay.cutoff = fields.issuedAt.getTime();
     return true;
   } });

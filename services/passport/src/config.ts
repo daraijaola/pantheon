@@ -1,3 +1,4 @@
+import { backendEnv, configured, profile } from "../../network.mts";
 // HYPE Passport attestor: environment + constants (docs/PASSPORT_SPEC.md §1, §2.11, §4, §7).
 // Secrets are configured as FILE PATHS, never values (§7, §9).
 import { getAddress, isAddress, type Address } from "viem";
@@ -26,8 +27,8 @@ const positiveInt = wholeNumber.pipe(z.number().int().positive());
 const httpUrl = z.url({ protocol: /^https?$/ });
 
 const EnvSchema = z.object({
-  CHAIN_ID: positiveInt.default(99801),
-  ELYSIUM_RPC: httpUrl.default("https://testnet-rpc.elysium.kinetiq.xyz"),
+  CHAIN_ID: positiveInt.default(() => profile().chainId),
+  ELYSIUM_RPC: httpUrl.default(() => profile().network.publicRpc),
   HYPEREVM_RPC: httpUrl.default("https://rpc.hyperliquid.xyz/evm"),
   HL_INFO_URL: httpUrl.default("https://api.hyperliquid.xyz/info"),
   // Unset until Micheal/Claude deploy HypePassportRegistry (P9).
@@ -67,6 +68,7 @@ export class ConfigError extends Error {
 /** Parse and validate the environment. Messages name the variable, never its value. */
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
   // Treat empty strings (e.g. `REGISTRY_ADDRESS=` in .env) as unset.
+  try { env = backendEnv(env, "passport"); } catch (error) { throw new ConfigError((error as Error).message); }
   const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v !== ""));
   const parsed = EnvSchema.safeParse(cleaned);
   if (!parsed.success) {
@@ -74,7 +76,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     throw new ConfigError(`invalid passport config:\n  ${problems.join("\n  ")}`);
   }
   const e = parsed.data;
-  return Object.freeze({
+  return configured(env, "passport", {
     chainId: e.CHAIN_ID,
     elysiumRpc: e.ELYSIUM_RPC,
     hyperEvmRpc: e.HYPEREVM_RPC,
@@ -93,7 +95,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 
 // ---------------------------------------------------------------- chains and addresses (§1)
 
-export const ELYSIUM_TESTNET_CHAIN_ID = 99801;
+export const ELYSIUM_CHAIN_ID = profile(process.env, "passport").chainId;
 export const HYPEREVM_CHAIN_ID = 999;
 
 /** HyperEVM mainnet (chain 999), verified live 2026-10-11 (§1.2). */

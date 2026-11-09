@@ -4,6 +4,7 @@
 // Numbers are the mainnet split, shown as an example: a $100 buy pays $1.00; half (50¢) is PANTHEON's, of which 85%
 // (42.5¢) buys the basket by weight and 15% (7.5¢) pays the team. On testnet the team’s share is 0%.
 
+import { networkText } from "@/lib/network-copy";
 import type { CSSProperties } from "react";
 import { AscendMark, decrypt, ease, fmt, span, type Logos } from "@/components/showcase/kit";
 import { Showcase, type ShowcaseStep } from "@/components/showcase/showcase";
@@ -188,7 +189,7 @@ function RulesCard({ t }: { t: number }) {
         View the contract ↗
       </button>
       <p className={s.note} style={line(t, 1700)}>
-        Written into the contract at launch. Anyone can check it. On testnet the team’s share is 0%; the 15% starts at mainnet.
+        {networkText("Written into the contract at launch. Anyone can check it. On testnet the team’s share is 0%; the 15% starts at mainnet.", "Written into the contract at launch. Anyone can check it.")}
       </p>
     </div>
   );
@@ -200,10 +201,10 @@ export function HowItWorks({ logos = "mono" }: { logos?: Logos }) {
       key: "buy",
       title: "When someone buys",
       short: "Buys",
-      desc: "Half the 1% fee goes to Ascend. Of our half, 85% buys Ascend’s best coins and pays them out to people who stake PNTH, and 15% pays the team. On testnet the team’s share is 0%; the 15% starts at mainnet.",
+      desc: networkText("Half the 1% fee goes to Ascend. Of our half, 85% buys Ascend’s best coins and pays them out to people who stake PNTH, and 15% pays the team. On testnet the team’s share is 0%; the 15% starts at mainnet.", "Half the 1% fee goes to Ascend. Of our half, 85% buys Ascend’s best coins and pays them out to people who stake PNTH, and 15% pays the team."),
       brand: <>on <AscendMark logos={logos} size={15} /></>,
     },
-    { key: "sell", title: "When someone sells", short: "Sells", desc: "Half the fee goes to Ascend. Of our half, 85% is burned, so there are fewer PNTH forever, and 15% pays the team. On testnet the team’s share is 0%; the 15% starts at mainnet." },
+    { key: "sell", title: "When someone sells", short: "Sells", desc: networkText("Half the fee goes to Ascend. Of our half, 85% is burned, so there are fewer PNTH forever, and 15% pays the team. On testnet the team’s share is 0%; the 15% starts at mainnet.", "Half the fee goes to Ascend. Of our half, 85% is burned, so there are fewer PNTH forever, and 15% pays the team.") },
     { key: "rules", title: "Who controls it", short: "Rules", desc: "No one. The rules are locked into the contract at launch. Not even we can change them." },
   ];
   return (

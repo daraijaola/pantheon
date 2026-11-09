@@ -10,5 +10,113 @@
   "pnthPool": "0x301789b69e15b7fe9bbc0dbd39145b2fe78bba9bd0b9bb2d74de64e1d665f22d",
   "pnthRouter": "0xE0Fb49DBDC3406cF1f175EeCABDFb282a7a98b66",
   "staking": "0x30c88fce1fAD545Df0fC603287f93F0f94076224",
-  "usdc": "0x4b4fb5C5794F0c821464956374cC5872D5F0f140"
+  "usdc": "0x4b4fb5C5794F0c821464956374cC5872D5F0f140",
+  "swapper": "0x31A67d054D34Ec18cb23A43B0E3ad1F756aA1500",
+  "drip": "0x1c6856862AAc444B5EbFC65D2847E52b1C2b7176",
+  "network": {
+    "chainId": 99801,
+    "name": "Elysium Testnet",
+    "testnet": true,
+    "publicRpc": "https://testnet-rpc.elysium.kinetiq.xyz",
+    "explorerUrl": "https://elysium.kinetiq.xyz/testnet-explorer",
+    "deployedFrom": 9127000,
+    "external": {
+      "usdc": "0x4b4fb5C5794F0c821464956374cC5872D5F0f140",
+      "whype": "0xCD57F65c2B0e5881CFC2E609F7CD53b746E1F234",
+      "multicall3": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "ascendLaunchpad": "0xE2f6254508DEB93Da081837F545e0bAF7b00d8E9",
+      "ascendRouter": "0x90332B0ECbb2c9517F405627b0Dd5D5265246563",
+      "kalos": {
+        "api": "https://api.kalos.fun",
+        "factory": "0x520bF060F58ceE054f725877279328F5f73A7893",
+        "factoryBlock": 7645302,
+        "positionManager": "0x28580f9baeDDBc88D3Daca542aF12271E52B5765",
+        "whype": "0xCD57F65c2B0e5881CFC2E609F7CD53b746E1F234",
+        "contracts": [
+          "0x520bF060F58ceE054f725877279328F5f73A7893",
+          "0x28580f9baeDDBc88D3Daca542aF12271E52B5765",
+          "0x752f6816Bc514e1Eeff852b2eAdcd96f6c0F9f3f",
+          "0x8F09c090B202990F4Fb533539FFCaAc2b6eA72a7",
+          "0x2b555398ac8BAf5d4B541EF12E565eF312739149",
+          "0xe26eb915E3b9A17CF33214ca561fa71a13fA3eA7",
+          "0x8Ca3dAF82089F8B0D2A777EB1484A05132c3CF1f",
+          "0x82e90402e67a0375Fc29BE01CBF2D585D5f525dF",
+          "0x30033EC300f2d9830f824B0Eedc3709e4a79d39d",
+          "0xD60f87B1E97F0564aeb229b1AC11D0F03fAEC3Aa",
+          "0xF9bE56EF245De6061b23cb23a729D5623953A102",
+          "0xCD57F65c2B0e5881CFC2E609F7CD53b746E1F234",
+          "0xcA11bde05977b3631167028862bE2a173976CA11"
+        ],
+        "pinned": {
+          "factory": "0x520bF060F58ceE054f725877279328F5f73A7893",
+          "positionManager": "0x28580f9baeDDBc88D3Daca542aF12271E52B5765",
+          "swapRouter": "0x752f6816Bc514e1Eeff852b2eAdcd96f6c0F9f3f",
+          "quoterV2": "0x2b555398ac8BAf5d4B541EF12E565eF312739149",
+          "whype": "0xCD57F65c2B0e5881CFC2E609F7CD53b746E1F234"
+        }
+      },
+      "perpme": {
+        "launchFactory": "0x296a8d32ac9315cd9aaa33b1e624eb206d35638c",
+        "poolFactory": "0x1186DEFCaf121Da6E773425Fec0814608798e792",
+        "positionManager": "0xD85fC505093A6b4a2AfE6CE5069cE6E4e0c9eA83",
+        "router": "0xD218817cfCcA3Ae397dE3a6E66889D4Fb4b9e2D1",
+        "quoter": "0x2A2b7645839e55A1683E7Fd64436AEEd5ed2793C",
+        "whype": "0x757a34dd7b411546C6dd8f510B52e4381102f9B0",
+        "fromBlock": 13700000,
+        "locker": "0x9277340f050ea8523c9e6aa069182de8aed119c8",
+        "coinDeployer": "0x2cef3b6ee12a96f1fbcd58c8937b27032da17399",
+        "multicall3": "0x60f94a264779d5F957B36F54D90aFb53693b56D4",
+        "oldLaunchFactory": "0x5644D1043998E602f582e3b282f1185102A6499E",
+        "oldLocker": "0xc627cf00e4ac649db40348c515a500c534cfa187",
+        "api": "https://perpme.fun/elysium/dex-sync",
+        "indexer": "https://perpme.fun/elysium/indexer/graphql"
+      }
+    },
+    "acquireUrl": null,
+    "explorerApi": "https://elysium.kinetiq.xyz/api/v2",
+    "archiveRpc": "https://test-explorer.elysium.kinetiq.xyz/rpc",
+    "creationExplorer": "https://test-explorer.elysium.kinetiq.xyz",
+    "ascendFromBlock": 3574000,
+    "knownHubs": [
+      "0xf272Cc84C3BA9f1B498adE29aaeED1e7D2D9f3fD"
+    ],
+    "baseTokens": [
+      "0xCD57F65c2B0e5881CFC2E609F7CD53b746E1F234",
+      "0x7D29d8047B905000459c0E80c34a26CeedcB47b2",
+      "0x306eB30576814505df6cb0B35e4F4bfbACEeD54c",
+      "0x757a34dd7b411546C6dd8f510B52e4381102f9B0"
+    ],
+    "perpmeQuotes": [
+      "0x757a34dd7b411546C6dd8f510B52e4381102f9B0",
+      "0x7D29d8047B905000459c0E80c34a26CeedcB47b2",
+      "0x8a2201953AF29e8BE7700bcB53dA3ce5caD18726"
+    ],
+    "knownContracts": {
+      "0x90332b0ecbb2c9517f405627b0dd5d5265246563": "Ascend's router",
+      "0xe2f6254508deb93da081837f545e0baf7b00d8e9": "Ascend's launchpad",
+      "0x000000000022d473030f116ddee9f6b43ac78ba3": "Permit2",
+      "0xa6e7103abfb06f8231ed9c84e7dc2a7f8570a9a6": "Ascend's ListingDesk",
+      "0xd218817cfcca3ae397de3a6e66889d4fb4b9e2d1": "PerpMe's router",
+      "0x296a8d32ac9315cd9aaa33b1e624eb206d35638c": "PerpMe's launch factory",
+      "0xd85fc505093a6b4a2afe6ce5069ce6e4e0c9ea83": "PerpMe's position manager",
+      "0x31a67d054d34ec18cb23a43b0e3ad1f756aa1500": "PANTHEON's swap helper"
+    },
+    "knownAddresses": {
+      "0x30c88fce1fad545df0fc603287f93f0f94076224": "PANTHEON's staking contract (PNTH staked by its holders)",
+      "0x1c6856862aac444b5ebfc65d2847e52b1c2b7176": "PANTHEON's free test-PNTH tap (testnet faucet)",
+      "0xd8cea0015e2c876ab5fa6d9178b46b57d65c6087": "PANTHEON's basket registry contract",
+      "0x155224663abe76b427f07ebf34b57cc920c47e9e": "PANTHEON's basket buyer (buys top Ascend coins on a schedule for PNTH stakers, never sells)",
+      "0x2b738a9a69b7a45c9da6b519f6be6efbfb912aec": "Ascend's vault (holds every Ascend pool's tokens)",
+      "0xe2f6254508deb93da081837f545e0baf7b00d8e9": "Ascend's launchpad",
+      "0x90332b0ecbb2c9517f405627b0dd5d5265246563": "Ascend's router",
+      "0xc889ac2f59a88afb3b2fb3f2c452dba336fe5f0f": "Ascend's burn address (burned tokens)",
+      "0xf272cc84c3ba9f1b498ade29aaeed1e7d2d9f3fd": "the Elysium testnet faucet (public)"
+    },
+    "genericAddresses": {
+      "0x30c88fce1fad545df0fc603287f93f0f94076224": "a staking contract (holds tokens for its stakers)",
+      "0x1c6856862aac444b5ebfc65d2847e52b1c2b7176": "a token faucet contract",
+      "0xd8cea0015e2c876ab5fa6d9178b46b57d65c6087": "a contract",
+      "0x155224663abe76b427f07ebf34b57cc920c47e9e": "an automated buyer (an index basket that buys top coins on a schedule and doesn't sell)"
+    }
+  }
 }

@@ -1,3 +1,4 @@
+import { profile } from "../../../network.mts";
 // Tools only DELPHI-on-X has, next to the explainer's read-only tools: find a coin by ticker, name or
 // address; see a creator's other launches; and say how fresh DELPHI's data is. Read-only, like the rest.
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
@@ -9,26 +10,11 @@ import type { Workspace } from "../ai/workspace.ts";
 import type { Verdict } from "../types.ts";
 
 /** Contracts DELPHI can name for sure (Elysium testnet, checked Oct 22). Anything else is "a contract". */
-export const KNOWN_ADDRESSES: Readonly<Record<string, string>> = {
-  "0x30c88fce1fad545df0fc603287f93f0f94076224": "PANTHEON's staking contract (PNTH staked by its holders)",
-  "0x1c6856862aac444b5ebfc65d2847e52b1c2b7176": "PANTHEON's free test-PNTH tap (testnet faucet)",
-  "0xd8cea0015e2c876ab5fa6d9178b46b57d65c6087": "PANTHEON's basket registry contract",
-  "0x155224663abe76b427f07ebf34b57cc920c47e9e": "PANTHEON's basket buyer (buys top Ascend coins on a schedule for PNTH stakers, never sells)",
-  "0x2b738a9a69b7a45c9da6b519f6be6efbfb912aec": "Ascend's vault (holds every Ascend pool's tokens)",
-  "0xe2f6254508deb93da081837f545e0baf7b00d8e9": "Ascend's launchpad",
-  "0x90332b0ecbb2c9517f405627b0dd5d5265246563": "Ascend's router",
-  "0xc889ac2f59a88afb3b2fb3f2c452dba336fe5f0f": "Ascend's burn address (burned tokens)",
-  "0xf272cc84c3ba9f1b498ade29aaeed1e7d2d9f3fd": "the Elysium testnet faucet (public)",
-};
+export const KNOWN_ADDRESSES: Readonly<Record<string, string>> = { ...(profile(process.env, "x").network.knownAddresses ?? {}), [profile(process.env, "x").staking.toLowerCase()]: "PANTHEON's staking contract (PNTH staked by its holders)", [profile(process.env, "x").constituentRegistry.toLowerCase()]: "PANTHEON's basket registry contract" };
 
 /** PANTHEON's own coin: replies mention PANTHEON or PNTH only when the question is about it. */
-export const PNTH = "0x048aceb334cb1835dc897a749c5985e169eab1c5";
-const GENERIC: Readonly<Record<string, string>> = {
-  "0x30c88fce1fad545df0fc603287f93f0f94076224": "a staking contract (holds tokens for its stakers)",
-  "0x1c6856862aac444b5ebfc65d2847e52b1c2b7176": "a token faucet contract",
-  "0xd8cea0015e2c876ab5fa6d9178b46b57d65c6087": "a contract",
-  "0x155224663abe76b427f07ebf34b57cc920c47e9e": "an automated buyer (an index basket that buys top coins on a schedule and doesn't sell)",
-};
+export const PNTH = profile(process.env, "x").pnth.toLowerCase();
+const GENERIC: Readonly<Record<string, string>> = { ...(profile(process.env, "x").network.genericAddresses ?? {}), [profile(process.env, "x").staking.toLowerCase()]: "a staking contract (holds tokens for its stakers)", [profile(process.env, "x").constituentRegistry.toLowerCase()]: "a contract" };
 
 /** One loaded scan: the workspace plus when and up to which block it was read. */
 /** `liquidity`: Kalos coins' pools, when the bot reads Kalos (feature "kalos"). */
@@ -108,7 +94,7 @@ export function delphiStatus(snap: Snapshot) {
     dataReadAt: snap.readAt.toISOString(),
     dataAge: { minutes: a.minutes, hours: a.hours },
     upToBlock: snap.head.toString(),
-    network: "Elysium testnet",
+    network: profile(process.env, "x").network.testnet ? "Elysium testnet" : profile(process.env, "x").network.name,
     coins: all.length,
     byVerdict: { FLAG: count("FLAG"), WATCH: count("WATCH"), CLEAN: count("CLEAN"), NOT_ENOUGH_DATA: count("NOT_ENOUGH_DATA") },
     checks: {
@@ -165,7 +151,7 @@ export function market(snap: Snapshot, input: { token: string }) {
   const change = (from: number | null | undefined, to: number | null | undefined) => (from && to ? Math.round(((to - from) / from) * 100) : null);
   return {
     quotedIn: sym,
-    network: "Elysium testnet: prices are in test money with no real value",
+    network: profile(process.env, "x").network.testnet ? "Elysium testnet: prices are in test money with no real value" : profile(process.env, "x").network.name,
     ...(last
       ? {
           lastPrice: sig(last.price!),
@@ -209,7 +195,7 @@ export function xTools(snap: Snapshot, onCall: (name: string, result: string) =>
     betaZodTool({
       name: "what_is_address",
       description:
-        "Names an address DELPHI knows for sure (PANTHEON's staking or tap, Ascend's vault, launchpad or router, the testnet faucet, an Ascend coin, a creator). Call it before describing any contract that holds a big share. Unknown ones must not be guessed.",
+        profile(process.env, "x").network.testnet ? "Names an address DELPHI knows for sure (PANTHEON's staking or tap, Ascend's vault, launchpad or router, the testnet faucet, an Ascend coin, a creator). Call it before describing any contract that holds a big share. Unknown ones must not be guessed." : "Names an address DELPHI knows for sure from the selected network. Call it before describing any contract. Never guess unknown identities.",
       inputSchema: z.object({ address: z.string().describe("A 0x address from a tool result") }),
       run: json("what_is_address", (i: { address: string }) => whatIsAddress(snap, i, opts.aboutUs ?? false)),
     }),

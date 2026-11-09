@@ -1,3 +1,4 @@
+import { profile } from "../../../network.mts";
 // Fake feed records, for local testing only: the feed server's tests, `scripts/feed.ts --seed N` and the
 // load test. Shaped like real ones (20 holder rows, several checks with evidence) so sizes and timings are
 // honest, but every one is marked: rules "fake-seed", symbols "FAKE…", addresses starting 0xfa4e.
@@ -69,7 +70,7 @@ export function fakeRecord(i: number, opts: { nowMs?: number; firstBlock?: numbe
         ];
   return {
     v: 1,
-    chainId: 99801,
+    chainId: profile().chainId,
     token,
     venue,
     pool,

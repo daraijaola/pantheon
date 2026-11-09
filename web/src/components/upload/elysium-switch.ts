@@ -4,12 +4,13 @@
 // Ask the wallet to switch; if it doesn't know Elysium (4902, "Unrecognized chain", or a WalletConnect
 // session that doesn't include it), add it with wallet_addEthereumChain, then switch again.
 
+import { networkLabel } from "@/lib/network-copy";
 import { numberToHex } from "viem";
 import { elysium } from "@/lib/chain/config";
 
 type Eip1193 = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
 
-export const ELYSIUM_HEX = numberToHex(elysium.id); // 99801 = 0x185d9
+export const ELYSIUM_HEX = numberToHex(elysium.id);
 
 /** What wallet_addEthereumChain needs for Elysium testnet (EIP-3085). */
 export const ELYSIUM_ADD = {
@@ -57,19 +58,19 @@ export async function switchToElysium(provider: Eip1193) {
     return;
   } catch (e) {
     if (isRejected(e)) throw new SwitchError("You cancelled the switch in your wallet.");
-    if (!isUnknownChain(e)) throw new SwitchError("Your wallet couldn’t switch to Elysium testnet. Switch to it in your wallet, then try again.");
+    if (!isUnknownChain(e)) throw new SwitchError(`Your wallet couldn’t switch to ${networkLabel}. Switch to it in your wallet, then try again.`);
   }
   try {
     await provider.request({ method: "wallet_addEthereumChain", params: [ELYSIUM_ADD] });
   } catch (e) {
-    if (isRejected(e)) throw new SwitchError("You cancelled adding Elysium testnet in your wallet.");
-    throw new SwitchError("Your wallet couldn’t add Elysium testnet. Add it in your wallet (network ID 99801), then try again.");
+    if (isRejected(e)) throw new SwitchError(`You cancelled adding ${networkLabel} in your wallet.`);
+    throw new SwitchError(`Your wallet couldn’t add ${networkLabel}. Add it in your wallet (network ID ${elysium.id}), then try again.`);
   }
   // Some wallets switch as they add; asking again is harmless and covers the ones that don't.
   try {
     await doSwitch();
   } catch (e) {
     if (isRejected(e)) throw new SwitchError("You cancelled the switch in your wallet.");
-    throw new SwitchError("Elysium testnet is added, but your wallet didn’t switch to it. Switch in your wallet, then try again.");
+    throw new SwitchError(`${networkLabel} is added, but your wallet didn’t switch to it. Switch in your wallet, then try again.`);
   }
 }

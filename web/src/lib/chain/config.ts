@@ -1,24 +1,24 @@
 import { defineChain } from "viem";
 import { createConfig, http } from "wagmi";
 import { injected, mock, walletConnect } from "wagmi/connectors";
-import { DEPLOYMENTS } from "./deployments";
+import { network, selectedDeployment } from "./deployments";
+export { network } from "./deployments";
 
 /** Elysium testnet: Hyperliquid's first L2, where Ascend runs. */
 export const elysium = defineChain({
-  id: 99801,
-  name: "Elysium Testnet",
+  id: network.chainId,
+  name: network.name,
   nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 },
-  rpcUrls: { default: { http: [process.env.NEXT_PUBLIC_RPC_URL ?? "https://testnet-rpc.elysium.kinetiq.xyz"] } },
-  blockExplorers: { default: { name: "Elysium explorer", url: "https://elysium.kinetiq.xyz/testnet-explorer" } },
-  contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
-  testnet: true,
+  rpcUrls: { default: { http: [network.testnet ? process.env.NEXT_PUBLIC_RPC_URL ?? network.publicRpc : network.publicRpc] } },
+  blockExplorers: { default: { name: "Elysium explorer", url: network.explorerUrl } },
+  contracts: { multicall3: { address: network.external.multicall3 } },
+  testnet: network.testnet,
 });
 
-const deploymentName = process.env.NEXT_PUBLIC_DEPLOYMENT ?? "elysium-testnet";
-export const deployment = DEPLOYMENTS[deploymentName] ?? null;
+export const deployment = selectedDeployment;
 
 /** A block just before the contracts were deployed: event history (like the coins on Covenant) is read from here. */
-export const deployedFrom: bigint = deploymentName === "elysium-testnet" ? 9_127_000n : 9_100_000n;
+export const deployedFrom = BigInt(network.deployedFrom);
 
 export const explorer = (kind: "tx" | "address" | "token", value: string) =>
   `${elysium.blockExplorers.default.url}/${kind}/${value}`;

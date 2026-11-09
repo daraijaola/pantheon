@@ -1,3 +1,4 @@
+import { backendEnv, configured, profile } from "../../network.mts";
 // DELPHI: settings and the detection rules' thresholds. Read-only service: no wallet keys, no transactions.
 import { getAddress, isAddress, parseEther, toFunctionSelector, type Address } from "viem";
 import { z } from "zod";
@@ -10,12 +11,12 @@ const wholeNumber = z.string().trim().regex(/^\d+$/, "must be a whole number").t
 const httpUrl = z.url({ protocol: /^https?$/ });
 
 const EnvSchema = z.object({
-  ELYSIUM_RPC: httpUrl.default("https://testnet-rpc.elysium.kinetiq.xyz"),
-  EXPLORER_API: httpUrl.default("https://elysium.kinetiq.xyz/api/v2"),
-  EXPLORER_WEB: httpUrl.default("https://elysium.kinetiq.xyz/testnet-explorer"),
+  ELYSIUM_RPC: httpUrl.default(() => profile().network.publicRpc),
+  EXPLORER_API: httpUrl.default(() => profile().network.explorerApi),
+  EXPLORER_WEB: httpUrl.default(() => profile().network.explorerUrl),
   // Ascend redeploys often: the launchpad is configurable; everything else is read from it.
-  LAUNCHPAD: address.default("0xE2f6254508DEB93Da081837F545e0bAF7b00d8E9"),
-  FROM_BLOCK: wholeNumber.default(3_574_000),
+  LAUNCHPAD: address.default(() => profile().launchpad),
+  FROM_BLOCK: wholeNumber.default(() => profile().network.ascendFromBlock),
   DB_PATH: z.string().min(1).default("data/delphi.db"),
   OUT_DIR: z.string().min(1).default("out"),
   /** Which rule profile to use. Unset: read from the chain settings (a testnet RPC or explorer means testnet). */
@@ -44,13 +45,14 @@ export class ConfigError extends Error {
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
+  try { env = backendEnv(env, "delphi"); } catch (error) { throw new ConfigError((error as Error).message); }
   const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v !== ""));
   const parsed = EnvSchema.safeParse(cleaned);
   if (!parsed.success) {
     throw new ConfigError(`invalid delphi config:\n  ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("\n  ")}`);
   }
   const e = parsed.data;
-  return Object.freeze({
+  return configured(env, "delphi", {
     elysiumRpc: e.ELYSIUM_RPC,
     explorerApi: e.EXPLORER_API,
     explorerWeb: e.EXPLORER_WEB.replace(/\/$/, ""),
@@ -72,18 +74,10 @@ export function networkOf(...urls: string[]): Network {
  * manager, treasuries, ListingDesk) are read from it live, and any contract seen calling the pool
  * manager for a swap is treated as a router. Checked on Elysium testnet 2026-10-14.
  */
-export const STATIC_SYSTEM: readonly Address[] = [
-  "0x90332B0ECbb2c9517F405627b0Dd5D5265246563", // Ascend UniversalRouter (verified on the explorer)
-  "0xC889ac2f59A88afb3B2FB3f2C452DBa336fE5f0F", // BurnSink: burned supply, 16 bytes of code, no functions
-  "0xcA11bde05977b3631167028862bE2a173976CA11", // Multicall3
-  "0x000000000000000000000000000000000000dEaD",
-  "0x0000000000000000000000000000000000000000",
-];
+export const STATIC_SYSTEM: readonly Address[] = [profile(process.env, "delphi").network.external.ascendRouter, profile(process.env, "delphi").burnSink, profile(process.env, "delphi").network.external.multicall3, "0x000000000000000000000000000000000000dEaD", "0x0000000000000000000000000000000000000000"] as Address[];
 
 /** Public funders (faucets) seen live; also caught generically by RULES.hub. */
-export const KNOWN_HUBS: readonly Address[] = [
-  "0xf272Cc84C3BA9f1B498adE29aaeED1e7D2D9f3fD", // Elysium testnet faucet: 164,840 txs, drips of 0.1 HYPE
-];
+export const KNOWN_HUBS: readonly Address[] = (profile().network.knownHubs ?? []) as Address[];
 
 /**
  * Contract calls whose job is sending HYPE to many addresses at once. HYPE such a call pays out is the

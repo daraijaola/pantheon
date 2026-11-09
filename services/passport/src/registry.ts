@@ -1,7 +1,8 @@
+import { profile } from "../../network.mts";
 // Reads HypePassportRegistry on Elysium (spec §6) and mirrors its binding rules, so the service
 // never signs an attestation that `submit` would revert on.
 import { createPublicClient, defineChain, http, parseAbi, type Address, type Hex, type PublicClient } from "viem";
-import { ELYSIUM_TESTNET_CHAIN_ID, type Config } from "./config.ts";
+import { ELYSIUM_CHAIN_ID, type Config } from "./config.ts";
 
 export const registryAbi = parseAbi([
   "struct Passport { bytes32 hlKey; uint8 tier; uint32 stamps; uint64 issuedAt; uint64 expiry; uint64 linkedAt; }",
@@ -39,11 +40,11 @@ export const REBIND_COOLDOWN_SEC = 7 * 86_400;
 
 export const elysiumTestnet = (rpc: string) =>
   defineChain({
-    id: ELYSIUM_TESTNET_CHAIN_ID,
-    name: "Elysium Testnet",
+    id: ELYSIUM_CHAIN_ID,
+    name: profile().network.name,
     nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
-    contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
+    contracts: { multicall3: { address: profile().network.external.multicall3 as Address } },
   });
 
 export type OnChainPassport = {

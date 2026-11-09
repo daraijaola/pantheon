@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // PerpMe's own public data, for cross-checks only (the chain is the source of truth): the dex-sync REST
 // API its Elysium pages run on (perpme.fun/elysium/dex-sync: /tokens, /trades, /dex/:address, /stats) and
 // the indexer behind it (perpme.fun/elysium/indexer/graphql, a Ponder GraphQL that also knows each coin's
@@ -12,8 +13,8 @@ import { getAddress, isAddress, type Address } from "viem";
 import { z } from "zod";
 import { getJson, type Fetch } from "./http.ts";
 
-export const PERPME_DEX_SYNC = "https://perpme.fun/elysium/dex-sync";
-export const PERPME_INDEXER = "https://perpme.fun/elysium/indexer/graphql";
+export const PERPME_DEX_SYNC = profile(process.env, "delphi").network.external.perpme.api;
+export const PERPME_INDEXER = profile(process.env, "delphi").network.external.perpme.indexer;
 
 const address = z
   .string()

@@ -1,5 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import type { NextConfig } from "next";
+import { deploymentName, network } from "./src/lib/chain/deployments";
+
+console.info(`[network] ${deploymentName} chainId=${network.chainId}`);
 
 // Where the build lives. On the server, scripts/deploy.sh builds into the slot that isn't serving and then
 // switches, so the live site never serves a half-written build (that was the 502s during every deploy).
@@ -10,6 +14,7 @@ const slot = existsSync(".dist-slot") ? readFileSync(".dist-slot", "utf8").trim(
 const distDir = [process.env.NEXT_DIST_DIR, slot].find((d) => d && SLOTS.includes(d)) ?? ".next";
 
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_DEPLOYMENT: deploymentName },
   distDir,
   cacheComponents: true,
   // Our services on this machine, under our own domain: the Passport (services/passport), the Trials vote
@@ -28,6 +33,7 @@ const nextConfig: NextConfig = {
   },
   partialPrefetching: true,
   turbopack: {
+    root: path.resolve(process.cwd(), ".."),
     rules: {
       // Only the global stylesheet needs Tailwind; component CSS modules must keep their scoped class names.
       "globals.css": {

@@ -1,6 +1,7 @@
 // Turns raw chain and explorer data into one CoinData per Ascend coin. `assemble` is pure (tested
 // with fixtures); `collect` does the fetching, with everything cached so reruns are cheap.
 import { decodeEventLog, getAddress, parseAbi, type Address, type Hex, type PublicClient } from "viem";
+import { assertRpcChain } from "../../network.mts";
 import {
   addressKinds,
   blockTimes,
@@ -224,6 +225,7 @@ export async function collect(deps: {
   log?: (msg: string) => void;
 }): Promise<Collected> {
   const { client, store, cfg, explorer } = deps;
+  await assertRpcChain(client);
   const log = deps.log ?? (() => {});
   const notes: string[] = [];
   // Where this network's fundings are cached ("funding" on testnet, as always); refuses a search with another floor.

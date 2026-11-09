@@ -1,3 +1,4 @@
+import { backendEnv, assertDeploymentChain } from "../../network.mts";
 // The Trials, run by hand: DELPHI's scan → the next basket proposal (live chain, read-only, sends nothing).
 //   node scripts/trials.ts [--coins 5] [--cap-usdc 100] [--round N] [--no-explorer] [--compare file.json] [--count-creator]
 //                          [--exclude 0xTOKEN[:reason]]...   (one per coin the curator leaves out; recorded in the file)
@@ -32,7 +33,8 @@ const exclude = new Map(
 );
 
 const cfg = loadConfig();
-const deployment = JSON.parse(readFileSync(resolve(opt("--deployment") ?? "../../deployments/elysium-testnet.json"), "utf8")) as { constituentRegistry: Address; indexVault: Address; chainId: number };
+const deployment = JSON.parse(readFileSync(resolve(opt("--deployment") ?? backendEnv(process.env, "delphi").DEPLOYMENT_FILE!), "utf8")) as { constituentRegistry: Address; indexVault: Address; chainId: number };
+assertDeploymentChain(process.env, deployment);
 const registry = getAddress(deployment.constituentRegistry);
 const client = makeClient(cfg.elysiumRpc);
 const store = new Store(cfg.dbPath);

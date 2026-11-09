@@ -4,6 +4,7 @@
 // the fees on sells and on buys, and one transaction launches the coin on Ascend with those rules
 // locked in. Every coin already on Covenant is listed from the factory's own events.
 
+import { networkLabel, networkText } from "@/lib/network-copy";
 import Link from "next/link";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -43,7 +44,7 @@ const BUYS = {
 };
 /** Ascend's own on/off switch for new launches (owner-only on Ascend's side). */
 const launchSwitchAbi = [{ type: "function", name: "paused", inputs: [], outputs: [{ name: "", type: "bool" }], stateMutability: "view" }] as const;
-const PAUSED_LINE = "Ascend has paused new launches on testnet while it gets ready for mainnet on Nov 9. Covenant launches open again here as soon as Ascend switches them back on.";
+const PAUSED_LINE = networkText("Ascend has paused new launches on testnet while it gets ready for mainnet on Nov 9. Covenant launches open again here as soon as Ascend switches them back on.", "Ascend has paused new launches. Covenant launches open again here as soon as Ascend switches them back on.");
 type Sell = keyof typeof SELLS;
 type Buy = keyof typeof BUYS;
 
@@ -131,7 +132,7 @@ function Launch({ d }: { d: Deployment }) {
     <main className={s.page}>
       <header className={s.head}>
         <div>
-          <p className={s.eyebrow}>Covenant · Elysium testnet</p>
+          <p className={s.eyebrow}>Covenant · {networkLabel}</p>
           <h1 className={s.h1}>Launch a coin on Covenant</h1>
           <p className={s.sub}>
             Your coin launches on Ascend like any other. Its creator fees go to a contract that follows the rules you pick here, and nobody can change them later, including you.
@@ -247,7 +248,7 @@ function Launch({ d }: { d: Deployment }) {
         </aside>
       </div>
       <p className={s.fine}>
-        Testnet only for now: coins launched here trade against Ascend’s test USDC. <Link href="/covenant">How Covenant works</Link>
+        {networkText("Testnet only for now: coins launched here trade against Ascend’s test USDC.", "Coins launched here trade against Ascend’s USDC.")} <Link href="/covenant">How Covenant works</Link>
       </p>
     </main>
   );

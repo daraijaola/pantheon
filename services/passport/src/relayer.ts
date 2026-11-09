@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // Relayer (spec §5.3, §6.2): submits attestations on Elysium with the service's gas-only wallet,
 // so users need no Elysium gas. Batches go through Multicall3 aggregate3 (submit is permissionless).
 import {
@@ -31,7 +32,7 @@ export interface Relayer {
   balance(): Promise<bigint>;
 }
 
-const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11" as Address;
+const MULTICALL3 = profile().network.external.multicall3 as Address;
 
 export type ElysiumRelayerOptions = {
   wallet: WalletClient;

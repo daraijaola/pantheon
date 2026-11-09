@@ -1,3 +1,4 @@
+import { profile } from "../../../network.mts";
 import { z } from "zod";
 import { FeedRecord, type FeedCheck } from "./types.ts";
 import type { FeedStore } from "./store.ts";
@@ -60,6 +61,7 @@ type ScanMeta = Pick<z.infer<typeof Scan>, "network" | "head" | "generatedAt">;
 const line = (s: string, max = 160) => s.replace(/[\p{Cc}\p{Cf}]/gu, " ").slice(0, max);
 
 export function reportRecord(input: unknown, meta: ScanMeta, site = "https://pantheonindex.com"): FeedRecord {
+  if (meta.network !== (profile().network.testnet ? "testnet" : "mainnet")) throw new Error("report network does not match selected deployment");
   const r = Report.parse(input);
   const checkedAtMs = Date.parse(r.generatedAt);
   if (checkedAtMs > Date.parse(meta.generatedAt) || BigInt(r.coin.launchBlock) > BigInt(meta.head)) throw new Error("report is newer than scan metadata");
@@ -75,7 +77,7 @@ export function reportRecord(input: unknown, meta: ScanMeta, site = "https://pan
   const base = new URL(site);
   if (!["http:", "https:"].includes(base.protocol)) throw new Error("site must be HTTP(S)");
   return FeedRecord.parse({
-    v: 1, chainId: meta.network === "testnet" ? 99801 : 99901,
+    v: 1, chainId: profile().chainId,
     token: r.coin.token, venue: r.coin.market ?? "ascend", pool: r.coin.poolId,
     symbol: r.coin.symbol === null ? null : line(r.coin.symbol, 40), name: r.coin.name === null ? null : line(r.coin.name, 40),
     state: verdict === "NOT_ENOUGH_DATA" ? "thin" : "ready", verdict, checks: checks.slice(0, 16),
@@ -89,6 +91,7 @@ export function reportRecord(input: unknown, meta: ScanMeta, site = "https://pan
 
 export function publishScan(input: unknown, store: FeedStore, site?: string) {
   const scan = Scan.parse(input);
+  if (scan.network !== (profile().network.testnet ? "testnet" : "mainnet")) throw new Error("scan network does not match selected deployment");
   const result = { published: 0, unchanged: 0, skipped: 0, errors: [] as string[] };
   const seen = new Set<string>();
   for (const [i, report] of scan.reports.entries()) {

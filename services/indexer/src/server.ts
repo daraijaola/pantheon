@@ -1,5 +1,6 @@
 // Entry point: node --env-file-if-exists=.env src/server.ts   (npm start)
 // Reads the chain once before answering, then polls every POLL_SEC (never two polls at once).
+import { assertRpcChain } from "../../network.mts";
 import { buildApp } from "./api.ts";
 import { makeClient } from "./chain.ts";
 import { loadConfig } from "./config.ts";
@@ -7,7 +8,9 @@ import { Indexer, loadSaved, save } from "./indexer.ts";
 import type { Ctx } from "./views.ts";
 
 const cfg = loadConfig();
-const indexer = new Indexer(makeClient(cfg.rpc), cfg, loadSaved(cfg.stateFile, cfg.fromBlock));
+const client = makeClient(cfg.rpc);
+await assertRpcChain(client);
+const indexer = new Indexer(client, cfg, loadSaved(cfg.stateFile, cfg.fromBlock));
 const d = cfg.deployment;
 const ctx = (): Ctx | null =>
   indexer.live

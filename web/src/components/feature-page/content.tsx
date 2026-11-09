@@ -3,6 +3,8 @@
 
 import { BallotCard, CovenantCard, KeysCard, PassportCard } from "./cards";
 import type { Feature } from "./feature-page";
+import { selectedDeployment as deployment, network } from "@/lib/chain/deployments";
+import { networkLabel, networkText } from "@/lib/network-copy";
 
 export const PASSPORT: Feature = {
   eyebrow: "HYPE Passport",
@@ -131,7 +133,7 @@ export const COVENANT: Feature = {
     },
     {
       title: "It does its jobs",
-      desc: "On buys, 85% of the fee buys the basket for stakers. On sells, 85% burns PNTH. 15% of both pays the team. On testnet the team’s share is 0%; the 15% starts at mainnet. Every action leaves a public receipt.",
+      desc: networkText("On buys, 85% of the fee buys the basket for stakers. On sells, 85% burns PNTH. 15% of both pays the team. On testnet the team’s share is 0%; the 15% starts at mainnet. Every action leaves a public receipt.", "On buys, 85% of the fee buys the basket for stakers. On sells, 85% burns PNTH. 15% of both pays the team. Every action leaves a public receipt."),
     },
     { title: "Nobody can change it", desc: "There is no owner, no admin key and no upgrade. Its jobs were set the moment it was created." },
   ],
@@ -150,7 +152,7 @@ export const COVENANT: Feature = {
   faq: [
     {
       q: "Can the PANTHEON team take the fees?",
-      a: "Only its fixed share: 15% of PNTH’s fees pay the team, set when PNTH launches on mainnet and impossible to raise. The rest can only be burned or go to the basket. On testnet the team’s share is 0%.",
+      a: networkText("Only its fixed share: 15% of PNTH’s fees pay the team, set when PNTH launches on mainnet and impossible to raise. The rest can only be burned or go to the basket. On testnet the team’s share is 0%.", "Only its fixed share: 15% of PNTH’s fees pay the team, set when PNTH launches on mainnet and impossible to raise. The rest can only be burned or go to the basket."),
     },
     {
       q: "What if something needs fixing?",
@@ -160,9 +162,9 @@ export const COVENANT: Feature = {
       q: "Where can I see it?",
       a: (
         <>
-          PNTH’s Covenant is live on the Elysium testnet at{" "}
-          <a href="https://elysium.kinetiq.xyz/testnet-explorer/address/0xE0Fb49DBDC3406cF1f175EeCABDFb282a7a98b66" target="_blank" rel="noreferrer">
-            0xE0Fb…8b66
+          PNTH’s Covenant is live on {networkLabel} at{" "}
+          <a href={`${network.explorerUrl}/address/${deployment.pnthRouter}`} target="_blank" rel="noreferrer">
+            {deployment.pnthRouter.slice(0, 6)}…{deployment.pnthRouter.slice(-4)}
           </a>
           . Every burn and payment it makes is on the explorer, and its code is verified there.
         </>
@@ -171,7 +173,7 @@ export const COVENANT: Feature = {
   ],
 };
 
-const EXPLORER = "https://elysium.kinetiq.xyz/testnet-explorer/address/";
+const EXPLORER = `${network.explorerUrl}/address/`;
 const at = (address: string) => (
   <a href={EXPLORER + address} target="_blank" rel="noreferrer">
     {address.slice(0, 6)}…{address.slice(-4)}
@@ -188,7 +190,7 @@ export const SECURITY: Feature = {
       <span>Check it yourself.</span>
     </>
   ),
-  sub: "PANTHEON is live on the Elysium testnet and hasn’t been audited yet. This page lists every contract, every key and what it can do, and how we test them.",
+  sub: networkText("PANTHEON is live on the Elysium testnet and hasn’t been audited yet. This page lists every contract, every key and what it can do, and how we test them.", `PANTHEON on ${networkLabel}. This page lists every contract, every key and what it can do, and how we test them. No independent audit is claimed.`),
   actions: [
     { label: "See every contract", href: "#details", primary: true },
     { label: "Read DELPHI", href: "/delphi" },
@@ -205,23 +207,23 @@ export const SECURITY: Feature = {
     },
     {
       title: "Tested against real Ascend",
-      desc: "24 contract tests, 7 of them against a copy of Ascend’s live testnet, including a 1,000-run test that stakers can never be paid more than came in. Slither, the standard automatic checker, found nothing real.",
+      desc: networkText("24 contract tests, 7 of them against a copy of Ascend’s live testnet, including a 1,000-run test that stakers can never be paid more than came in. Slither, the standard automatic checker, found nothing real.", "Contract tests include fork tests and a 1,000-run test that stakers can never be paid more than came in. Slither findings and responses are in the public repository. This is not an independent audit."),
     },
   ],
   details: {
     title: "Every contract",
-    sub: "All live on the Elysium testnet. Every contract we wrote is verified on the explorer. PNTH itself is a standard Ascend token, made by Ascend’s launchpad.",
+    sub: networkText("All live on the Elysium testnet. Every contract we wrote is verified on the explorer. PNTH itself is a standard Ascend token, made by Ascend’s launchpad.", `Contract addresses on ${networkLabel}. Check their code on the explorer. PNTH is a standard Ascend token, made by Ascend’s launchpad.`),
     head: ["Contract", "What it does", "Address"],
     rows: [
-      ["PNTH", "The token: a standard Ascend coin with a fixed supply of 1 billion.", at("0x048aCeb334cb1835dc897a749C5985e169EAb1C5")],
-      ["Covenant for PNTH", "Takes PNTH’s fees and does its jobs: burn on sells, basket on buys.", at("0xE0Fb49DBDC3406cF1f175EeCABDFb282a7a98b66")],
-      ["Covenant factory", "Launches coins on Covenant, for anyone.", at("0x42b9F24d88Ca015CC59E516B272F7A46a87Fa35a")],
-      ["Basket list", "The coins in the basket: proposals, the 24-hour wait, vetoes.", at("0xD8cEA0015E2C876ab5fa6D9178b46B57d65c6087")],
-      ["Basket vault", "Buys the basket near Ascend’s own average price, then pays it out.", at("0xE636003Feb05D0FB8f6016733C3d723446C9f221")],
-      ["Staking", "Holds staked PNTH and streams the basket to stakers.", at("0x30c88fce1fAD545Df0fC603287f93F0f94076224")],
-      ["HYPE Passport", "Records Passports that the Passport service signs.", at("0x0Eb4A8eB47364Be9d18410AF2f850db92b807290")],
-      ["Swap helper", "Testnet only: lets the site buy PNTH from its Ascend pool.", at("0x31A67d054D34Ec18cb23A43B0E3ad1F756aA1500")],
-      ["PNTH drip", "Testnet only: 100 free PNTH once per wallet, for when the pool is sold out (the first drip, 0x49C7…8624, gave out all 10M).", at("0x1c6856862AAc444B5EbFC65D2847E52b1C2b7176")],
+      ["PNTH", "The token: a standard Ascend coin with a fixed supply of 1 billion.", at(deployment.pnth)],
+      ["Covenant for PNTH", "Takes PNTH’s fees and does its jobs: burn on sells, basket on buys.", at(deployment.pnthRouter)],
+      ["Covenant factory", "Launches coins on Covenant, for anyone.", at(deployment.covenantFactory)],
+      ["Basket list", "The coins in the basket: proposals, the 24-hour wait, vetoes.", at(deployment.constituentRegistry)],
+      ["Basket vault", "Buys the basket near Ascend’s own average price, then pays it out.", at(deployment.indexVault)],
+      ["Staking", "Holds staked PNTH and streams the basket to stakers.", at(deployment.staking)],
+      ["HYPE Passport", "Records Passports that the Passport service signs.", at(deployment.passportRegistry)],
+      ...(network.testnet && deployment.swapper ? [["Swap helper", "Testnet only: lets the site buy PNTH from its Ascend pool.", at(deployment.swapper)]] : []),
+      ...(network.testnet && deployment.drip ? [["PNTH drip", "Testnet only: 100 free PNTH once per wallet, for when the pool is sold out (the first drip, 0x49C7…8624, gave out all 10M).", at(deployment.drip)]] : []),
     ],
     note: "The basket vault only buys within 5% of Ascend’s own average price, keeps each buy small, and skips a coin for a run after a big price move.",
   },
@@ -230,7 +232,7 @@ export const SECURITY: Feature = {
       q: "Has it been audited?",
       a: (
         <>
-          Not yet. It runs on testnet, and an audit comes before mainnet. Until then our contracts are verified on the explorer, every note from Slither (the standard automatic checker) is answered in our code repository, and the code is public on{" "}
+          {networkText("Not yet. It runs on testnet, and an audit comes before mainnet. Until then our contracts are verified on the explorer, every note from Slither (the standard automatic checker) is answered in our code repository, and the code is public on", "No independent audit is claimed here. Review the deployed code and the security notes before using it. The code is public on")}{" "}
           <a href="https://github.com/daraijaola/pantheon" target="_blank" rel="noreferrer">
             GitHub
           </a>
@@ -240,7 +242,7 @@ export const SECURITY: Feature = {
     },
     {
       q: "Who holds the keys?",
-      a: "We do, for now. The curator proposes basket lists. The guardian, a separate key, can veto a list or switch Passports off. We’d like Ascend to hold the guardian on mainnet. The Passport service signs Passports. None of these keys can move anyone’s funds.",
+      a: networkText("We do, for now. The curator proposes basket lists. The guardian, a separate key, can veto a list or switch Passports off. We’d like Ascend to hold the guardian on mainnet. The Passport service signs Passports. None of these keys can move anyone’s funds.", "The curator proposes basket lists. The guardian can veto a list or switch Passports off. The Passport service signs Passports. Check the registries for their current role addresses. None of these keys can move anyone’s funds."),
     },
     {
       q: "What could go wrong?",

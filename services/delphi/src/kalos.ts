@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // Kalos (Elysium's biggest DEX, a Uniswap V3 fork) read into DELPHI's shape, so the same three checks run
 // on every coin traded there. A coin is any token in a Kalos pool that isn't a base currency (WHYPE,
 // USDC, mUSDC). Its "launch" is the first liquidity added to any of its pools, and its creator is whoever
@@ -12,44 +13,17 @@ import type { Coin, TokenTransfer, Trade } from "./types.ts";
 const lc = (a: string) => a.toLowerCase();
 
 /** Kalos's contracts, checked live 2026-10-31 (api.kalos.fun/v2/dex/config). The API's list adds to these. */
-export const KALOS = {
-  api: "https://api.kalos.fun",
-  factory: "0x520bF060F58ceE054f725877279328F5f73A7893",
-  /** The factory's deployment block: no Kalos pool is older. */
-  factoryBlock: 7_645_302n,
-  positionManager: "0x28580f9baeDDBc88D3Daca542aF12271E52B5765",
-  whype: "0xCD57F65c2B0e5881CFC2E609F7CD53b746E1F234",
-  contracts: [
-    "0x520bF060F58ceE054f725877279328F5f73A7893", // factory
-    "0x28580f9baeDDBc88D3Daca542aF12271E52B5765", // positionManager (NFT positions)
-    "0x752f6816Bc514e1Eeff852b2eAdcd96f6c0F9f3f", // swapRouter
-    "0x8F09c090B202990F4Fb533539FFCaAc2b6eA72a7", // quoter
-    "0x2b555398ac8BAf5d4B541EF12E565eF312739149", // quoterV2
-    "0xe26eb915E3b9A17CF33214ca561fa71a13fA3eA7", // tickLens
-    "0x8Ca3dAF82089F8B0D2A777EB1484A05132c3CF1f", // v3Migrator
-    "0x82e90402e67a0375Fc29BE01CBF2D585D5f525dF", // nftDescriptor
-    "0x30033EC300f2d9830f824B0Eedc3709e4a79d39d", // positionDescriptor
-    "0xD60f87B1E97F0564aeb229b1AC11D0F03fAEC3Aa", // KalosSettler (swaps for the app)
-    "0xF9bE56EF245De6061b23cb23a729D5623953A102", // KalosAllowanceHolder
-    "0xCD57F65c2B0e5881CFC2E609F7CD53b746E1F234", // WHYPE
-    "0xcA11bde05977b3631167028862bE2a173976CA11", // multicall3
-  ] as Address[],
-} as const;
+export const KALOS = { ...profile(process.env, "delphi").network.external.kalos, factoryBlock: BigInt(profile(process.env, "delphi").network.external.kalos.factoryBlock), contracts: profile(process.env, "delphi").network.external.kalos.contracts as Address[] };
 
 /**
  * Currencies coins are priced in, never coins themselves. Confirmed on the live lists (Oct 31): WHYPE is
  * Kalos's wrapped native HYPE, USDC is its approved stablecoin (6 decimals), mUSDC is "Mock USDC
  * (Elysium testnet)" (6 decimals), and every pool's other side is one of these or another coin.
  */
-export const BASE_TOKENS: readonly Address[] = [
-  "0xCD57F65c2B0e5881CFC2E609F7CD53b746E1F234", // WHYPE
-  "0x7D29d8047B905000459c0E80c34a26CeedcB47b2", // USDC
-  "0x306eB30576814505df6cb0B35e4F4bfbACEeD54c", // mUSDC
-  "0x757a34dd7b411546C6dd8f510B52e4381102f9B0", // PerpMe's own WHYPE: a Kalos pool holding it doesn't make it a coin
-];
+export const BASE_TOKENS: readonly Address[] = profile(process.env, "delphi").network.baseTokens as Address[];
 
 /** Addresses whose tokens or positions are gone for good. */
-export const BURN: ReadonlySet<string> = new Set(["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead", "0xc889ac2f59a88afb3b2fb3f2c452dba336fe5f0f"]);
+export const BURN: ReadonlySet<string> = new Set(["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead", profile(process.env, "delphi").burnSink.toLowerCase()]);
 
 /**
  * How much of a coin's history to read. Elysium makes a block about every 0.11 s.

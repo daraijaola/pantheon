@@ -1,3 +1,4 @@
+import { profile } from "../../network.mts";
 // Conduit's services for Elysium: its contract verifier (a Sourcify v2 server, the one the explorer
 // itself asks for verified ABIs) and the explorer's own HTTP API (who deployed a contract).
 //
@@ -15,7 +16,7 @@ import { z } from "zod";
 import { getJson, type Fetch } from "./http.ts";
 
 export const CONTRACTS_API = "https://contracts.conduit.xyz";
-export const EXPLORER_WEB = "https://test-explorer.elysium.kinetiq.xyz";
+export const EXPLORER_WEB = profile().network.creationExplorer;
 
 const hex = z.string().refine((v) => isHex(v)) as unknown as z.ZodType<Hex>;
 const address = z
