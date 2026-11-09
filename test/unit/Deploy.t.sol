@@ -67,7 +67,7 @@ contract DeployConfigTest is Test {
         vm.etch(address(0x1003), address(new DeployDependencyMock()).code);
         vm.etch(address(0x1004), address(new DeployDependencyMock()).code);
         vm.etch(address(0x1005), address(new DeployDependencyMock()).code);
-        vm.setEnv("DEPLOYMENT_FILE", "deployments/elysium-mainnet.json");
+        vm.setEnv("DEPLOYMENT_FILE", "test/unit/deploy-mainnet-empty.json");
         vm.setEnv("LAUNCHPAD", vm.toString(address(0x1002)));
         vm.setEnv("USDC", vm.toString(address(0x1001)));
         vm.setEnv("BURN_SINK", vm.toString(address(0x1005)));

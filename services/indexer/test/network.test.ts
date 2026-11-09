@@ -23,8 +23,8 @@ describe("canonical backend networks", () => {
     expect(() => deploymentName({ NETWORK: "mainnet", DEPLOYMENT: "elysium-testnet" })).toThrow(/conflicting/);
   });
 
-  it.each(services)("%s rejects the real null mainnet with field names", service => {
-    expect(() => backendEnv({ NETWORK: "mainnet" }, service)).toThrow(/Network profile elysium-mainnet: missing required fields:.*network.publicRpc/);
+  it.each(services)("%s rejects the incomplete mainnet with field names", service => {
+    expect(() => backendEnv({ NETWORK: "mainnet" }, service)).toThrow(/Network profile elysium-mainnet: missing required fields:.*network.explorerUrl/);
   });
 
   it.each(services)("%s accepts a filled mainnet without testnet state or upstream defaults", service => {
