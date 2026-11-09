@@ -1,5 +1,10 @@
 # Ascend mainnet compatibility audit
 
+This is the historical audit of the unchanged testnet path. The additive mainnet
+PNTH/basket implementation and its fork evidence are documented in
+[ASCEND_MAINNET_PORT.md](ASCEND_MAINNET_PORT.md); the original contracts below
+remain testnet-only.
+
 ## Result: not compatible as-is
 
 Audited against `origin/main` at `51a9c45aab5964e59fcd8cdc8ec28b1322d188fd`,
