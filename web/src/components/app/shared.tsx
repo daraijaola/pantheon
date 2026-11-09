@@ -48,7 +48,10 @@ export function useTx() {
         if (!client) throw new Error("No connection to Elysium.");
         const estimate = await client.estimateContractGas({ ...call, account: address } as Parameters<typeof client.estimateContractGas>[0]);
         beforeSend?.();
-        const hash = await mutateAsync({ ...call, gas: (estimate * 3n) / 2n + 100_000n });
+        // Wallets often offer exactly the 0.1 gwei floor, which fails once Elysium's base fee ticks above it.
+        const { baseFeePerGas } = await client.getBlock();
+        const maxFeePerGas = (baseFeePerGas ?? 100_000_000n) * 2n;
+        const hash = await mutateAsync({ ...call, gas: (estimate * 3n) / 2n + 100_000n, maxFeePerGas, maxPriorityFeePerGas: 0n } as Parameters<typeof mutateAsync>[0]);
         pending = hash;
         setLastTx(hash);
         // The testnet RPC sometimes rate-limits: keep asking for a while before giving up.
