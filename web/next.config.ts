@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { NextConfig } from "next";
 import { deploymentName, network } from "./src/lib/chain/deployments";
+import { backendRewrites } from "./src/lib/mainnet-launch";
 
 console.info(`[network] ${deploymentName} chainId=${network.chainId}`);
 
@@ -20,16 +21,7 @@ const nextConfig: NextConfig = {
   // Our services on this machine, under our own domain: the Passport (services/passport), the Trials vote
   // (services/trials) and the live numbers (services/indexer).
   async rewrites() {
-    const passport = process.env.PASSPORT_API ?? "http://127.0.0.1:8787";
-    const trials = process.env.TRIALS_API ?? "http://127.0.0.1:8790";
-    const indexer = process.env.INDEXER_API ?? "http://127.0.0.1:8789";
-    return [
-      { source: "/api/passport/:path*", destination: `${passport}/passport/:path*` },
-      { source: "/api/trials/:path*", destination: `${trials}/trials/:path*` },
-      { source: "/api/stats", destination: `${indexer}/stats` },
-      { source: "/api/basket", destination: `${indexer}/basket` },
-      { source: "/api/receipts", destination: `${indexer}/receipts` },
-    ];
+    return backendRewrites(network.testnet, process.env);
   },
   partialPrefetching: true,
   turbopack: {
