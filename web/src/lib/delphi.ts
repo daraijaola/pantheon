@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { cacheLife } from "next/cache";
+import { network } from "@/lib/chain/config";
 import round1 from "@/lib/chain/deployments/trials-round-1.json";
 import round2 from "@/lib/chain/deployments/trials-round-2.json";
 import round3 from "@/lib/chain/deployments/trials-round-3.json";
@@ -97,6 +98,7 @@ export type KalosRow = CoinRow & {
 export async function readDelphi(): Promise<Delphi | null> {
   "use cache";
   cacheLife("minutes");
+  if (!network.testnet) return null;
   const file = process.env.DELPHI_SITE_JSON ?? path.join(process.cwd(), "..", "services", "delphi", "out", "site.json");
   try {
     // Read at run time from outside the app, so the build must not try to bundle it.

@@ -30,22 +30,28 @@ test("mainnet buy links target the deployed PNTH token and seats replace Covenan
   assert.throws(() => validateDeployment("elysium-mainnet", { ...p, creatorSeat: null }), /creatorSeat/);
 });
 test("partially published mainnet reports the remaining missing fields together", () => {
-  assert.throws(() => validateDeployment("elysium-mainnet", mainnet), (error: unknown) => {
+  const partial = structuredClone(mainnet);
+  for (const key of ["passportRegistry", "pnth", "staking"]) partial[key] = null;
+  partial.network.explorerUrl = null;
+  partial.network.deployedFrom = null;
+  partial.network.acquireUrl = null;
+  assert.throws(() => validateDeployment("elysium-mainnet", partial), (error: unknown) => {
     assert.match(String(error), /missing required fields:.*passportRegistry.*network.explorerUrl.*network.deployedFrom.*network.acquireUrl/);
     assert.doesNotMatch(String(error), /network.publicRpc|network.external.multicall3/);
     return true;
   });
 });
-test("published Ascend mainnet values are present without inventing a PANTHEON deployment", () => {
+test("published mainnet profile binds the confirmed PNTH deployment and explorer", () => {
   assert.equal(mainnet.launchpad, "0xe0dEF4221b9840a610D4e7d55812a79A6431a8eC");
   assert.equal(mainnet.usdc, mainnet.network.external.usdc);
   assert.equal(mainnet.launchpad, mainnet.network.external.ascendLaunchpad);
   assert.equal(mainnet.network.external.ascendRouter, "0x1B341FDD55d56F8E08409A2C25DDFad93Eb03C1a");
   assert.equal(mainnet.network.external.ascend.escrowFactory, "0x63f6a8A8d0257c0363251a50cdE8A8b1046e4d19");
   assert.equal(mainnet.network.ascendFromBlock, 422319);
-  assert.equal(mainnet.network.deployedFrom, null);
-  assert.equal(mainnet.pnth, null);
-  assert.equal(mainnet.network.explorerUrl, null);
+  assert.equal(mainnet.network.deployedFrom, 3263982);
+  assert.equal(mainnet.pnth, "0x660A22496A4eC7BCB5F6d6c0E3B8aA2550372A45");
+  assert.equal(mainnet.network.explorerUrl, "https://elysium.kinetiq.xyz");
+  assert.doesNotThrow(() => validateDeployment("elysium-mainnet", mainnet));
   assert.equal(mainnet.network.external.kalos.factory, null);
   assert.equal(mainnet.network.external.perpme.launchFactory, null);
 });

@@ -1,5 +1,6 @@
 import { cacheLife } from "next/cache";
 import { connection } from "next/server";
+import { network } from "@/lib/chain/config";
 import { resolveTrialRound } from "./trials";
 import type { TrialRound, TrialRoundSnapshot } from "./trials";
 
@@ -19,6 +20,7 @@ async function cachedTrialRound(after?: Pick<TrialRound, "round" | "closesAt">):
 }
 
 export async function readTrialRound(): Promise<TrialRound | null> {
+  if (!network.testnet) return null;
   await connection();
   return resolveTrialRound(await cachedTrialRound(), Date.now() / 1000, (round) => cachedTrialRound({ round: round.round, closesAt: round.closesAt }));
 }

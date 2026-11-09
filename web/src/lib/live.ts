@@ -1,5 +1,5 @@
 import { cacheLife } from "next/cache";
-import { deployment } from "@/lib/chain/config";
+import { deployment, network } from "@/lib/chain/config";
 import { readDelphi } from "@/lib/delphi";
 
 // The home page's live numbers, read on the server from services on this machine: the indexer
@@ -46,6 +46,7 @@ async function get<T>(url: string): Promise<T | null> {
 export async function readLive(): Promise<Live> {
   "use cache";
   cacheLife("minutes");
+  if (!network.testnet) return { people: null, stakers: null, burned: null, bought: null, basket: null, next: null, vote: null, checked: null };
   const [stats, basket, vote, delphi] = await Promise.all([
     get<Stats>(`${INDEXER}/stats`),
     get<Basket>(`${INDEXER}/basket`),

@@ -18,7 +18,7 @@
     "name": "Elysium",
     "testnet": false,
     "publicRpc": "https://rpc.elysium.kinetiq.xyz",
-    "explorerUrl": null,
+    "explorerUrl": "https://elysium.kinetiq.xyz",
     "deployedFrom": 3263982,
     "external": {
       "usdc": "0xb47c4C8F73F009CC0C0d3f92B388d13E293F0B65",
