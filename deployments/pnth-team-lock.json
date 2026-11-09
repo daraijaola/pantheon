@@ -1,0 +1,11 @@
+{
+  "chainId": 99901,
+  "token": "0x660A22496A4eC7BCB5F6d6c0E3B8aA2550372A45",
+  "lock": "0x5a8cf750981a39fa0de99a90dd08fa5c62441d31",
+  "beneficiary": "0xdf6aA48D464d9BC2443096f03cba4Fa750d3bdC6",
+  "releaseTime": 1825770478,
+  "releaseTimeUtc": "2027-11-09T14:27:58Z",
+  "amount": "166420366852618061319338851",
+  "deploymentTransaction": "0xaca99e3c947bfaa5784a8900d8169673a7beebf76e26db28acf49b43a4f96ffb",
+  "fundingTransaction": "0x9a584af263f0fe6530afcce67f9f01218b62340ad3bfe3b823d78ebf39da71c9"
+}
