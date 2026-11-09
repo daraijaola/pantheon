@@ -30,7 +30,7 @@ export function useTx() {
   // Set at once on click (state only updates on the next render), so a fast double-click can't send twice.
   const running = useRef(false);
 
-  const run = async (label: string | readonly string[], calls: readonly Parameters<typeof mutateAsync>[0][]): Promise<TransactionReceipt[] | null> => {
+  const run = async (label: string | readonly string[], calls: readonly Parameters<typeof mutateAsync>[0][], beforeSend?: () => void): Promise<TransactionReceipt[] | null> => {
     if (running.current) return null;
     running.current = true;
     const step = (i: number) => `${typeof label === "string" ? label : (label[i] ?? label[label.length - 1])}…`;
@@ -40,12 +40,14 @@ export function useTx() {
     let pending: Hex | null = null; // sent, not yet confirmed
     try {
       for (const [i, call] of calls.entries()) {
+        beforeSend?.();
         setBusy(step(i));
         // Rewards accrue between the estimate and the block the transaction lands in, and each one
         // costs an extra storage write, so give every action headroom over the estimate.
         const client = getPublicClient(config, { chainId: elysium.id });
         if (!client) throw new Error("No connection to Elysium.");
         const estimate = await client.estimateContractGas({ ...call, account: address } as Parameters<typeof client.estimateContractGas>[0]);
+        beforeSend?.();
         const hash = await mutateAsync({ ...call, gas: (estimate * 3n) / 2n + 100_000n });
         pending = hash;
         setLastTx(hash);

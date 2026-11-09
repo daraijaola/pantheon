@@ -1,4 +1,4 @@
-const deferredPages = ["/upload", "/space", "/passport", "/trials", "/delphi", "/stake"];
+const deferredPages = ["/upload", "/space", "/passport", "/trials", "/delphi"];
 const authRoutes = ["/api/auth/nonce", "/api/auth/verify", "/api/auth/me", "/api/auth/logout"];
 
 export function mainnetGate(pathname: string, method: string, testnet: boolean): "page" | "unavailable" | null {

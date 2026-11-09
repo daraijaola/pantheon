@@ -4,12 +4,16 @@ import { test } from "node:test";
 const { mainnetGate, backendRewrites } = await import(new URL("./mainnet-launch.ts", import.meta.url).href) as typeof import("./mainnet-launch");
 
 test("mainnet defers every backend page, including deep public Passport links", () => {
-  for (const path of ["/upload", "/space", "/passport", "/passport/get", "/passport/me", "/passport/0x123", "/trials", "/trials/vote", "/delphi", "/delphi/chat", "/delphi/dispute", "/delphi/kalos", "/delphi/0x123", "/stake/"]) {
+  for (const path of ["/upload", "/space", "/passport", "/passport/get", "/passport/me", "/passport/0x123", "/trials", "/trials/vote", "/delphi", "/delphi/chat", "/delphi/dispute", "/delphi/kalos", "/delphi/0x123"]) {
     assert.equal(mainnetGate(path, "GET", false), "page", path);
     assert.equal(mainnetGate(path, "HEAD", false), "page", path);
     assert.equal(mainnetGate(path, "POST", false), "unavailable", path);
     assert.equal(mainnetGate(path, "GET", true), null, path);
   }
+});
+test("staking is available on mainnet without opening staking or Passport APIs", () => {
+  for (const path of ["/stake", "/stake/"]) for (const method of ["GET", "HEAD"]) assert.equal(mainnetGate(path, method, false), null);
+  for (const path of ["/api/stake", "/api/passport/multiplier", "/api/delphi/feed"]) assert.equal(mainnetGate(path, "GET", false), "unavailable");
 });
 test("mainnet blocks APIs and Passport images without blocking wallet authentication", () => {
   for (const path of ["/api/me/read", "/api/passport/me", "/api/passport/0x123", "/api/trials/current", "/api/stats", "/api/basket", "/api/receipts", "/api/ask-delphi", "/api/health", "/api/unknown", "/passport/0x123/opengraph-image", "/passport/0x123/opengraph-image.png"]) {

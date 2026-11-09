@@ -10,9 +10,10 @@ import { erc20Abi, formatUnits, zeroAddress } from "viem";
 import { useReadContracts } from "wagmi";
 import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { constituentRegistryAbi, hypePassportRegistryAbi, pantheonStakingAbi } from "@/lib/chain/abi";
-import { deployment, elysium, explorer } from "@/lib/chain/config";
+import { deployment, elysium, explorer, network } from "@/lib/chain/config";
+import { assertStakeWindowOpen, stakeWindowState, type StakeWindow } from "@/lib/stake-window";
 import type { Deployment } from "@/lib/chain/deployments";
-import { fmt, NotLive, parse, Row, short, Stat, TxNote, until, useChainNow, useTx, type Hex } from "./shared";
+import { fmt, NotLive, parse, Row, short, Stat, TxNote, until, useChainNow, useNow, useTx, type Hex } from "./shared";
 import s from "./app.module.css";
 import { ConnectWallet } from "./connect-wallet";
 const ONE = 10n ** 18n;
@@ -20,18 +21,26 @@ const AGE_RAMP = 30 * 86_400;
 
 export type BasketSnapshot = { token: string; symbol: string; weightPct: number };
 
-export function StakeApp({ initialBasket = null }: { initialBasket?: BasketSnapshot[] | null }) {
+export function StakeApp({ initialBasket = null, stakeWindow = null }: { initialBasket?: BasketSnapshot[] | null; stakeWindow?: StakeWindow | null }) {
   if (!deployment) return <NotLive title="Stake PNTH" line="PANTHEON isn’t live on testnet yet. Staking opens here the moment it is." />;
-  return <Stake d={deployment} initialBasket={initialBasket} />;
+  return <Stake d={deployment} initialBasket={initialBasket} stakeWindow={stakeWindow} />;
 }
 
 // ------------------------------------------------------------------ the screen
 
-function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnapshot[] | null }) {
+function Stake({ d, initialBasket, stakeWindow }: { d: Deployment; initialBasket: BasketSnapshot[] | null; stakeWindow: StakeWindow | null }) {
   const { address, isConnected, chainId } = useHydratedConnection();
   const onChain = isConnected && chainId === elysium.id;
   const me = (address ?? zeroAddress) as Hex;
   const now = useChainNow(); // the chain's clock decides when an unlock is ready
+  const windowNow = useNow();
+  const windowState = stakeWindowState(stakeWindow, windowNow);
+  const stakeOpen = network.testnet || windowState === "open";
+  const remaining = Math.max(0, (stakeWindow?.end ?? 0) - windowNow);
+  const usdcBalance = useReadContracts({
+    contracts: [{ address: d.usdc, abi: erc20Abi, functionName: "balanceOf", args: [d.staking] }],
+    query: { enabled: !network.testnet, refetchInterval: 10_000 },
+  });
 
   const pub = useReadContracts({
     contracts: [
@@ -102,9 +111,15 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
         <div>
           <p className={s.eyebrow}>App · {networkLabel}</p>
           <h1 className={s.h1}>Stake PNTH</h1>
-          <p className={s.sub}>Every coin the basket buys streams to stakers over a day. Unstaking takes 3 days.</p>
+          <p className={s.sub}>{network.testnet ? "Every coin the basket buys streams to stakers over a day. Unstaking takes 3 days." : "The initial 448.57 USDC reward allocation streams over 24 hours, shared pro-rata among stakers by working balance. Unstaking has a 3-day cooldown. Streams pause while nobody is staked."}</p>
         </div>
       </header>
+
+      {!network.testnet && <div className={s.cell}>
+        <p className={s.label}>20-minute staking window</p>
+        <p role="status">{windowState === "open" ? `Staking open · closes in ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}` : windowState === "before" && stakeWindow ? `Staking opens ${new Date(stakeWindow.start * 1000).toUTCString()}` : windowState === "closed" ? "Staking window closed" : "Staking window closed — no valid window configured"}</p>
+        <p className={s.hint}>Claim, request unstake, cancel unstake and withdraw remain available outside the window. This window controls this website only; the ownerless contract remains permissionless.</p>
+      </div>}
 
       <div className={`${s.grid} ${s.stakeGrid}`}>
         <section className={s.main}>
@@ -114,13 +129,13 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
               <Stat
                 k="In your wallet"
                 v={onChain ? fmt(wallet) : "—"}
-                note={onChain && wallet === 0n ? <Link href="/get">Get test PNTH</Link> : undefined}
+                note={onChain && wallet === 0n ? <Link href="/get">{network.testnet ? "Get test PNTH" : "Get PNTH"}</Link> : undefined}
               />
               <Stat
                 k="Staked"
                 v={onChain ? fmt(staked) : "—"}
                 strong
-                note={onChain && staked >= 10n ** 18n ? <Link href="/trials/vote">This gives you a vote in the Trials</Link> : undefined}
+                note={network.testnet && onChain && staked >= 10n ** 18n ? <Link href="/trials/vote">This gives you a vote in the Trials</Link> : undefined}
               />
               <Stat
                 k="Unlocking"
@@ -133,6 +148,8 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
           <Actions
             d={d}
             enabled={onChain}
+            stakeOpen={stakeOpen}
+            stakeWindow={stakeWindow}
             wallet={wallet ?? 0n}
             allowance={allowance}
             staked={staked}
@@ -143,7 +160,7 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
           <div className={s.cell}>
             <div className={s.rowHead}>
               <p className={s.label}>Earned</p>
-              <ClaimButton d={d} enabled={onChain && anyEarned} />
+              <ClaimButton d={d} enabled={onChain && (!network.testnet || anyEarned)} />
             </div>
             {!onChain ? (
               <p className={s.empty}>Your rewards appear once your wallet is connected.</p>
@@ -172,7 +189,7 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
               <Stat
                 k="HYPE Passport"
                 v={`${passport.toFixed(2)}×`}
-                note={passport > 1 ? "verified" : <Link href="/passport">get one for up to 1.25×</Link>}
+                note={passport > 1 ? "verified" : network.testnet ? <Link href="/passport">get one for up to 1.25×</Link> : "On-chain multiplier; Passport setup coming soon."}
               />
               <Stat k="Your share of the stream" v={onChain ? `${share.toFixed(2)}%` : "—"} strong />
             </div>
@@ -220,12 +237,12 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
             <p className={s.label}>Everyone</p>
             <div className={s.list}>
               <Row k="PNTH staked" v={fmt(totalStaked)} />
-              <Row k="PNTH burned" v={fmt(burned)} />
+              {network.testnet ? <Row k="PNTH burned" v={fmt(burned)} /> : <Row k="USDC held by staking" v={usdcBalance.data?.[0]?.status === "success" ? fmt(usdcBalance.data[0].result, 6) : usdcBalance.isError ? "Read unavailable" : "Reading…"} />}
               <Row k="Coins streaming" v={String(rewardTokens.length)} />
             </div>
           </div>
           <p className={s.fine}>
-            Testnet: these are test coins with no value. <Link href="/covenant">How the rules work</Link>
+            {network.testnet ? <>Testnet: these are test coins with no value. <Link href="/covenant">How the rules work</Link></> : <>Elysium mainnet · Chain 99901. These are real tokens. <a href={explorer("address", d.staking)} target="_blank" rel="noreferrer">Staking contract</a></>}
           </p>
         </aside>
       </div>
@@ -238,6 +255,8 @@ function Stake({ d, initialBasket }: { d: Deployment; initialBasket: BasketSnaps
 function Actions(p: {
   d: Deployment;
   enabled: boolean;
+  stakeOpen: boolean;
+  stakeWindow: StakeWindow | null;
   wallet: bigint;
   allowance: bigint;
   staked: bigint;
@@ -250,18 +269,18 @@ function Actions(p: {
   const amount = parse(value);
   const max = tab === "stake" ? p.wallet : p.staked;
   const tooMuch = amount !== null && amount > max;
-  const canSubmit = p.enabled && !busy && amount !== null && amount > 0n && !tooMuch;
+  const canSubmit = p.enabled && (tab !== "stake" || p.stakeOpen) && !busy && amount !== null && amount > 0n && !tooMuch;
   const needsApproval = tab === "stake" && amount !== null && amount > p.allowance;
 
   const submit = async () => {
-    if (amount === null) return;
+    if (!canSubmit || amount === null) return;
     if (tab === "stake") {
       const ok = await run(needsApproval ? "Approving" : "Staking", [
         ...(needsApproval
           ? [{ address: p.d.pnth, abi: erc20Abi, functionName: "approve", args: [p.d.staking, amount] } as const]
           : []),
         { address: p.d.staking, abi: pantheonStakingAbi, functionName: "stake", args: [amount] } as const,
-      ]);
+      ], network.testnet ? undefined : () => assertStakeWindowOpen(p.stakeWindow, Math.floor(Date.now() / 1000)));
       if (ok) setValue("");
     } else {
       const ok = await run("Starting the unlock", [
