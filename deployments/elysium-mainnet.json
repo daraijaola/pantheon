@@ -1,17 +1,17 @@
 {
   "chainId": 99901,
   "burnSink": "0x9F0b0e3B362937b07Cd1E869b50687961e0c7741",
-  "constituentRegistry": null,
+  "constituentRegistry": "0x3593d1258D6Fab838802aba06b0CC8aAd384D531",
   "covenantFactory": null,
-  "creatorSeat": null,
-  "creatorEscrow": null,
-  "indexVault": null,
+  "creatorSeat": "0xE851aA3E8eB036E63C15CFC541A848EeE4c65660",
+  "creatorEscrow": "0xb22b05495a5c8B09d66285528d3F518695AA4af9",
+  "indexVault": "0x50A615bBb9723bd269b096E7FfC28580f84E9d25",
   "launchpad": "0xe0dEF4221b9840a610D4e7d55812a79A6431a8eC",
-  "passportRegistry": null,
-  "pnth": null,
-  "pnthPool": null,
+  "passportRegistry": "0x605E79eeF966CC7864E8a2aFc75f65Ec47236FE5",
+  "pnth": "0x660A22496A4eC7BCB5F6d6c0E3B8aA2550372A45",
+  "pnthPool": "0xea03c9c459b4457396aef2a54b563cfaf5c70bccf2c6babe09862f626ffb9998",
   "pnthRouter": null,
-  "staking": null,
+  "staking": "0xa815147f1625640E9FC97BF216853bD40f379c92",
   "usdc": "0xb47c4C8F73F009CC0C0d3f92B388d13E293F0B65",
   "network": {
     "chainId": 99901,
@@ -19,7 +19,7 @@
     "testnet": false,
     "publicRpc": "https://rpc.elysium.kinetiq.xyz",
     "explorerUrl": null,
-    "deployedFrom": null,
+    "deployedFrom": 3263982,
     "external": {
       "usdc": "0xb47c4C8F73F009CC0C0d3f92B388d13E293F0B65",
       "whype": "0xbA876237B0F021A6c6D852d6c26E107997cC5E81",
@@ -83,7 +83,7 @@
         "indexer": null
       }
     },
-    "acquireUrl": null,
+    "acquireUrl": "https://app.ascendlaunch.xyz/tokens/0x660A22496A4eC7BCB5F6d6c0E3B8aA2550372A45",
     "explorerApi": null,
     "archiveRpc": null,
     "creationExplorer": null,
