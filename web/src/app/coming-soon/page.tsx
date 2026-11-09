@@ -16,10 +16,10 @@ export default function ComingSoon() {
           <h1 className={s.h1}>Coming soon on mainnet</h1>
           <p className={s.sub}>PNTH is live. This feature is not available on mainnet yet.</p>
         </div></header>
-        <div className="flex flex-wrap gap-3">
-          <a className={s.primary} href={ascendBuyUrl(deployment!.pnth)} target="_blank" rel="noreferrer">Buy PNTH on Ascend</a>
+        <div className={s.cell}><div className={`${s.wallet} ${s.localWallet}`}>
+          <a className={s.primarySmall} href={ascendBuyUrl(deployment!.pnth)} target="_blank" rel="noreferrer">Buy PNTH on Ascend</a>
           <Link className={s.ghost} href="/">Back home</Link>
-        </div>
+        </div></div>
       </main>
     </SiteShell>
   );

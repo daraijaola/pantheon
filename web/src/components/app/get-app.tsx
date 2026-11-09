@@ -24,9 +24,11 @@ export function GetApp() {
   if (!network.testnet) return (
     <main className={s.page}>
       <header className={s.head}><div><p className={s.eyebrow}>Elysium mainnet · Chain 99901</p><h1 className={s.h1}>Get PNTH</h1><p className={s.sub}>PNTH is live on Elysium. More features are coming soon on mainnet.</p></div></header>
-      <a className={s.primary} href={ascendBuyUrl(deployment!.pnth)} target="_blank" rel="noreferrer">Buy PNTH on Ascend</a>
+      <div className={s.cell}>
+      <a className={s.primarySmall} href={ascendBuyUrl(deployment!.pnth)} target="_blank" rel="noreferrer">Buy PNTH on Ascend</a>
       <p className="my-6 break-all font-mono text-xs"><a href={`${network.explorerUrl}/address/${deployment!.pnth}`} target="_blank" rel="noreferrer">{deployment!.pnth}</a></p>
       <Providers><ConnectWallet /></Providers>
+      </div>
     </main>
   );
   if (!deployment?.swapper) return <NotLive title="Get test PNTH" line="Buying test PNTH opens here as soon as PANTHEON is live on testnet." />;
