@@ -1,10 +1,23 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import { abi, importDeployment } from "./import-mainnet-deployment.mjs";
 const { encodeEventTopics, encodeAbiParameters, keccak256 } = createRequire(new URL("../web/package.json", import.meta.url))("viem");
-const manifest = JSON.parse(readFileSync(new URL("../deployments/elysium-mainnet.json", import.meta.url), "utf8"));
+function undeployedManifest(t) {
+  const dir = mkdtempSync(join(tmpdir(), "pantheon-mainnet-import-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const manifest = JSON.parse(readFileSync(new URL("../deployments/elysium-mainnet.json", import.meta.url), "utf8"));
+  for (const key of ["passportRegistry", "constituentRegistry", "staking", "indexVault", "creatorSeat", "creatorEscrow", "pnth", "pnthPool"]) manifest[key] = null;
+  manifest.network.deployedFrom = null;
+  manifest.network.acquireUrl = null;
+  manifest.network.explorerUrl = null;
+  const file = join(dir, "elysium-mainnet.json");
+  writeFileSync(file, JSON.stringify(manifest));
+  return JSON.parse(readFileSync(file, "utf8"));
+}
 const addr = n => `0x${n.toString(16).padStart(40, "0")}`;
 const hash = n => `0x${n.toString(16).padStart(64, "0")}`;
 const team = "0xdf6aa48d464d9bc2443096f03cba4fa750d3bdc6";
@@ -13,7 +26,8 @@ const event = (name, address, args, index) => {
   const inputs = item.inputs.filter(i => !i.indexed);
   return { address, topics: encodeEventTopics({ abi, eventName: name, args }), data: encodeAbiParameters(inputs, inputs.map(i => args[i.name])), logIndex: `0x${index.toString(16)}` };
 };
-function fixture() {
+function fixture(t) {
+  const manifest = undeployedManifest(t);
   const names = ["HypePassportRegistry", "ConstituentRegistryV5", "PantheonStaking", "IndexVaultV5"];
   const transactions = names.map((contractName, i) => ({ hash: hash(i + 1), contractName, transactionType: "CREATE", contractAddress: addr(i + 1), transaction: { from: team } }));
   transactions.push({ hash: hash(5), transactionType: "CALL", transaction: { from: team, to: manifest.network.external.ascend.seatFactory } });
@@ -32,10 +46,10 @@ function fixture() {
     if (method === "eth_getCode") return "0x6000";
     throw new Error(`unexpected method ${method}`);
   };
-  return { artifact, liveReceipts, rpc, pool };
+  return { artifact, liveReceipts, rpc, pool, manifest };
 }
-test("imports all V5 addresses and first block from verified receipts, preserving unpublished metadata", async () => {
-  const { artifact, rpc, pool } = fixture();
+test("imports all V5 addresses and first block from verified receipts, preserving unpublished metadata", async (t) => {
+  const { artifact, rpc, pool, manifest } = fixture(t);
   const result = await importDeployment(artifact, manifest, rpc);
   assert.equal(result.indexVault, addr(4));
   assert.equal(result.creatorSeat, addr(5));
@@ -50,20 +64,20 @@ test("imports all V5 addresses and first block from verified receipts, preservin
   assert.equal(result.covenantFactory, null);
   assert.equal(manifest.pnth, null);
 });
-test("rejects missing receipts and wrong chain before any RPC call", async () => {
-  const { artifact } = fixture();
+test("rejects missing receipts and wrong chain before any RPC call", async (t) => {
+  const { artifact, manifest } = fixture(t);
   const noRpc = () => { throw new Error("must not query RPC"); };
   await assert.rejects(importDeployment({ ...artifact, receipts: [] }, manifest, noRpc), /mined receipts/);
   await assert.rejects(importDeployment({ ...artifact, chain: 99801 }, manifest, noRpc), /99901/);
 });
-test("rejects failed/unconfirmed receipts, different logs, empty code and an existing different deployment", async () => {
-  const f = fixture();
+test("rejects failed/unconfirmed receipts, different logs, empty code and an existing different deployment", async (t) => {
+  const f = fixture(t);
   f.liveReceipts[0].status = "0x0";
-  await assert.rejects(importDeployment(f.artifact, manifest, f.rpc), /not confirmed/);
-  const g = fixture();
+  await assert.rejects(importDeployment(f.artifact, f.manifest, f.rpc), /not confirmed/);
+  const g = fixture(t);
   g.artifact.receipts[4].logs[0].address = addr(99);
-  await assert.rejects(importDeployment(g.artifact, manifest, g.rpc), /logs differ/);
-  const h = fixture();
-  await assert.rejects(importDeployment(h.artifact, manifest, async (m, p) => m === "eth_getCode" ? "0x" : h.rpc(m, p)), /no deployed code/);
-  await assert.rejects(importDeployment(h.artifact, { ...manifest, pnth: addr(99) }, h.rpc), /overwrite/);
+  await assert.rejects(importDeployment(g.artifact, g.manifest, g.rpc), /logs differ/);
+  const h = fixture(t);
+  await assert.rejects(importDeployment(h.artifact, h.manifest, async (m, p) => m === "eth_getCode" ? "0x" : h.rpc(m, p)), /no deployed code/);
+  await assert.rejects(importDeployment(h.artifact, { ...h.manifest, pnth: addr(99) }, h.rpc), /overwrite/);
 });
