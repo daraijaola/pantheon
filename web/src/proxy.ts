@@ -8,7 +8,7 @@ export function proxy(req: NextRequest) {
   const gate = mainnetGate(req.nextUrl.pathname, req.method, network.testnet);
   if (gate === "unavailable") return NextResponse.json({ error: "MAINNET_COMING_SOON", message: "Coming soon on mainnet" }, { status: 503, headers: { "cache-control": "no-store", "x-robots-tag": "noindex" } });
   if (gate === "page") {
-    const response = NextResponse.rewrite(new URL("/coming-soon", req.url));
+    const response = NextResponse.redirect(new URL("/coming-soon", origin(req)), 307);
     response.headers.set("cache-control", "no-store");
     response.headers.set("x-robots-tag", "noindex");
     return response;
