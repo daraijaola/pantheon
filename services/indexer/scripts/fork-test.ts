@@ -18,6 +18,7 @@ const FORK = process.argv[2] ?? "http://127.0.0.1:8547";
 if (!/^http:\/\/(127\.0\.0\.1|localhost):/.test(FORK)) throw new Error("fork-test only runs against a local fork");
 const cfg = { ...loadConfig({ ...process.env, ELYSIUM_RPC: FORK }), stateFile: join(mkdtempSync(join(tmpdir(), "indexer-fork-")), "index.json") };
 const d = cfg.deployment;
+if (d.chainId !== 99801 || !d.pnthRouter) throw new Error("fork-test uses the legacy testnet deployment only");
 const client = makeClient(FORK);
 const chain = { id: profile().chainId, name: "fork", nativeCurrency: { name: "HYPE", symbol: "HYPE", decimals: 18 }, rpcUrls: { default: { http: [FORK] } } } as const;
 // A fresh fork fetches contract storage from the public RPC on first use (rate-limited): be patient.

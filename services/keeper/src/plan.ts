@@ -24,17 +24,23 @@ export function choosePokes(stakers: readonly Staker[], riseBps: number): Addres
   return out;
 }
 
-export type Kind = "run" | "rebalance" | "poke";
-export type Simulated = { kind: Kind; ok: boolean; gasUsed: bigint; effects: Effects; error?: string };
+export type Kind = "run" | "harvest" | "claim-team" | "claim-fees" | "rebalance" | "poke";
+export type Simulated = { kind: Kind; ok: boolean; gasUsed: bigint; effects: Effects; error?: string; persistBreakerReset?: boolean };
 
 /** Send a call only if its simulation succeeded and it would actually move something. */
 export function useful(s: Simulated): boolean {
   if (!s.ok) return false;
   switch (s.kind) {
+    case "harvest":
+      return (s.effects.arrived ?? 0n) > 0n;
+    case "claim-team":
+      return s.effects.payees?.some(p => p.slot === 0n && p.amount > 0n) ?? false;
+    case "claim-fees":
+      return (s.effects.feesClaimed ?? 0n) > 0n;
     case "run":
       return s.effects.legs.some((l) => l.amount > 0n);
     case "rebalance":
-      return s.effects.buys.length > 0 || s.effects.streamed.length > 0;
+      return s.effects.buys.length > 0 || s.effects.streamed.length > 0 || !!(s.persistBreakerReset && s.effects.skips.some(k => k.reason === "BREAKER"));
     case "poke":
       return s.effects.poked.length > 0;
   }
@@ -60,6 +66,9 @@ export function describe(s: Simulated, n: Names): string[] {
   if (!s.ok) return [`${s.kind}: would fail (${s.error ?? "reverted"}), not sent`];
   const e = s.effects;
   const lines: string[] = [];
+  if (s.kind === "harvest" && (e.arrived ?? 0n) > 0n) lines.push(`harvest ${fmt(e.arrived!, 6)} USDC into the creator seat`);
+  if (s.kind === "claim-team") for (const p of e.payees ?? []) if (p.slot === 0n && p.amount > 0n) lines.push(`pay ${fmt(p.amount, 6)} USDC to the team`);
+  if (s.kind === "claim-fees" && (e.feesClaimed ?? 0n) > 0n) lines.push(`claim ${fmt(e.feesClaimed!, 6)} USDC into the basket`);
   if (s.kind === "run") {
     for (const l of e.legs) {
       const what = l.side === "token" ? `${fmt(l.amount, 18)} PNTH` : `${fmt(l.amount, 6)} USDC`;

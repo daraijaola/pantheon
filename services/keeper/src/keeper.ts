@@ -4,12 +4,12 @@
 // live mode sends them one by one.
 import { getAddress, isAddress, type Abi, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
 import { z } from "zod";
-import { effectsOf, registryAbi, routerAbi, stakingAbi, vaultAbi, type Effects } from "./chain.ts";
+import { effectsOf, registryAbi, routerAbi, seatAbi, stakingAbi, vaultAbi, type Effects } from "./chain.ts";
 import type { Config } from "./config.ts";
 import { batches, choosePokes, describe, useful, type Kind, type Names, type Simulated, type Staker } from "./plan.ts";
 import type { State } from "./state.ts";
 
-export type PlannedCall = { kind: Kind; address: Address; abi: Abi; functionName: string; args: readonly unknown[] };
+export type PlannedCall = { kind: Kind; address: Address; abi: Abi; functionName: string; args: readonly unknown[]; persistBreakerReset?: boolean };
 
 /** Everything the keeper needs from Elysium. The real one is `createChain`; tests pass a fake. */
 export interface KeeperChain {
@@ -105,11 +105,16 @@ export async function tick(d: {
   // the fee run and the basket buy together (the buy spends what the run delivers), then each batch
   // of boost refreshes on its own.
   const sender = d.sender ?? DRY_SENDER;
+  const feeCalls: PlannedCall[] = dep.chainId === 99901 ? [
+    { kind: "harvest", address: dep.creatorSeat!, abi: seatAbi, functionName: "harvest", args: [] },
+    { kind: "claim-team", address: dep.creatorSeat!, abi: seatAbi, functionName: "claim", args: [0n, false] },
+    { kind: "claim-fees", address: dep.indexVault, abi: vaultAbi, functionName: "claimFees", args: [] },
+  ] : [{ kind: "run", address: dep.pnthRouter!, abi: routerAbi, functionName: "run", args: [] }];
   const planned = await simulateGroup(
     chain,
     [
-      { kind: "run", address: dep.pnthRouter, abi: routerAbi, functionName: "run", args: [] },
-      { kind: "rebalance", address: dep.indexVault, abi: vaultAbi, functionName: "rebalance", args: [BigInt(cfg.basketK)] },
+      ...feeCalls,
+      { kind: "rebalance", address: dep.indexVault, abi: vaultAbi, functionName: "rebalance", args: [BigInt(cfg.basketK)], ...(dep.chainId === 99901 ? { persistBreakerReset: true } : {}) },
     ],
     sender,
     notes,
@@ -140,6 +145,10 @@ export async function tick(d: {
     }
     for (const { call } of chosen) {
       try {
+        if (dep.chainId === 99901) {
+          const [current] = await simulateGroup(chain, [call], sender, notes);
+          if (!current || !useful(current.sim)) continue;
+        }
         const r = await chain.send(call);
         report.sent.push({ kind: call.kind, tx: r.hash, ok: r.ok });
       } catch (e) {
@@ -161,7 +170,7 @@ const noEffects = (): Effects => ({ legs: [], deferred: [], buys: [], skips: [],
 async function simulateGroup(chain: KeeperChain, calls: PlannedCall[], sender: Address, notes: string[]): Promise<Planned[]> {
   try {
     const sims = await chain.simulate(calls, sender);
-    return calls.map((call, i) => ({ call, sim: sims[i]! }));
+    return calls.map((call, i) => ({ call, sim: call.persistBreakerReset ? { ...sims[i]!, persistBreakerReset: true } : sims[i]! }));
   } catch (e) {
     const error = firstLine(e);
     notes.push(`the node would not simulate ${calls.map((c) => c.kind).join(" + ")} (${error}): not sent this round`);
@@ -268,7 +277,7 @@ export function createChain(client: PublicClient, cfg: Config, wallet?: WalletCl
           kind: c.kind,
           ok: r.status === "success",
           gasUsed: r.gasUsed,
-          effects: effectsOf(logs, { router: dep.pnthRouter, vault: dep.indexVault, staking: dep.staking }),
+          effects: effectsOf(logs, { router: dep.pnthRouter, seat: dep.creatorSeat, vault: dep.indexVault, staking: dep.staking }),
           ...(error ? { error } : {}),
         };
       });
@@ -285,7 +294,7 @@ export function createChain(client: PublicClient, cfg: Config, wallet?: WalletCl
         hash,
         ok: receipt.status === "success",
         gasUsed: receipt.gasUsed,
-        effects: effectsOf(receipt.logs, { router: dep.pnthRouter, vault: dep.indexVault, staking: dep.staking }),
+        effects: effectsOf(receipt.logs, { router: dep.pnthRouter, seat: dep.creatorSeat, vault: dep.indexVault, staking: dep.staking }),
       };
     },
   };

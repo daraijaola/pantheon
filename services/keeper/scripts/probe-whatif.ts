@@ -11,6 +11,7 @@ import { describe, type Kind } from "../src/plan.ts";
 
 const cfg = loadConfig();
 const dep = cfg.deployment;
+if (dep.chainId !== 99801 || !dep.pnthRouter) throw new Error("probe-whatif is testnet-only");
 const client = makeClient(cfg.rpc);
 const usdcIn = parseUnits(process.argv[2] ?? "200", 6);
 const SWAPPER = "0x31A67d054D34Ec18cb23A43B0E3ad1F756aA1500" as Address; // deployments/elysium-testnet-tools.json

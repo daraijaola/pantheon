@@ -3,6 +3,8 @@
   "burnSink": "0x9F0b0e3B362937b07Cd1E869b50687961e0c7741",
   "constituentRegistry": null,
   "covenantFactory": null,
+  "creatorSeat": null,
+  "creatorEscrow": null,
   "indexVault": null,
   "launchpad": "0xe0dEF4221b9840a610D4e7d55812a79A6431a8eC",
   "passportRegistry": null,

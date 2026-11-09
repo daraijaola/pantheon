@@ -19,6 +19,8 @@ export type Deployment = {
   pnth: Address;
   pnthPool: Address;
   pnthRouter: Address;
+  creatorSeat?: Address;
+  creatorEscrow?: Address;
   constituentRegistry: Address;
   staking: Address;
   indexVault: Address;
@@ -29,13 +31,18 @@ export type Deployment = {
 
 const contracts = ["launchpad", "usdc", "burnSink", "passportRegistry", "covenantFactory", "pnth", "pnthRouter", "constituentRegistry", "staking", "indexVault"] as const;
 const externals = ["usdc", "whype", "multicall3", "ascendLaunchpad", "ascendRouter"] as const;
+export function ascendBuyUrl(token: Address): string {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(token) || /^0x0{40}$/.test(token)) throw new Error("PNTH token address required");
+  return `https://app.ascendlaunch.xyz/tokens/${token}`;
+}
 
 export function validateDeployment(name: string, input: unknown): Deployment {
   const value = input as Deployment | undefined;
   if (!value) throw new Error(`Network profile ${name}: unknown deployment`);
   const n = value.network;
+  const requiredContracts = n?.testnet === false ? [...contracts.filter(k => k !== "pnthRouter" && k !== "covenantFactory"), "creatorSeat", "creatorEscrow"] as const : contracts;
   const fields: [string, unknown][] = [
-    ["chainId", value.chainId], ...contracts.map((key): [string, unknown] => [key, value[key]]),
+    ["chainId", value.chainId], ...requiredContracts.map((key): [string, unknown] => [key, value[key]]),
     ["pnthPool", value.pnthPool], ["network.chainId", n?.chainId], ["network.name", n?.name],
     ["network.testnet", n?.testnet], ["network.publicRpc", n?.publicRpc],
     ["network.explorerUrl", n?.explorerUrl], ["network.deployedFrom", n?.deployedFrom],
@@ -51,7 +58,7 @@ export function validateDeployment(name: string, input: unknown): Deployment {
   if (typeof n.testnet !== "boolean") invalid.push("network.testnet");
   if (typeof n.name !== "string") invalid.push("network.name");
   if (!Number.isSafeInteger(n.deployedFrom) || n.deployedFrom < 0) invalid.push("network.deployedFrom");
-  for (const key of contracts) if (!/^0x[0-9a-fA-F]{40}$/.test(value[key]) || /^0x0{40}$/.test(value[key])) invalid.push(key);
+  for (const key of requiredContracts) if (!/^0x[0-9a-fA-F]{40}$/.test(value[key]!) || /^0x0{40}$/.test(value[key]!)) invalid.push(key);
   for (const key of externals) if (!/^0x[0-9a-fA-F]{40}$/.test(n.external[key]) || /^0x0{40}$/.test(n.external[key])) invalid.push(`network.external.${key}`);
   if (!/^0x[0-9a-fA-F]{64}$/.test(value.pnthPool)) invalid.push("pnthPool");
   if (String(value.usdc).toLowerCase() !== String(n.external.usdc).toLowerCase()) invalid.push("network.external.usdc");

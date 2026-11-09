@@ -168,7 +168,7 @@ export async function collectKalos(deps: {
     { stream: streams.launched, address: launchpad, topics: [TOPIC.launched], from: deps.launchFrom ?? DEFAULT_LAUNCH_FROM, to: head },
   ]);
   const pools = store.logs(streams.pools).map(decodePoolCreated);
-  const ascend = new Set(store.logs(streams.launched).map(decodeLaunch).map((l) => lc(l.token)));
+  const ascend = new Set(store.logs(streams.launched).map(l => decodeLaunch(l)).map((l) => lc(l.token)));
   log(`${pools.length} Kalos pools up to block ${head}; ${ascend.size} Ascend launches`);
 
   // Liquidity, whole history: every pool's Mints and Burns, and the position manager's NFTs.
@@ -480,4 +480,3 @@ export async function collectKalos(deps: {
   log(`done: ${rpc.requests - started} requests to the explorer's node`);
   return { skeletons, ascendExtras, system, contracts, liquidity, notes, head };
 }
-

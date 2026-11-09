@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-const { validateDeployment } = await import(new URL("./network-profile.ts", import.meta.url).href) as typeof import("./network-profile");
+const { validateDeployment, ascendBuyUrl } = await import(new URL("./network-profile.ts", import.meta.url).href) as typeof import("./network-profile");
 const testnet = JSON.parse(readFileSync(new URL("../../../../deployments/elysium-testnet.json", import.meta.url), "utf8"));
 const mainnet = JSON.parse(readFileSync(new URL("../../../../deployments/elysium-mainnet.json", import.meta.url), "utf8"));
-const filled = () => ({ ...structuredClone(testnet), chainId: 99901, network: { ...structuredClone(testnet.network), chainId: 99901, testnet: false, name: "Elysium", publicRpc: "https://rpc.mainnet.invalid", explorerUrl: "https://explorer.mainnet.invalid", deployedFrom: 0, acquireUrl: "https://ascend.mainnet.invalid/pnth" } });
+const filled = () => ({ ...structuredClone(testnet), pnthRouter: null, covenantFactory: null, creatorSeat: testnet.pnthRouter, creatorEscrow: testnet.covenantFactory, chainId: 99901, network: { ...structuredClone(testnet.network), chainId: 99901, testnet: false, name: "Elysium", publicRpc: "https://rpc.mainnet.invalid", explorerUrl: "https://explorer.mainnet.invalid", deployedFrom: 0, acquireUrl: "https://ascend.mainnet.invalid/pnth" } });
 
 test("canonical testnet manifest preserves the production chain, addresses and start", () => {
   const value = validateDeployment("elysium-testnet", testnet);
@@ -20,6 +20,14 @@ test("filled mainnet is accepted without using any testnet network fallback", ()
   assert.equal(value.network.testnet, false);
   assert.equal(value.network.publicRpc, "https://rpc.mainnet.invalid");
   assert.equal(value.network.deployedFrom, 0);
+});
+test("mainnet buy links target the deployed PNTH token and seats replace Covenants", () => {
+  const p = filled();
+  assert.equal(ascendBuyUrl(p.pnth), `https://app.ascendlaunch.xyz/tokens/${p.pnth}`);
+  assert.throws(() => ascendBuyUrl("" as `0x${string}`), /token address/);
+  assert.throws(() => ascendBuyUrl("0x0000000000000000000000000000000000000000"), /token address/);
+  assert.doesNotThrow(() => validateDeployment("elysium-mainnet", p));
+  assert.throws(() => validateDeployment("elysium-mainnet", { ...p, creatorSeat: null }), /creatorSeat/);
 });
 test("partially published mainnet reports the remaining missing fields together", () => {
   assert.throws(() => validateDeployment("elysium-mainnet", mainnet), (error: unknown) => {

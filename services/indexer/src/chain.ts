@@ -9,6 +9,7 @@ export const routerAbi = parseAbi([
   "event LegDeferred(uint256 indexed runId, uint8 indexed side, uint256 indexed leg, uint256 amount)",
 ]);
 export const vaultAbi = parseAbi([
+  "event FeesClaimed(uint256 amount)",
   "event BasketBuy(address indexed token, uint256 quoteIn, uint256 tokensOut, uint160 emaSqrt, uint160 spotSqrt)",
   "event BasketSkip(address indexed token, uint8 reason)",
   "event Streamed(address indexed token, uint256 amount)",
@@ -67,15 +68,16 @@ export type Rec = { tx: Hex; block: number; logIndex: number; at?: number } & (
 );
 export type Kind = Rec["kind"];
 
-export type Contracts = { router: Address; vault: Address; registry: Address; staking: Address };
+export type Contracts = { router?: Address; seat?: Address; vault: Address; registry: Address; staking: Address };
 type RawLog = { address: Address; topics: readonly Hex[]; data: Hex; transactionHash: Hex | null; blockNumber: bigint | null; logIndex: number | null };
 
-const ABIS = { router: routerAbi, vault: vaultAbi, registry: registryAbi, staking: stakingAbi } as const;
+const seatAbi = parseAbi(["event PayeeClaimed(uint256 indexed slot, address indexed account, bool tokenSide, uint256 amount)"]);
+const ABIS = { router: routerAbi, seat: seatAbi, vault: vaultAbi, registry: registryAbi, staking: stakingAbi } as const;
 
 /** Turns one log from our contracts into a record; anything else (or an event we don't show) is null. */
 export function toRec(l: RawLog, c: Contracts): Rec | null {
   if (!l.transactionHash || l.blockNumber === null || l.logIndex === null || l.topics.length === 0) return null;
-  const which = (Object.keys(ABIS) as Array<keyof Contracts>).find((k) => c[k].toLowerCase() === l.address.toLowerCase());
+  const which = (Object.keys(ABIS) as Array<keyof Contracts>).find((k) => c[k]?.toLowerCase() === l.address.toLowerCase());
   if (!which) return null;
   let ev;
   try {
@@ -88,6 +90,10 @@ export function toRec(l: RawLog, c: Contracts): Rec | null {
   const s = (v: unknown) => (v as bigint).toString();
   const side = (v: unknown) => (Number(v) === 0 ? "token" : "quote") as "token" | "quote";
   switch (ev.eventName) {
+    case "FeesClaimed":
+      return BigInt(s(a.amount)) > 0n ? { ...base, kind: "to-basket", runId: `${l.transactionHash}:${l.logIndex}`, amount: s(a.amount) } : null;
+    case "PayeeClaimed":
+      return a.slot === 0n && !a.tokenSide && BigInt(s(a.amount)) > 0n ? { ...base, kind: "leg", runId: `${l.transactionHash}:${l.logIndex}`, job: "PAY", side: "quote", to: a.account as Address, amount: s(a.amount) } : null;
     case "Run":
       return { ...base, kind: "run", runId: s(a.runId), newToken: s(a.newToken), newQuote: s(a.newQuote) };
     case "LegExecuted": {

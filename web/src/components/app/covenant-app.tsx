@@ -11,7 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { decodeEventLog, erc20Abi, isAddress, zeroAddress } from "viem";
 import { useConnection, usePublicClient, useReadContract, useReadContracts } from "wagmi";
 import { covenantFactoryAbi, covenantRouterAbi } from "@/lib/chain/abi";
-import { deployedFrom, deployment, elysium, explorer } from "@/lib/chain/config";
+import { deployedFrom, deployment, elysium, explorer, network } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
 import { NotLive, Row, short, TxNote, useTx, type Hex } from "./shared";
 import s from "./app.module.css";
@@ -19,6 +19,7 @@ import { ConnectWallet } from "./connect-wallet";
 import c from "./covenant.module.css";
 
 export function CovenantLaunchApp() {
+  if (!network.testnet) return <NotLive title="Ascend V5 creator seats" line="Mainnet PNTH uses Ascend's creator seat with fixed team and basket payees, not a CovenantRouter. Covenant launches are testnet-only." />;
   if (!deployment) return <NotLive title="Launch on Covenant" line="Covenant isn’t live on testnet yet. Launches open here the moment it is." />;
   return <Launch d={deployment} />;
 }

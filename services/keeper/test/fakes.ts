@@ -5,7 +5,7 @@ import type { Config, Deployment } from "../src/config.ts";
 import type { KeeperChain, PlannedCall } from "../src/keeper.ts";
 import type { Simulated, Staker } from "../src/plan.ts";
 
-export const DEP: Deployment = {
+export const DEP = {
   chainId: 99_801,
   pnth: "0x048aCeb334cb1835dc897a749C5985e169EAb1C5",
   pnthRouter: "0xE0Fb49DBDC3406cF1f175EeCABDFb282a7a98b66",
@@ -15,7 +15,7 @@ export const DEP: Deployment = {
   passportRegistry: "0x0Eb4A8eB47364Be9d18410AF2f850db92b807290",
   usdc: "0x4b4fb5C5794F0c821464956374cC5872D5F0f140",
   burnSink: "0xC889ac2f59A88afb3B2FB3f2C452DBa336fE5f0F",
-};
+} satisfies Deployment;
 
 export const cfg = (over: Partial<Config> = {}): Config => ({
   rpc: "http://127.0.0.1:1",

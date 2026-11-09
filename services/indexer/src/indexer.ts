@@ -47,7 +47,7 @@ export class Indexer {
     this.cfg = cfg;
     this.saved = saved;
     const d = cfg.deployment;
-    this.contracts = { router: d.pnthRouter, vault: d.indexVault, registry: d.constituentRegistry, staking: d.staking };
+    this.contracts = { ...(d.chainId === 99901 ? { seat: d.creatorSeat! } : { router: d.pnthRouter! }), vault: d.indexVault, registry: d.constituentRegistry, staking: d.staking };
   }
 
   /** One poll: new events, their block times, then the current values. Returns how many events were added. */
@@ -143,5 +143,4 @@ export class Indexer {
     };
   }
 }
-
 
