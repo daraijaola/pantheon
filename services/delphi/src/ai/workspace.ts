@@ -93,11 +93,11 @@ export async function loadWorkspace(deps: {
 }): Promise<Workspace> {
   const { client, store, cfg } = deps;
   const lp = await launchpadAddresses(client, cfg.launchpad);
-  const launches = store.logs(`launched:${lc(cfg.launchpad)}`).map(decodeLaunch);
+  const launches = store.logs(`launched:${lc(cfg.launchpad)}`).map(l => decodeLaunch(l));
   const coinSet = new Set(launches.map((l) => lc(l.token)));
   const pairs = new Map<string, readonly [Address, Address]>();
   for (const l of launches) pairs.set(lc(l.poolId), [l.token, l.quote]);
-  for (const p of store.logs(`pools:${lc(lp.poolManager)}`).map(decodePool)) {
+  for (const p of store.logs(`pools:${lc(lp.poolManager)}`).map(l => decodePool(l))) {
     if (coinSet.has(lc(p.currency0)) || coinSet.has(lc(p.currency1))) pairs.set(lc(p.poolId), [p.currency0, p.currency1]);
   }
   for (const r of deps.liquidity?.values() ?? []) {

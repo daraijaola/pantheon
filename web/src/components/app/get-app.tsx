@@ -12,6 +12,7 @@ import { useHydratedConnection } from "@/lib/use-hydrated-connection";
 import { swapperAbi } from "@/lib/chain/abi";
 import { deployment, elysium, explorer, network } from "@/lib/chain/config";
 import type { Deployment } from "@/lib/chain/deployments";
+import { ascendBuyUrl } from "@/lib/chain/network-profile";
 import { Providers } from "./providers";
 import { fmt, NotLive, Row, TxNote, useTx, WalletBar, type Hex } from "./shared";
 import s from "./app.module.css";
@@ -20,7 +21,7 @@ const FAUCET = "https://elysium.kinetiq.xyz/testnet-faucet";
 const MINT = 1_000n * 10n ** 6n; // 1,000 test USDC per click
 
 export function GetApp() {
-  if (!network.testnet) return <main className={s.page}><header className={s.head}><div><p className={s.eyebrow}>App · {network.name}</p><h1 className={s.h1}>Get PNTH</h1><p className={s.sub}>Buy PNTH on Ascend, then stake it to earn the basket.</p></div></header><a className={s.primary} href={network.acquireUrl!} target="_blank" rel="noreferrer">Buy PNTH on Ascend</a></main>;
+  if (!network.testnet) return <main className={s.page}><header className={s.head}><div><p className={s.eyebrow}>App · {network.name}</p><h1 className={s.h1}>Get PNTH</h1><p className={s.sub}>Buy PNTH on Ascend, then stake it to earn the basket.</p></div></header><a className={s.primary} href={ascendBuyUrl(deployment!.pnth)} target="_blank" rel="noreferrer">Buy PNTH on Ascend</a></main>;
   if (!deployment?.swapper) return <NotLive title="Get test PNTH" line="Buying test PNTH opens here as soon as PANTHEON is live on testnet." />;
   return (
     <Providers>

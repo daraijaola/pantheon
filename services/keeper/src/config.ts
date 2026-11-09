@@ -34,13 +34,18 @@ const EnvSchema = z.object({
 const DeploymentSchema = z.object({
   chainId: z.number().int().positive(),
   pnth: address,
-  pnthRouter: address,
+  pnthRouter: address.nullish(),
+  creatorSeat: address.optional(),
+  creatorEscrow: address.optional(),
   indexVault: address,
   constituentRegistry: address,
   staking: address,
   passportRegistry: address,
   usdc: address,
   burnSink: address,
+}).superRefine((d, ctx) => {
+  const fields = d.chainId === 99901 ? ["creatorSeat", "creatorEscrow"] as const : ["pnthRouter"] as const;
+  for (const key of fields) if (!d[key]) ctx.addIssue({ code: "custom", path: [key], message: "required for selected chain" });
 });
 export type Deployment = z.infer<typeof DeploymentSchema>;
 
@@ -108,4 +113,3 @@ export function readKeeperKey(path: string): `0x${string}` {
   if (!/^0x[0-9a-fA-F]{64}$/.test(hex)) throw new ConfigError(`${path} must hold 32 bytes of hex`);
   return hex as `0x${string}`;
 }
-

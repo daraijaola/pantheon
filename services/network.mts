@@ -4,7 +4,7 @@ import testnet from "../deployments/elysium-testnet.json" with { type: "json" };
 
 type AddressKey = Exclude<keyof typeof testnet, "network" | "chainId"> | "factory" | "positionManager" | "whype" | "multicall3" | "ascendLaunchpad" | "ascendRouter" | "launchFactory" | "poolFactory" | "router" | "quoter" | "locker" | "coinDeployer" | "oldLaunchFactory" | "oldLocker" | "swapRouter" | "quoterV2";
 type Typed<T> = { [K in keyof T]: K extends "contracts" | "baseTokens" | "perpmeQuotes" | "knownHubs" ? `0x${string}`[] : K extends AddressKey ? `0x${string}` : T[K] extends object ? Typed<T[K]> : T[K] };
-export type Profile = Typed<typeof testnet>;
+export type Profile = Typed<typeof testnet> & { creatorSeat?: `0x${string}`; creatorEscrow?: `0x${string}`; network: { external: { ascend?: Record<string, `0x${string}`> } } };
 export type Environment = Record<string, string | undefined>;
 export type Service = "indexer" | "keeper" | "passport" | "trials" | "uploaded" | "delphi" | "feed" | "x";
 
@@ -38,7 +38,13 @@ export function valueAt(input: unknown, path: string): unknown {
 
 export function profile(env: Environment = process.env, service?: Service, input?: unknown): Profile {
   const name = deploymentName(env);
-  const p = structuredClone(input ?? JSON.parse(readFileSync(new URL(`../deployments/${name}.json`, import.meta.url), "utf8"))) as Profile;
+  const file = env.DEPLOYMENT_FILE || (env.DEPLOYMENT?.endsWith(".json") ? env.DEPLOYMENT : undefined);
+  const source = name === "elysium-mainnet" && file ? resolve(file) : new URL(`../deployments/${name}.json`, import.meta.url);
+  const p = structuredClone(input ?? JSON.parse(readFileSync(source, "utf8"))) as Profile;
+  if (name === "elysium-mainnet") {
+    p.network.baseTokens ??= [p.network.external.usdc, p.network.external.whype];
+    p.network.perpmeQuotes ??= [];
+  }
   const overrides: Record<string, string> = { ELYSIUM_RPC: "network.publicRpc", EXPLORER_WEB: "network.explorerUrl", EXPLORER_API: "network.explorerApi", ARCHIVE_RPC: "network.archiveRpc", REGISTRY_ADDRESS: "passportRegistry", LAUNCHPAD: "launchpad" };
   for (const [key, path] of Object.entries(overrides)) {
     if (!env[key]) continue;
@@ -52,7 +58,15 @@ export function profile(env: Environment = process.env, service?: Service, input
     if (service === "delphi" || service === "x") p.network.ascendFromBlock = Number(env.FROM_BLOCK);
     else p.network.deployedFrom = Number(env.FROM_BLOCK);
   }
-  const fields = ["chainId", "network.chainId", "network.name", "network.testnet", "network.publicRpc", "network.explorerUrl", "network.external.multicall3", ...(service ? required[service] : [])];
+  const needed = service ? required[service].flatMap(key => {
+    if (name !== "elysium-mainnet") return [key];
+    if (key === "pnthRouter") return ["creatorSeat", "creatorEscrow"];
+    if (key === "network.external.kalos" && !p.network.external.kalos.factory) return [];
+    if (key === "network.external.perpme" && !p.network.external.perpme.launchFactory) return [];
+    return [key];
+  }) : [];
+  if (name === "elysium-mainnet" && service === "delphi") needed.push(...["poolManager", "stateView", "escrowFactory", "seatFactory", "v4Quoter", "permit2"].map(key => `network.external.ascend.${key}`));
+  const fields = ["chainId", "network.chainId", "network.name", "network.testnet", "network.publicRpc", "network.explorerUrl", "network.external.multicall3", ...needed];
   const leaves = (key: string, v: unknown): string[] => v && typeof v === "object" && !Array.isArray(v) ? Object.entries(v).flatMap(([child, item]) => leaves(`${key}.${child}`, item)) : [key];
   const optional = new Set(["network.external.perpme.oldLaunchFactory", "network.external.perpme.oldLocker"]);
   const expanded = fields.flatMap(key => leaves(key, valueAt(p, key))).filter(key => !optional.has(key) || valueAt(p, key) != null);

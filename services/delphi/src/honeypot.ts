@@ -204,6 +204,7 @@ const quoteOf = (pool: KalosPool, venue: KalosContracts) => pool.quote ?? venue.
 
 /** The coin's Kalos pools against WHYPE, found on chain through Kalos's factory, deepest (most WHYPE) first. */
 export async function kalosPools(rpc: BatchRpc, block: Hex, token: Address, kalos: KalosContracts, feeTiers: readonly number[]): Promise<KalosPool[]> {
+  if (!kalos.factory || !kalos.whype) return [];
   if (token.toLowerCase() === kalos.whype.toLowerCase()) return [];
   const found = await rpc.many(feeTiers.map((fee) => ethCall(kalos.factory, encodeFunctionData({ abi: FACTORY, functionName: "getPool", args: [token, kalos.whype, fee] }), block)));
   const pools = found.flatMap((a, i) => {
@@ -325,15 +326,16 @@ function buyerSetup(token: Address, buyWei: bigint, pool: KalosPool, kalos: Kalo
  * coin, and its Multicall3 (whose getBlockNumber() answers the parent chain's block).
  */
 export type PerpmeVenue = KalosContracts & { launchFactory: Address; coinDeployer: Address; multicall3: Address };
+const venueAddress = (address: Address) => address ? getAddress(address) : address;
 export const PERPME_VENUE: PerpmeVenue = {
-  factory: getAddress(PERPME.poolFactory),
-  positionManager: getAddress(PERPME.positionManager),
-  swapRouter: getAddress(PERPME.router),
-  quoterV2: getAddress(PERPME.quoter),
-  whype: getAddress(PERPME.whype),
-  launchFactory: getAddress(PERPME.launchFactory),
-  coinDeployer: getAddress(PERPME.coinDeployer),
-  multicall3: getAddress(PERPME.multicall3),
+  factory: venueAddress(PERPME.poolFactory),
+  positionManager: venueAddress(PERPME.positionManager),
+  swapRouter: venueAddress(PERPME.router),
+  quoterV2: venueAddress(PERPME.quoter),
+  whype: venueAddress(PERPME.whype),
+  launchFactory: venueAddress(PERPME.launchFactory),
+  coinDeployer: venueAddress(PERPME.coinDeployer),
+  multicall3: venueAddress(PERPME.multicall3),
 };
 
 /** A coin's launch on PerpMe, as its TokenLaunched event tells it. */

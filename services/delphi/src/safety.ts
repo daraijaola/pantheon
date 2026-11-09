@@ -5,6 +5,7 @@
 // sentence, with the address, transaction, function or storage slot behind it and the raw facts.
 // Read-only: chain reads and dry runs (eth_call, eth_simulateV1) pinned to one block; nothing is signed.
 import {
+  decodeEventLog,
   encodeFunctionData,
   getAddress,
   keccak256,
@@ -19,6 +20,8 @@ import {
   type Address,
   type Hex,
 } from "viem";
+import { profile } from "../../network.mts";
+import { ascendEvents, ESCROW_LAUNCHED } from "./chain.ts";
 import { cloneTarget, codeSize, delegationTarget, dispatchSelectors, hasDelegatecall } from "./bytecode.ts";
 import { ContractsApi, ExplorerApi, type AbiItem, type Verification } from "./conduit.ts";
 import {
@@ -101,13 +104,15 @@ export const PROXY_SLOTS = {
 } as const satisfies Record<string, Hex>;
 
 /** Ascend's launchpad (configurable in config.ts as LAUNCHPAD; Ascend redeploys). */
-export const DEFAULT_LAUNCHPAD: Address = "0xE2f6254508DEB93Da081837F545e0bAF7b00d8E9";
-const LAUNCHED = toEventSelector(
-  parseAbiItem("event Launched(bytes32 indexed poolId, address indexed token, address indexed creator, address quote, uint256 supplySeeded, uint256 devBuyTokens)"),
-);
+export const DEFAULT_LAUNCHPAD: Address = profile().launchpad;
+const LAUNCHED = toEventSelector(ascendEvents().launched);
 
 /** Tokens whose real address DELPHI knows first-hand, read from their own contracts. Checked live 2026-10-31. */
-export const OFFICIAL_TOKENS: ReadonlyArray<{ address: Address; source: string }> = [
+export const OFFICIAL_TOKENS: ReadonlyArray<{ address: Address; source: string }> = profile().chainId === 99901 ? [
+  { address: profile().usdc, source: "Ascend's published USDC" },
+  { address: profile().network.external.whype, source: "Elysium's published WHYPE" },
+  ...[profile().pnth, profile().network.external.ascend?.kntq].filter((a): a is Address => !!a).map(address => ({ address, source: "published mainnet deployment" })),
+] : [
   { address: "0x8a2201953AF29e8BE7700bcB53dA3ce5caD18726", source: "KALOS's own contract" },
   { address: "0xa7531D7bE19f29B991d97eaA17b034715a835e35", source: "Kalos's staked-KALOS vault" },
   { address: KALOS_CONTRACTS.whype, source: "Kalos's wrapped HYPE" },
@@ -121,8 +126,10 @@ export const ADDRESS_LABELS: Readonly<Record<string, string>> = {
   // Arbitrum Orbit's UpgradeExecutor (execute, executeCall, EXECUTOR_ROLE): the chain owner's contract.
   "0xfa78c1a82455a6ce83aa82cf464d74e88b384600": "Elysium's UpgradeExecutor (the chain owner)",
   [DEFAULT_LAUNCHPAD.toLowerCase()]: "Ascend's launchpad",
-  [PERPME_VENUE.launchFactory.toLowerCase()]: "PerpMe's launch factory",
-  [PERPME_VENUE.coinDeployer.toLowerCase()]: "PerpMe's coin deployer",
+  ...(PERPME_VENUE.launchFactory ? {
+    [PERPME_VENUE.launchFactory.toLowerCase()]: "PerpMe's launch factory",
+    [PERPME_VENUE.coinDeployer.toLowerCase()]: "PerpMe's coin deployer",
+  } : {}),
 };
 /** An address for a sentence: its label when DELPHI knows one, else the short form. */
 const who = (a: string) => (ADDRESS_LABELS[a.toLowerCase()] ? `${ADDRESS_LABELS[a.toLowerCase()]} ${short(a)}` : short(a));
@@ -130,7 +137,7 @@ const who = (a: string) => (ADDRESS_LABELS[a.toLowerCase()] ? `${ADDRESS_LABELS[
 /** Names with no token contract that is real on Elysium: any coin using them is not the real thing. */
 export const RESERVED_NAMES: readonly KnownToken[] = [
   { address: null, symbol: "HYPE", name: "Hype", source: "Elysium's own coin, which is not a token contract" },
-  { address: null, symbol: "KNTQ", name: "Kinetiq", source: "Kinetiq's token, which has no contract on Elysium testnet (checked 2026-10-31)" },
+  ...(profile().network.testnet ? [{ address: null, symbol: "KNTQ", name: "Kinetiq", source: "Kinetiq's token, which has no contract on Elysium testnet (checked 2026-10-31)" }] : []),
 ];
 
 // ─── Report types ────────────────────────────────────────────────────────────────────────────────
@@ -501,14 +508,23 @@ async function deploymentOf(rpc: BatchRpc, explorer: ExplorerApi, token: Address
 }
 
 /** The coin's launch on Ascend's launchpad, if it was launched there. */
-async function ascendLaunch(rpc: BatchRpc, launchpad: Address, token: Address, block: Hex): Promise<AscendLaunch | null> {
+export async function ascendLaunch(rpc: BatchRpc, launchpad: Address, token: Address, block: Hex): Promise<AscendLaunch | null> {
   type Log = { topics: Hex[]; data: Hex; transactionHash: Hex; blockNumber: Hex };
   const logs = await rpc.call<Log[]>("eth_getLogs", [{ address: launchpad, topics: [LAUNCHED, null, pad(token)], fromBlock: "0x0", toBlock: block }]);
   const l = logs[0];
   if (!l) return null;
+  let creator = getAddress(`0x${l.topics[3]!.slice(26)}`);
+  if (profile().chainId === 99901) {
+    const routes = await rpc.call<Log[]>("eth_getLogs", [{ address: profile().network.external.ascend!.escrowFactory, topics: [toEventSelector(ESCROW_LAUNCHED), l.topics[1]], fromBlock: l.blockNumber, toBlock: l.blockNumber }]);
+    for (const route of routes) {
+      if (route.transactionHash.toLowerCase() !== l.transactionHash.toLowerCase()) continue;
+      const { args } = decodeEventLog({ abi: [ESCROW_LAUNCHED], topics: route.topics as [Hex, ...Hex[]], data: route.data });
+      if (args.escrow.toLowerCase() === creator.toLowerCase()) { creator = args.dev; break; }
+    }
+  }
   return {
     launchpad,
-    creator: getAddress(`0x${l.topics[3]!.slice(26)}`),
+    creator,
     quote: getAddress(`0x${l.data.slice(26, 66)}`),
     poolId: l.topics[1]!,
     tx: l.transactionHash,
@@ -633,7 +649,7 @@ export async function checkSafety(deps: SafetyDeps, tokenIn: Address, opts: Safe
     }),
   ]);
   // A coin PerpMe's coin deployer made: its launch names the pool to test sales in.
-  const perpmeVenue = opts.perpme === false ? null : (opts.perpme ?? PERPME_VENUE);
+  const perpmeVenue = opts.perpme === false ? null : (opts.perpme ?? (PERPME_VENUE.launchFactory ? PERPME_VENUE : null));
   const perpme =
     perpmeVenue && deployment?.factory && deployment.block && deployment.factory.toLowerCase() === perpmeVenue.coinDeployer.toLowerCase()
       ? await perpmeLaunchOf(rpc, token, BigInt(deployment.block), perpmeVenue).catch((err: unknown) => {

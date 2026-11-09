@@ -18,7 +18,7 @@ const lc = (a: string) => a.toLowerCase();
  * PerpMe's testnet contracts: the ones Kalos pins (live/types.ts PERPME_TESTNET) plus those its docs list
  * (perpme.fun/elysium/docs, read 2026-10-31) that Kalos doesn't need. Every address changes on mainnet.
  */
-export const PERPME = { ...profile(process.env, "delphi").network.external.perpme, fromBlock: BigInt(profile(process.env, "delphi").network.external.perpme.fromBlock) };
+export const PERPME = { ...profile(process.env, "delphi").network.external.perpme, fromBlock: BigInt(profile(process.env, "delphi").network.external.perpme.fromBlock ?? 0) };
 
 /** Every PerpMe contract: infrastructure, never a holder or a trader. Every PerpMe pool is added on top. */
 export const PERPME_CONTRACTS: readonly Address[] = [
@@ -43,7 +43,7 @@ export const PERPME_CONTRACTS: readonly Address[] = [
  * KALOS stays a coin on Kalos.
  */
 export const PERPME_QUOTES: readonly Address[] = profile(process.env, "delphi").network.perpmeQuotes as Address[];
-export const PERPME_BASE_TOKENS: readonly Address[] = [getAddress(PERPME.whype)];
+export const PERPME_BASE_TOKENS: readonly Address[] = PERPME.whype ? [getAddress(PERPME.whype)] : [];
 
 /**
  * What PerpMe's docs and contracts say about every launch, checked live (Oct 31):

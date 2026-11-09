@@ -5,6 +5,7 @@ import { BallotCard, CovenantCard, KeysCard, PassportCard } from "./cards";
 import type { Feature } from "./feature-page";
 import { selectedDeployment as deployment, network } from "@/lib/chain/deployments";
 import { networkLabel, networkText } from "@/lib/network-copy";
+const feeRecipient = network.testnet ? deployment.pnthRouter : deployment.creatorSeat!;
 
 export const PASSPORT: Feature = {
   eyebrow: "HYPE Passport",
@@ -162,11 +163,11 @@ export const COVENANT: Feature = {
       q: "Where can I see it?",
       a: (
         <>
-          PNTH’s Covenant is live on {networkLabel} at{" "}
-          <a href={`${network.explorerUrl}/address/${deployment.pnthRouter}`} target="_blank" rel="noreferrer">
-            {deployment.pnthRouter.slice(0, 6)}…{deployment.pnthRouter.slice(-4)}
+          PNTH’s {network.testnet ? "Covenant" : "creator seat"} is live on {networkLabel} at{" "}
+          <a href={`${network.explorerUrl}/address/${feeRecipient}`} target="_blank" rel="noreferrer">
+            {feeRecipient.slice(0, 6)}…{feeRecipient.slice(-4)}
           </a>
-          . Every burn and payment it makes is on the explorer, and its code is verified there.
+          {network.testnet ? ". Every burn and payment it makes is on the explorer, and its code is verified there." : ". Released creator proceeds go 15% to the team and 85% to the basket; no automatic PNTH burn."}
         </>
       ),
     },
@@ -216,8 +217,13 @@ export const SECURITY: Feature = {
     head: ["Contract", "What it does", "Address"],
     rows: [
       ["PNTH", "The token: a standard Ascend coin with a fixed supply of 1 billion.", at(deployment.pnth)],
-      ["Covenant for PNTH", "Takes PNTH’s fees and does its jobs: burn on sells, basket on buys.", at(deployment.pnthRouter)],
-      ["Covenant factory", "Launches coins on Covenant, for anyone.", at(deployment.covenantFactory)],
+      ...(network.testnet ? [
+        ["Covenant for PNTH", "Takes PNTH’s fees and does its jobs: burn on sells, basket on buys.", at(deployment.pnthRouter)],
+        ["Covenant factory", "Launches coins on Covenant, for anyone.", at(deployment.covenantFactory)],
+      ] : [
+        ["Creator seat", "Pays released creator proceeds 15% to the team and 85% to the basket.", at(deployment.creatorSeat!)],
+        ["Creator escrow", "Settles Ascend fees under its release and graduation rules.", at(deployment.creatorEscrow!)],
+      ]),
       ["Basket list", "The coins in the basket: proposals, the 24-hour wait, vetoes.", at(deployment.constituentRegistry)],
       ["Basket vault", "Buys the basket near Ascend’s own average price, then pays it out.", at(deployment.indexVault)],
       ["Staking", "Holds staked PNTH and streams the basket to stakers.", at(deployment.staking)],

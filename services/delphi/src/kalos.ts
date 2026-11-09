@@ -5,7 +5,7 @@ import { profile } from "../../network.mts";
 // deployed the token contract. Everything here is pure (tested with recorded fixtures); kalos-collect.ts
 // does the fetching.
 import { decodeEventLog, getAddress, parseAbiItem, toEventSelector, type Address, type Hex } from "viem";
-import { LAUNCHED, TRANSFER, type AddressKind } from "./chain.ts";
+import { ascendEvents, TRANSFER, type AddressKind } from "./chain.ts";
 import { holderOf, type CoinTransfer, type Skeleton } from "./ingest.ts";
 import type { RawLog } from "./store.ts";
 import type { Coin, TokenTransfer, Trade } from "./types.ts";
@@ -13,7 +13,7 @@ import type { Coin, TokenTransfer, Trade } from "./types.ts";
 const lc = (a: string) => a.toLowerCase();
 
 /** Kalos's contracts, checked live 2026-10-31 (api.kalos.fun/v2/dex/config). The API's list adds to these. */
-export const KALOS = { ...profile(process.env, "delphi").network.external.kalos, factoryBlock: BigInt(profile(process.env, "delphi").network.external.kalos.factoryBlock), contracts: profile(process.env, "delphi").network.external.kalos.contracts as Address[] };
+export const KALOS = { ...profile(process.env, "delphi").network.external.kalos, factoryBlock: BigInt(profile(process.env, "delphi").network.external.kalos.factoryBlock ?? 0), contracts: (profile(process.env, "delphi").network.external.kalos.contracts ?? []) as Address[] };
 
 /**
  * Currencies coins are priced in, never coins themselves. Confirmed on the live lists (Oct 31): WHYPE is
@@ -65,7 +65,7 @@ export const TOPIC = {
   increase: toEventSelector(INCREASE),
   decrease: toEventSelector(DECREASE),
   transfer: toEventSelector(TRANSFER),
-  launched: toEventSelector(LAUNCHED),
+  launched: toEventSelector(ascendEvents().launched),
 };
 
 export type KPool = { pool: Address; token0: Address; token1: Address; fee: number; tickSpacing: number; block: bigint; tx: Hex };

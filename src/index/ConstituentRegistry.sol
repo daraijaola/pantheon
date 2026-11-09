@@ -168,8 +168,12 @@ contract ConstituentRegistry {
         if (c.token == pnth || c.token == baseQuote) revert BadList(i);
         uint40 launchedAt = launchpad.poolLaunchedAt(c.poolId);
         if (launchedAt == 0 || block.timestamp < uint256(launchedAt) + MIN_AGE) revert BadList(i);
+        if (!_poolMatches(c)) revert BadList(i);
+    }
+
+    function _poolMatches(Constituent memory c) internal view virtual returns (bool) {
         PoolKey memory key =
             LaunchpadKey.keyOf(c.token, baseQuote, address(launchpad), address(launchpad.poolManager()));
-        if (PoolId.unwrap(key.toId()) != PoolId.unwrap(c.poolId)) revert BadList(i);
+        return PoolId.unwrap(key.toId()) == PoolId.unwrap(c.poolId);
     }
 }

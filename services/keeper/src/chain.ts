@@ -10,10 +10,18 @@ export const routerAbi = parseAbi([
   "event LegDeferred(uint256 indexed runId, uint8 indexed side, uint256 indexed leg, uint256 amount)",
 ]);
 export const vaultAbi = parseAbi([
+  "function claimFees() returns (uint256 amount)",
+  "event FeesClaimed(uint256 amount)",
   "function rebalance(uint256 k)",
   "event BasketBuy(address indexed token, uint256 quoteIn, uint256 tokensOut, uint160 emaSqrt, uint160 spotSqrt)",
   "event BasketSkip(address indexed token, uint8 reason)",
   "event Streamed(address indexed token, uint256 amount)",
+]);
+export const seatAbi = parseAbi([
+  "function harvest()",
+  "function claim(uint256 i, bool tokenSide) returns (uint256 amount)",
+  "event Arrived(bool indexed tokenSide, uint256 amount, uint256 toHolders)",
+  "event PayeeClaimed(uint256 indexed slot, address indexed account, bool tokenSide, uint256 amount)",
 ]);
 export const registryAbi = parseAbi([
   "struct Constituent { bytes32 poolId; address token; uint16 weightBps; uint128 perRunCap; }",
@@ -35,6 +43,9 @@ export const SKIPS = ["NONE", "NO_AVERAGE", "STALE_AVERAGE", "BREAKER", "PRICE_O
 
 /** What one call did (or would do), read from its events. */
 export type Effects = {
+  arrived?: bigint;
+  feesClaimed?: bigint;
+  payees?: Array<{ slot: bigint; account: Address; amount: bigint }>;
   run?: { newToken: bigint; newQuote: bigint };
   legs: Array<{ side: "token" | "quote"; job: (typeof JOBS)[number]; to: Address; amount: bigint }>;
   deferred: Array<{ side: "token" | "quote"; amount: bigint }>;
@@ -44,12 +55,12 @@ export type Effects = {
   poked: Array<{ account: Address; working: bigint }>;
 };
 
-const ALL = [...routerAbi, ...vaultAbi, ...stakingAbi];
+const ALL = [...routerAbi, ...vaultAbi, ...stakingAbi, ...seatAbi];
 
 /** Decodes the keeper-relevant events in a call's logs; anything else (Ascend's own, transfers) is ignored. */
-export function effectsOf(logs: ReadonlyArray<{ address: Address; topics: readonly Hex[]; data: Hex }>, from: { router: Address; vault: Address; staking: Address }): Effects {
+export function effectsOf(logs: ReadonlyArray<{ address: Address; topics: readonly Hex[]; data: Hex }>, from: { router?: Address | null; seat?: Address; vault: Address; staking: Address }): Effects {
   const out: Effects = { legs: [], deferred: [], buys: [], skips: [], streamed: [], poked: [] };
-  const ours = new Set([from.router, from.vault, from.staking].map((a) => a.toLowerCase()));
+  const ours = new Set([from.router, from.seat, from.vault, from.staking].filter((a): a is Address => !!a).map((a) => a.toLowerCase()));
   for (const l of logs) {
     if (!ours.has(l.address.toLowerCase()) || l.topics.length === 0) continue;
     let ev;
@@ -60,6 +71,15 @@ export function effectsOf(logs: ReadonlyArray<{ address: Address; topics: readon
     }
     const side = (s: number) => (s === 0 ? "token" : "quote") as "token" | "quote";
     switch (ev.eventName) {
+      case "Arrived":
+        if (l.address.toLowerCase() === from.seat?.toLowerCase() && !ev.args.tokenSide) out.arrived = (out.arrived ?? 0n) + ev.args.amount;
+        break;
+      case "PayeeClaimed":
+        if (l.address.toLowerCase() === from.seat?.toLowerCase() && !ev.args.tokenSide) (out.payees ??= []).push({ slot: ev.args.slot, account: ev.args.account, amount: ev.args.amount });
+        break;
+      case "FeesClaimed":
+        if (l.address.toLowerCase() === from.vault.toLowerCase()) out.feesClaimed = ev.args.amount;
+        break;
       case "Run":
         out.run = { newToken: ev.args.newToken, newQuote: ev.args.newQuote };
         break;

@@ -35,6 +35,14 @@ export const TRANSFER = parseAbiItem("event Transfer(address indexed from, addre
 export const INITIALIZE = parseAbiItem(
   "event Initialize(bytes32 indexed id, address indexed currency0, address indexed currency1, address hooks, uint24 fee, bytes32 parameters, uint160 sqrtPriceX96, int24 tick)",
 );
+export const V5_LAUNCHED = parseAbiItem("event Launched(bytes32 indexed poolId, address indexed token, address indexed creator, address quote, uint256 supplySeeded, uint256 devBuyTokens, uint24 fee, uint24 builderFee)");
+export const ESCROW_LAUNCHED = parseAbiItem("event EscrowLaunched(bytes32 indexed poolId, address indexed escrow, address indexed recipient, address dev, address builder, address ruleSet, bool cto)");
+export const HOOK_SWAP = parseAbiItem("event HookSwap(bytes32 indexed poolId, address indexed sender, int128 amount0, int128 amount1, uint128 hookLPfeeAmount0, uint128 hookLPfeeAmount1)");
+export const V4_SWAP = parseAbiItem("event Swap(bytes32 indexed id, address indexed sender, int128 amount0, int128 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick, uint24 fee)");
+export const V4_INITIALIZE = parseAbiItem("event Initialize(bytes32 indexed id, address indexed currency0, address indexed currency1, uint24 fee, int24 tickSpacing, address hooks, uint160 sqrtPriceX96, int24 tick)");
+export const ascendEvents = (chainId = profile().chainId) => chainId === 99901
+  ? { launched: V5_LAUNCHED, initialize: V4_INITIALIZE, swap: V4_SWAP }
+  : { launched: LAUNCHED, initialize: INITIALIZE, swap: SWAP };
 
 const LAUNCHPAD_ABI = parseAbi([
   "function vault() view returns (address)",
@@ -151,7 +159,11 @@ export async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (t:
 }
 
 /** The launchpad's own addresses: its vault, pool manager, treasuries and ListingDesk. */
-export async function launchpadAddresses(client: PublicClient, launchpad: Address) {
+export async function launchpadAddresses(client: PublicClient, launchpad: Address, chainId = profile().chainId) {
+  if (chainId === 99901) {
+    const poolManager = await client.readContract({ address: launchpad, abi: LAUNCHPAD_ABI, functionName: "poolManager" });
+    return { ...profile().network.external.ascend, poolManager: getAddress(poolManager) } as Record<string, Address> & { poolManager: Address };
+  }
   const names = LAUNCHPAD_ABI.map((f) => f.name);
   const values = await Promise.all(names.map((functionName) => client.readContract({ address: launchpad, abi: LAUNCHPAD_ABI, functionName })));
   return Object.fromEntries(names.map((n, i) => [n, getAddress(values[i]!)])) as Record<(typeof names)[number], Address>;

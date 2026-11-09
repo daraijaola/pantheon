@@ -1,16 +1,16 @@
 // Turns raw chain and explorer data into one CoinData per Ascend coin. `assemble` is pure (tested
 // with fixtures); `collect` does the fetching, with everything cached so reruns are cheap.
 import { decodeEventLog, getAddress, parseAbi, type Address, type Hex, type PublicClient } from "viem";
-import { assertRpcChain } from "../../network.mts";
+import { assertRpcChain, profile } from "../../network.mts";
 import {
   addressKinds,
+  ascendEvents,
   blockTimes,
-  INITIALIZE,
-  LAUNCHED,
+  ESCROW_LAUNCHED,
+  HOOK_SWAP,
   launchpadAddresses,
   mapLimit,
   scanLogs,
-  SWAP,
   tokenMeta,
   TRANSFER,
   txCalls,
@@ -32,22 +32,57 @@ import { offAscend, type Coin, type CoinData, type Funding, type TokenTransfer, 
 
 const lc = (a: string) => a.toLowerCase();
 
-export type Launch = { poolId: Hex; token: Address; creator: Address; quote: Address; devBuyTokens: bigint; tx: Hex; block: bigint };
+export type Launch = { poolId: Hex; token: Address; creator: Address; quote: Address; devBuyTokens: bigint; tx: Hex; block: bigint; escrow?: Address; recipient?: Address };
 export type Swap = { poolId: Hex; sender: Address; amount0: bigint; amount1: bigint; tx: Hex; block: bigint; logIndex: number };
 export type CoinTransfer = TokenTransfer & { token: Address };
 export type Pool = { poolId: Hex; currency0: Address; currency1: Address; hooks: Address };
 
-export function decodeLaunch(l: RawLog): Launch {
-  const { args } = decodeEventLog({ abi: [LAUNCHED], topics: l.topics as [Hex, ...Hex[]], data: l.data });
+export function decodeLaunch(l: RawLog, chainId = profile().chainId): Launch {
+  const { args } = decodeEventLog({ abi: [ascendEvents(chainId).launched], topics: l.topics as [Hex, ...Hex[]], data: l.data });
   return { poolId: args.poolId, token: args.token, creator: args.creator, quote: args.quote, devBuyTokens: args.devBuyTokens, tx: l.tx, block: l.block };
 }
-export function decodeSwap(l: RawLog): Swap {
-  const { args } = decodeEventLog({ abi: [SWAP], topics: l.topics as [Hex, ...Hex[]], data: l.data });
+export function decodeSwap(l: RawLog, chainId = profile().chainId): Swap {
+  const { args } = decodeEventLog({ abi: [ascendEvents(chainId).swap], topics: l.topics as [Hex, ...Hex[]], data: l.data });
   return { poolId: args.id, sender: args.sender, amount0: args.amount0, amount1: args.amount1, tx: l.tx, block: l.block, logIndex: l.logIndex };
 }
-export function decodePool(l: RawLog): Pool {
-  const { args } = decodeEventLog({ abi: [INITIALIZE], topics: l.topics as [Hex, ...Hex[]], data: l.data });
+export function decodePool(l: RawLog, chainId = profile().chainId): Pool {
+  const { args } = decodeEventLog({ abi: [ascendEvents(chainId).initialize], topics: l.topics as [Hex, ...Hex[]], data: l.data });
   return { poolId: args.id, currency0: args.currency0, currency1: args.currency1, hooks: args.hooks };
+}
+export function joinEscrowLaunches(launches: Launch[], logs: RawLog[]): Launch[] {
+  const routes = new Map(logs.map(l => {
+    const route = decodeEventLog({ abi: [ESCROW_LAUNCHED], topics: l.topics as [Hex, ...Hex[]], data: l.data }).args;
+    return [`${lc(route.poolId)}:${lc(route.escrow)}:${lc(l.tx)}`, route];
+  }));
+  return launches.map(l => {
+    const route = routes.get(`${lc(l.poolId)}:${lc(l.creator)}:${lc(l.tx)}`);
+    return route ? { ...l, creator: route.dev, escrow: route.escrow, recipient: route.recipient } : l;
+  });
+}
+export function decodeHookSwap(l: RawLog): Swap {
+  const { args } = decodeEventLog({ abi: [HOOK_SWAP], topics: l.topics as [Hex, ...Hex[]], data: l.data });
+  return { poolId: args.poolId, sender: args.sender, amount0: args.amount0, amount1: args.amount1, tx: l.tx, block: l.block, logIndex: l.logIndex };
+}
+export function mergeV5Swaps(core: Swap[], hooks: Swap[], nativeIds: ReadonlySet<string>): Swap[] {
+  const key = (s: Swap) => `${lc(s.poolId)}:${lc(s.tx)}:${lc(s.sender)}`;
+  const groups = new Map<string, Swap[]>();
+  for (const swap of core) {
+    const list = groups.get(key(swap)) ?? [];
+    list.push(swap);
+    groups.set(key(swap), list);
+  }
+  for (const list of groups.values()) list.sort((a, b) => b.logIndex - a.logIndex);
+  const used = new Set<Swap>();
+  const trades = [...hooks].sort((a, b) => Number(a.block - b.block) || a.logIndex - b.logIndex).map(hook => {
+    const list = groups.get(key(hook)) ?? [];
+    const index = list.findIndex(s => s.logIndex < hook.logIndex);
+    const amm = index < 0 ? undefined : list.splice(index, 1)[0];
+    if (amm) used.add(amm);
+    // HookSwap is the hook's side; PoolManager Swap is the caller's side.
+    return { ...hook, amount0: (amm?.amount0 ?? 0n) - hook.amount0, amount1: (amm?.amount1 ?? 0n) - hook.amount1 };
+  });
+  if (core.some(s => nativeIds.has(lc(s.poolId)) && !used.has(s))) throw new Error("V5 native PoolManager Swap is missing its HookSwap");
+  return [...core.filter(s => !nativeIds.has(lc(s.poolId))), ...trades].sort((a, b) => Number(a.block - b.block) || a.logIndex - b.logIndex);
 }
 export function decodeTransfer(l: RawLog): CoinTransfer {
   const { args } = decodeEventLog({ abi: [TRANSFER], topics: l.topics as [Hex, ...Hex[]], data: l.data });
@@ -232,16 +267,27 @@ export async function collect(deps: {
   const cacheKind = fundingCache(cfg.network, explorer);
 
   const lp = await launchpadAddresses(client, cfg.launchpad);
+  const events = ascendEvents();
+  const v5 = profile().chainId === 99901;
+  if (v5 && !KALOS.factory) notes.push("Kalos mainnet contracts are unpublished; Kalos coverage is disabled.");
+  if (v5 && !PERPME.launchFactory) notes.push("PerpMe mainnet contracts are unpublished; PerpMe coverage is disabled.");
   const head = await client.getBlockNumber();
   const pm = lc(lp.poolManager);
   const streams = { launched: `launched:${lc(cfg.launchpad)}`, pools: `pools:${pm}`, swap: `swap:${pm}`, transfer: `transfer:${lc(cfg.launchpad)}` };
 
   // Launches first, then swaps and transfers up to the same block, so no new coin's transfers are skipped.
-  await scanLogs(client, store, streams.launched, { address: cfg.launchpad, event: LAUNCHED, from: cfg.fromBlock, to: head });
-  const launches = store.logs(streams.launched).map(decodeLaunch);
+  await scanLogs(client, store, streams.launched, { address: cfg.launchpad, event: events.launched, from: cfg.fromBlock, to: head });
+  let launches = store.logs(streams.launched).map(l => decodeLaunch(l));
+  const hookStream = `hook-swap:${lc(cfg.launchpad)}`;
+  if (v5) {
+    const escrowStream = `escrow-launched:${lc(cfg.launchpad)}`;
+    await scanLogs(client, store, escrowStream, { address: profile().network.external.ascend!.escrowFactory!, event: ESCROW_LAUNCHED, from: cfg.fromBlock, to: head });
+    launches = joinEscrowLaunches(launches, store.logs(escrowStream));
+    await scanLogs(client, store, hookStream, { address: cfg.launchpad, event: HOOK_SWAP, from: cfg.fromBlock, to: head });
+  }
   log(`${launches.length} launches up to block ${head}`);
-  await scanLogs(client, store, streams.pools, { address: lp.poolManager, event: INITIALIZE, from: cfg.fromBlock, to: head });
-  await scanLogs(client, store, streams.swap, { address: lp.poolManager, event: SWAP, from: cfg.fromBlock, to: head });
+  await scanLogs(client, store, streams.pools, { address: lp.poolManager, event: events.initialize, from: cfg.fromBlock, to: head });
+  await scanLogs(client, store, streams.swap, { address: lp.poolManager, event: events.swap, from: cfg.fromBlock, to: head });
   if (launches.length) {
     const tokens = launches.map((l) => l.token);
     await scanLogs(client, store, streams.transfer, { address: tokens, event: TRANSFER, from: cfg.fromBlock, to: head }, (at, n) =>
@@ -251,9 +297,11 @@ export async function collect(deps: {
 
   // Only pools that hold an Ascend coin: other projects' pools share the same pool manager.
   const coinSet = new Set(launches.map((l) => lc(l.token)));
-  const pools = store.logs(streams.pools).map(decodePool).filter((p) => coinSet.has(lc(p.currency0)) || coinSet.has(lc(p.currency1)));
+  const pools = store.logs(streams.pools).map(l => decodePool(l)).filter((p) => coinSet.has(lc(p.currency0)) || coinSet.has(lc(p.currency1)));
   const poolIds = new Set([...launches.map((l) => lc(l.poolId)), ...pools.map((p) => lc(p.poolId))]);
-  const swaps = store.logs(streams.swap).map(decodeSwap).filter((s) => poolIds.has(lc(s.poolId)));
+  const nativeIds = new Set(launches.map(l => lc(l.poolId)));
+  const coreSwaps = store.logs(streams.swap).map(l => decodeSwap(l));
+  const swaps = (v5 ? mergeV5Swaps(coreSwaps, store.logs(hookStream).map(decodeHookSwap), nativeIds) : coreSwaps).filter((s) => poolIds.has(lc(s.poolId)));
   const transfers = store.logs(streams.transfer).map(decodeTransfer);
   const outsidePools = pools.filter((p) => lc(p.hooks) !== lc(cfg.launchpad)).length;
   log(`${swaps.length} swaps in ${poolIds.size} pools (${outsidePools} outside Ascend), ${transfers.length} token transfers`);
@@ -263,7 +311,7 @@ export async function collect(deps: {
   const meta = await tokenMeta(client, store, launches.map((l) => l.token));
 
   // Infrastructure: fixed addresses, the launchpad's own, every router seen swapping, outside pools.
-  const system = new Set([...STATIC_SYSTEM, cfg.launchpad, ...Object.values(lp), ...swaps.map((s) => s.sender)].map(lc));
+  const system = new Set([...STATIC_SYSTEM, cfg.launchpad, ...Object.values(lp), ...launches.flatMap(l => [l.escrow, l.recipient].filter((a): a is Address => !!a)), ...swaps.map((s) => s.sender)].map(lc));
   const parties = new Set([...transfers.flatMap((t) => [t.from, t.to]), ...txFrom.values()].map(lc).filter((a) => !system.has(a)));
   const kinds = await addressKinds(client, store, parties);
   // Pools and other contracts (staking, lockers, faucets) are not wallets. Tokens deposited into the
@@ -282,7 +330,7 @@ export async function collect(deps: {
   // Kalos: its coins join the same infrastructure set, linking and hub rules as Ascend's.
   let kalos: KalosCollected | null = null;
   if (deps.kalos && "reuse" in deps.kalos) kalos = deps.kalos.reuse;
-  else if (deps.kalos) {
+  else if (deps.kalos && KALOS.factory) {
     kalos = await collectKalos({ client, rpc: deps.kalos.rpc, store, log: (m) => log(`kalos: ${m}`), launchpad: cfg.launchpad, launchFrom: cfg.fromBlock, ...(deps.kalos.recentBlocks !== undefined ? { recentBlocks: deps.kalos.recentBlocks } : {}) });
   }
   const kalosWallets = new Set<string>();
@@ -304,7 +352,7 @@ export async function collect(deps: {
   // PerpMe: its launches are coins of their own (market "perpme"), with PerpMe's contracts as infrastructure.
   let perpme: PerpmeCollected | null = null;
   if (deps.perpme && "reuse" in deps.perpme) perpme = deps.perpme.reuse;
-  else if (deps.perpme) perpme = await collectPerpme({ client, rpc: deps.perpme.rpc, store, log: (m) => log(`perpme: ${m}`) });
+  else if (deps.perpme && PERPME.launchFactory) perpme = await collectPerpme({ client, rpc: deps.perpme.rpc, store, log: (m) => log(`perpme: ${m}`) });
   if (perpme) {
     for (const a of perpme.system) system.add(lc(a));
     for (const a of perpme.contracts) {

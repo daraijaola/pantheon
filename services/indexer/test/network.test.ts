@@ -3,7 +3,7 @@ import testnet from "../../../deployments/elysium-testnet.json" with { type: "js
 import mainnet from "../../../deployments/elysium-mainnet.json" with { type: "json" };
 import { assertRpcChain, backendEnv, deploymentName, profile, statePath, type Service } from "../../network.mts";
 
-const filled = () => ({ ...structuredClone(testnet), chainId: mainnet.chainId, network: { ...structuredClone(testnet.network), chainId: mainnet.chainId, testnet: false, name: "Mainnet fixture", publicRpc: "http://127.0.0.1:19999", explorerUrl: "https://mainnet.invalid" } });
+const filled = () => ({ ...structuredClone(testnet), creatorSeat: testnet.pnthRouter, creatorEscrow: testnet.covenantFactory, chainId: mainnet.chainId, network: { ...structuredClone(testnet.network), external: { ...structuredClone(testnet.network.external), ascend: mainnet.network.external.ascend }, chainId: mainnet.chainId, testnet: false, name: "Mainnet fixture", publicRpc: "http://127.0.0.1:19999", explorerUrl: "https://mainnet.invalid" } });
 const services: Service[] = ["indexer", "keeper", "passport", "trials", "uploaded", "delphi", "feed", "x"];
 
 describe("canonical backend networks", () => {
@@ -23,8 +23,8 @@ describe("canonical backend networks", () => {
     expect(() => deploymentName({ NETWORK: "mainnet", DEPLOYMENT: "elysium-testnet" })).toThrow(/conflicting/);
   });
 
-  it.each(services)("%s rejects the real null mainnet with field names", service => {
-    expect(() => backendEnv({ NETWORK: "mainnet" }, service)).toThrow(/Network profile elysium-mainnet: missing required fields:.*network.publicRpc/);
+  it.each(services)("%s rejects the incomplete mainnet with field names", service => {
+    expect(() => backendEnv({ NETWORK: "mainnet" }, service)).toThrow(/Network profile elysium-mainnet: missing required fields:.*network.explorerUrl/);
   });
 
   it.each(services)("%s accepts a filled mainnet without testnet state or upstream defaults", service => {
@@ -64,7 +64,9 @@ describe("canonical backend networks", () => {
     expect(() => profile({ NETWORK: "mainnet", CHAIN_ID: String(testnet.chainId) }, "indexer", p)).toThrow(/CHAIN_ID/);
     expect(() => profile({ NETWORK: "mainnet", ELYSIUM_RPC: "file:///bad" }, "indexer", p)).toThrow(/ELYSIUM_RPC/);
     expect(() => profile({ NETWORK: "mainnet", REGISTRY_ADDRESS: "bad" }, "passport", p)).toThrow(/passportRegistry/);
-    expect(() => profile({ NETWORK: "mainnet" }, "delphi", { ...p, network: { ...p.network, external: mainnet.network.external } })).toThrow(/network.external.kalos.factory/);
+    const ascendOnly = profile({ NETWORK: "mainnet" }, "delphi", { ...p, network: { ...p.network, external: mainnet.network.external } });
+    expect(ascendOnly.network.external.kalos.factory).toBeNull();
+    expect(ascendOnly.network.external.perpme.launchFactory).toBeNull();
     expect(() => backendEnv({ NETWORK: "mainnet" }, "keeper", p)).toThrow(/PASSPORT_API/);
     expect(() => backendEnv({ NETWORK: "mainnet" }, "uploaded", p)).toThrow(/INDEXER_URL/);
   });
