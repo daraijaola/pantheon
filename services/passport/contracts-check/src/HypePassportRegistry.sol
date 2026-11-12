@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 // REFERENCE COPY for the P5 signer cross-check only: docs/PASSPORT_SPEC.md Appendix A (as verified in
 // /tmp/passport-check). Not deployed from here. The deployable registry is P6 in src/passport/ (Micheal/Claude).
 pragma solidity 0.8.30;
