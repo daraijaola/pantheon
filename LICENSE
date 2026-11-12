@@ -1,0 +1,19 @@
+Copyright (c) 2026 Pantheon (pantheonindex.com, @pantheonindex). All rights reserved.
+
+This repository is made public for transparency and review only.
+
+You may view and read this source code. You may NOT, without prior written permission from the Pantheon team:
+  - copy, reproduce or redistribute this code, in whole or in part;
+  - modify it or create derivative works from it;
+  - deploy it, or any contract, service or website derived from it, on any network;
+  - use it, its design, documentation or branding in any commercial or non-commercial product.
+
+Forking this repository on GitHub is permitted solely as allowed by the GitHub Terms of Service, and grants no
+other rights. No license, express or implied, is granted except the right to view the code.
+
+Third-party code included in this repository (for example under lib/ and node_modules/) remains under its own
+licenses.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+For permission requests, contact the Pantheon team via https://x.com/pantheonindex.

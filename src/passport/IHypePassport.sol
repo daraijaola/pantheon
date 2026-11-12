@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
 /// @title IHypePassport: stable read interface (v1 attestor registry and v2 precompile registry both implement it)
